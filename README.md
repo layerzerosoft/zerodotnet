@@ -2,27 +2,52 @@
 
 LayerZero is a modern, AI-agent-friendly foundation for .NET.
 
-The project starts with ASP.NET Core, Minimal APIs, vertical slices, validation,
-OpenAPI, and first-party testing primitives. Message broker adapters and the
-React dashboard are intentionally deferred until the foundation is sharp enough
-to carry them without drift.
+The project starts with ASP.NET Core, Minimal APIs, first-class slices,
+source-generated registration, validation, OpenAPI, non-HTTP message contracts,
+and first-party testing primitives. Message broker adapters and the React
+dashboard are intentionally deferred until the foundation is sharp enough to
+carry them without drift.
 
 ## Foundation
 
 - Baseline: .NET 10 LTS, `net10.0`, C# latest.
-- Public packages: `LayerZero.Core`, `LayerZero.Validation`, `LayerZero.AspNetCore`, and `LayerZero.Testing`.
+- Public packages: `LayerZero.Core`, `LayerZero.Validation`, `LayerZero.AspNetCore`, `LayerZero.Generators`, and `LayerZero.Testing`.
 - Legal and repository owner: `layerzerosoft`.
-- API posture: dependency-light, AOT-aware, trimming-aware, Minimal API native.
+- API posture: dependency-light, source-generator-first, AOT-aware, trimming-aware, Minimal API native.
 - OpenAPI posture: Microsoft built-in `Microsoft.AspNetCore.OpenApi`, OpenAPI 3.1.
 - Excluded from foundation dependencies: MassTransit, MediatR/Mediator,
-  FluentValidation, FluentAssertions, Swashbuckle, NSwag, and EF Core.
+  FluentValidation, FluentAssertions, Shouldly, AwesomeAssertions, Swashbuckle,
+  NSwag, EF Core, and broker SDKs.
 
 ## Packages
 
-- `LayerZero.Core`: result/error primitives and sync/async vertical-slice contracts.
+- `LayerZero.Core`: result/error primitives, sync/async request contracts, and command/event message contracts.
 - `LayerZero.Validation`: fluent validation rules for Minimal API request models.
-- `LayerZero.AspNetCore`: Minimal API registration, endpoint mapping, endpoint filters, and ProblemDetails integration.
+- `LayerZero.AspNetCore`: self-mapping endpoint slices, explicit registration escape hatches, endpoint filters, and ProblemDetails integration.
+- `LayerZero.Generators`: compile-time slice discovery for `AddSlices()` and `MapSlices()`.
 - `LayerZero.Testing`: fluent first-party assertions for LayerZero result and validation flows.
+
+## Slice Model
+
+Slices are the primary programming model. HTTP slices implement
+`IEndpointSlice` and expose `static void MapEndpoint(IEndpointRouteBuilder)`.
+Inside that method, developers use native Minimal API features directly:
+`MapGet`, `MapPost`, route groups, filters, auth, metadata, `[AsParameters]`,
+typed results, `HttpContext`, `LinkGenerator`, and OpenAPI conventions.
+
+The default path is generated:
+
+```csharp
+builder.Services.AddLayerZero().AddSlices();
+app.MapSlices();
+```
+
+`AddSlice<T>()` and `AddValidator<TRequest, TValidator>()` remain explicit
+escape hatches. Runtime assembly scanning is not the default discovery model.
+
+Non-HTTP slices begin as command and event contracts in `LayerZero.Core`.
+Dispatchers, brokers, retries, outbox, envelopes, and transport adapters are
+future architecture decisions.
 
 ## Commands
 
@@ -39,7 +64,15 @@ Run the sample:
 dotnet run --project samples/LayerZero.MinimalApi
 ```
 
-Then open `/openapi/v1.json`, `/pulse`, or `POST /widgets`.
+Then open `/openapi/v1.json`, `GET /todos`, or `POST /todos`.
+
+## References
+
+- Minimal API route handlers and endpoint organization: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/route-handlers?view=aspnetcore-10.0
+- Minimal API parameter binding and `[AsParameters]`: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/parameter-binding?view=aspnetcore-10.0
+- Typed results and OpenAPI metadata: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-10.0
+- Built-in ASP.NET Core OpenAPI: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/openapi/aspnetcore-openapi?view=aspnetcore-10.0
+- Incremental source generators: https://learn.microsoft.com/en-us/dotnet/api/microsoft.codeanalysis.iincrementalgenerator
 
 ## Agent Rules
 

@@ -15,7 +15,7 @@ clear package boundaries, and boringly reliable builds.
 ## Project Identity
 
 - Public product name: LayerZero.
-- Public packages: `LayerZero.Core`, `LayerZero.Validation`, `LayerZero.AspNetCore`, and `LayerZero.Testing`.
+- Public packages: `LayerZero.Core`, `LayerZero.Validation`, `LayerZero.AspNetCore`, `LayerZero.Generators`, and `LayerZero.Testing`.
 - Legal and repository owner: `layerzerosoft`.
 - License: MIT.
 - Baseline framework: .NET 10 LTS, `net10.0`.
@@ -24,9 +24,22 @@ clear package boundaries, and boringly reliable builds.
 
 - Keep the foundation dependency-light.
 - Do not add MassTransit, MediatR/Mediator, FluentValidation, FluentAssertions,
-  Swashbuckle, NSwag, or EF Core without an explicit architecture decision.
+  Shouldly, AwesomeAssertions, Swashbuckle, NSwag, EF Core, broker SDKs, or
+  transport frameworks without an explicit architecture decision.
 - Prefer Microsoft built-in ASP.NET Core and OpenAPI primitives.
-- Treat Minimal APIs and vertical slices as first-class citizens.
+- Treat Minimal APIs and slices as first-class citizens.
+- Source generation is the default slice discovery model for performance,
+  AOT, and trimming posture. Do not introduce runtime reflection assembly
+  scanning as the default path.
+- HTTP slices must preserve native Minimal API control. Developers should still
+  use route groups, `MapGet`, `MapPost`, filters, auth, metadata,
+  `[AsParameters]`, typed results, `HttpContext`, `LinkGenerator`, and OpenAPI
+  conventions directly.
+- Prefer feature folders for application and sample slices: one use case near
+  its request, response, handler, validator, messages, and tests.
+- Non-HTTP slices start as command/event contracts. Do not add dispatchers,
+  in-memory buses, broker abstractions, retries, outbox, transport envelopes,
+  or adapter packages without an explicit architecture decision.
 - Make sync and async flows equally intentional.
 - Keep public APIs AOT-aware and trimming-aware. Avoid reflection unless there
   is a strong documented reason.

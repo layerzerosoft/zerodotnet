@@ -5,6 +5,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Net.Compilers.Toolset" PrivateAssets="all" />
     <ProjectReference Include="../../src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Generators/LayerZero.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 </Project>

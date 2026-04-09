@@ -17,6 +17,23 @@ public sealed class DependencyPolicyTests
         "Swashbuckle",
         "NSwag",
         "Microsoft.EntityFrameworkCore",
+        "RabbitMQ.Client",
+        "Azure.Messaging.ServiceBus",
+        "Microsoft.Azure.ServiceBus",
+        "Confluent.Kafka",
+        "KafkaFlow",
+        "NServiceBus",
+        "Rebus",
+    ];
+
+    private static readonly string[] RuntimeAssemblyScanningPatterns =
+    [
+        "AppDomain.CurrentDomain.GetAssemblies",
+        ".GetAssemblies(",
+        ".GetTypes(",
+        ".GetExportedTypes(",
+        "Assembly.GetExecutingAssembly",
+        "Assembly.Load",
     ];
 
     [Fact]
@@ -47,6 +64,21 @@ public sealed class DependencyPolicyTests
             .ToArray();
 
         Assert.Empty(referencesWithVersions);
+    }
+
+    [Fact]
+    public void Slice_discovery_does_not_use_runtime_assembly_scanning_by_default()
+    {
+        DirectoryInfo root = FindRepositoryRoot();
+
+        string[] violations = Directory
+            .EnumerateFiles(Path.Combine(root.FullName, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !IsIgnoredPath(root, file))
+            .SelectMany(file => GetRuntimeAssemblyScanningViolations(root, file))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(violations);
     }
 
     [Fact]
@@ -182,6 +214,20 @@ public sealed class DependencyPolicyTests
         if (wireMatch.Success)
         {
             yield return $"{relativePath}: retired wire name '{wireMatch.Value}'";
+        }
+    }
+
+    private static IEnumerable<string> GetRuntimeAssemblyScanningViolations(DirectoryInfo root, string file)
+    {
+        string content = File.ReadAllText(file);
+        string relativePath = Path.GetRelativePath(root.FullName, file);
+
+        foreach (string pattern in RuntimeAssemblyScanningPatterns)
+        {
+            if (content.Contains(pattern, StringComparison.Ordinal))
+            {
+                yield return $"{relativePath}: runtime assembly scanning pattern '{pattern}'";
+            }
         }
     }
 

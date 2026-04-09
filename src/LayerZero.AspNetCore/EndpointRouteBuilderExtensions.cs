@@ -74,7 +74,7 @@ public static class EndpointRouteBuilderExtensions
         return endpoints
             .MapPost(pattern, ([FromBody] TRequest request, [FromServices] THandler handler) =>
                 EndpointResults.From(handler.Handle(request)))
-            .AddEndpointFilter<ValidationEndpointFilter<TRequest>>()
+            .Validate<TRequest>()
             .WithOpenApiDefaults<TResponse>();
     }
 
@@ -101,7 +101,7 @@ public static class EndpointRouteBuilderExtensions
                 [FromServices] THandler handler,
                 HttpContext httpContext) =>
                 EndpointResults.From(await handler.HandleAsync(request, httpContext.RequestAborted).ConfigureAwait(false)))
-            .AddEndpointFilter<ValidationEndpointFilter<TRequest>>()
+            .Validate<TRequest>()
             .WithOpenApiDefaults<TResponse>();
     }
 

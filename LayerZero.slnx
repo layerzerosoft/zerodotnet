@@ -5,6 +5,7 @@
   <Folder Name="/src/">
     <Project Path="src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
     <Project Path="src/LayerZero.Core/LayerZero.Core.csproj" />
+    <Project Path="src/LayerZero.Generators/LayerZero.Generators.csproj" />
     <Project Path="src/LayerZero.Testing/LayerZero.Testing.csproj" />
     <Project Path="src/LayerZero.Validation/LayerZero.Validation.csproj" />
   </Folder>
@@ -12,6 +13,7 @@
     <Project Path="tests/LayerZero.Architecture.Tests/LayerZero.Architecture.Tests.csproj" />
     <Project Path="tests/LayerZero.AspNetCore.Tests/LayerZero.AspNetCore.Tests.csproj" />
     <Project Path="tests/LayerZero.Core.Tests/LayerZero.Core.Tests.csproj" />
+    <Project Path="tests/LayerZero.Generators.Tests/LayerZero.Generators.Tests.csproj" />
     <Project Path="tests/LayerZero.Testing.Tests/LayerZero.Testing.Tests.csproj" />
     <Project Path="tests/LayerZero.Validation.Tests/LayerZero.Validation.Tests.csproj" />
   </Folder>
