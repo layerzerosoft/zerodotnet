@@ -4,7 +4,6 @@ using LayerZero.MinimalApi.Features.Todos.Get;
 using LayerZero.MinimalApi.Infrastructure.Todos;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 
 namespace LayerZero.MinimalApi.Features.Todos.Create;
 
