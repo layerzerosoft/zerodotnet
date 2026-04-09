@@ -28,13 +28,13 @@ public static class ListTodos
             })
             .WithName(EndpointName)
             .WithSummary("List todos")
-            .WithDescription("List active todos by default, or include completed todos with a query flag.");
+            .WithDescription("List active todos by default. Omit includeCompleted for active todos only, or set includeCompleted=true to include completed todos.");
     }
 
     public sealed class Request
     {
-        [FromQuery]
-        public bool IncludeCompleted { get; init; }
+        [FromQuery(Name = "includeCompleted")]
+        public bool? IncludeCompleted { get; init; }
 
         [FromServices]
         public ITodoRepository Todos { get; init; } = null!;
@@ -48,8 +48,10 @@ public static class ListTodos
             Request request,
             CancellationToken cancellationToken = default)
         {
+            bool includeCompleted = request.IncludeCompleted ?? false;
+
             IReadOnlyList<TodoItem> todos = await request.Todos
-                .ListAsync(request.IncludeCompleted, cancellationToken)
+                .ListAsync(includeCompleted, cancellationToken)
                 .ConfigureAwait(false);
 
             Response[] response = todos

@@ -89,6 +89,10 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
         JsonObject completed = (await completeResponse.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
         Assert.True(completed["isCompleted"]?.GetValue<bool>());
 
+        JsonArray defaultTodos = await client.GetFromJsonAsync<JsonArray>("/todos", cancellationToken)
+            ?? throw new InvalidOperationException("Default todo response was empty.");
+        Assert.DoesNotContain(defaultTodos, node => HasId(node, todoId));
+
         JsonArray activeTodos = await client.GetFromJsonAsync<JsonArray>("/todos?includeCompleted=false", cancellationToken)
             ?? throw new InvalidOperationException("Active todo response was empty.");
         Assert.DoesNotContain(activeTodos, node => HasId(node, todoId));
@@ -96,6 +100,9 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
         JsonArray allTodos = await client.GetFromJsonAsync<JsonArray>("/todos?includeCompleted=true", cancellationToken)
             ?? throw new InvalidOperationException("All todo response was empty.");
         Assert.Contains(allTodos, node => HasId(node, todoId));
+
+        HttpResponseMessage invalidQueryResponse = await client.GetAsync("/todos?includeCompleted=abc", cancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidQueryResponse.StatusCode);
     }
 
     [Fact]
@@ -115,6 +122,16 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
         Assert.Contains("\"/todos/{id}/complete\"", document, StringComparison.Ordinal);
         Assert.DoesNotContain("Swashbuckle", document, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("NSwag", document, StringComparison.OrdinalIgnoreCase);
+
+        JsonArray parameters = openApi["paths"]?["/todos"]?["get"]?["parameters"]?.AsArray()
+            ?? throw new InvalidOperationException("Todo list parameters were missing from OpenAPI.");
+        JsonObject includeCompleted = parameters
+            .Select(parameter => parameter?.AsObject())
+            .FirstOrDefault(parameter => parameter?["name"]?.GetValue<string>() == "includeCompleted")
+            ?? throw new InvalidOperationException("includeCompleted parameter was missing from OpenAPI.");
+
+        Assert.Equal("query", includeCompleted["in"]?.GetValue<string>());
+        Assert.False(includeCompleted["required"]?.GetValue<bool>() ?? false);
     }
 
     private static async Task<Guid> CreateTodoAsync(
