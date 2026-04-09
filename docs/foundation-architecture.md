@@ -23,11 +23,16 @@ its request, response, handler, validator, and tests. Feature folders are the
 preferred organization for applications and samples because they keep behavior
 easy for humans and agents to navigate.
 
-HTTP slices implement `IEndpointSlice` and provide
-`static void MapEndpoint(IEndpointRouteBuilder endpoints)`. The type itself is a
-non-abstract class because C# requires that shape for static abstract interface
-members; the entry point is static and the slice does not need runtime
-instantiation.
+HTTP slices are static modules discovered by convention: a non-generic
+`static class` that exposes
+`public static void MapEndpoint(IEndpointRouteBuilder endpoints)`.
+
+The primary authoring experience should look like a plain Minimal API module,
+not framework ceremony. Manual mapping is the direct static call:
+
+```csharp
+CreateTodo.MapEndpoint(app);
+```
 
 Inside `MapEndpoint`, use ASP.NET Core directly. LayerZero must not hide
 Minimal API mechanics from developers. Slices can call route groups, `MapGet`,
@@ -44,7 +49,9 @@ endpoints.MapSlices();
 ```
 
 Runtime assembly scanning is not the primary discovery model. Explicit
-registration methods remain as escape hatches for unusual cases.
+registration of handlers through normal ASP.NET Core DI and lower-level
+`MapGetSlice*` / `MapPostSlice*` helpers remain as escape hatches for unusual
+cases.
 
 ## Validation
 
@@ -59,6 +66,9 @@ returns `application/problem+json` with standard validation errors plus
 Endpoint validation uses a filter factory so the request argument index is
 resolved once per endpoint. This keeps validation compatible with native
 Minimal API signatures while avoiding per-request argument scanning.
+
+`Program` remaining `partial` for test-host wiring is unrelated to slice
+design and should not be mirrored by HTTP slice modules.
 
 ## Messaging Roadmap
 

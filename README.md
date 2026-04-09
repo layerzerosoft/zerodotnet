@@ -29,9 +29,10 @@ carry them without drift.
 
 ## Slice Model
 
-Slices are the primary programming model. HTTP slices implement
-`IEndpointSlice` and expose `static void MapEndpoint(IEndpointRouteBuilder)`.
-Inside that method, developers use native Minimal API features directly:
+Slices are the primary programming model. HTTP slices are static modules
+discovered by convention: a non-generic `static class` with
+`public static void MapEndpoint(IEndpointRouteBuilder)`. Inside that method,
+developers use native Minimal API features directly:
 `MapGet`, `MapPost`, route groups, filters, auth, metadata, `[AsParameters]`,
 typed results, `HttpContext`, `LinkGenerator`, and OpenAPI conventions.
 
@@ -42,8 +43,15 @@ builder.Services.AddLayerZero().AddSlices();
 app.MapSlices();
 ```
 
-`AddSlice<T>()` and `AddValidator<TRequest, TValidator>()` remain explicit
-escape hatches. Runtime assembly scanning is not the default discovery model.
+Manual mapping is the direct static call:
+
+```csharp
+CreateTodo.MapEndpoint(app);
+```
+
+`AddValidator<TRequest, TValidator>()`, `MapGetSlice*`, and `MapPostSlice*`
+remain lower-level escape hatches. Runtime assembly scanning is not the default
+discovery model.
 
 Non-HTTP slices begin as command and event contracts in `LayerZero.Core`.
 Dispatchers, brokers, retries, outbox, envelopes, and transport adapters are
@@ -70,6 +78,9 @@ Sample launch profiles use stable dev URLs:
 - HTTPS: `https://localhost:7270`
 
 Then open `/openapi/v1.json`, `GET /todos`, or `POST /todos`.
+
+`Program` remains `partial` only for test-host wiring. That is unrelated to the
+HTTP slice shape.
 
 ## References
 

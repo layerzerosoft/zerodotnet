@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace LayerZero.MinimalApi.Features.Todos.List;
 
-public sealed partial class ListTodos : IEndpointSlice
+public static class ListTodos
 {
     public const string EndpointName = "Todos_List";
 

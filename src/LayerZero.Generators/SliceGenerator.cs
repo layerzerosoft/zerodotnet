@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -19,7 +20,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
     private static readonly DiagnosticDescriptor InvalidSliceShape = new(
         "LZGEN001",
         "Invalid endpoint slice shape",
-        "Endpoint slice '{0}' must be a non-abstract, non-generic class with a public or internal static void MapEndpoint(IEndpointRouteBuilder endpoints) method",
+        "Endpoint slice '{0}' must be a non-generic static class with a public or internal static void MapEndpoint(IEndpointRouteBuilder endpoints) method",
         "LayerZero.Slices",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -36,6 +37,14 @@ public sealed class SliceGenerator : IIncrementalGenerator
         "LZGEN003",
         "Unsupported handler registration shape",
         "Slice service '{0}' implements a LayerZero registration interface but is abstract, generic, or not a concrete class",
+        "LayerZero.Slices",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    private static readonly DiagnosticDescriptor PartialSliceModule = new(
+        "LZGEN004",
+        "Partial endpoint slice modules are not supported",
+        "Endpoint slice module '{0}' must not be partial. Use one static class per HTTP slice.",
         "LayerZero.Slices",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -78,16 +87,14 @@ public sealed class SliceGenerator : IIncrementalGenerator
             return;
         }
 
-        List<string> endpointSlices = new();
+        List<string> endpointSlices = [];
         List<Registration> registrations = new();
 
         foreach (INamedTypeSymbol symbol in candidateTypes.Distinct(SymbolEqualityComparer.Default).OfType<INamedTypeSymbol>())
         {
-            TypeDiscovery discovery = Discover(symbol);
-
-            if (discovery.IsEndpointSlice)
+            if (HasMapEndpointCandidate(symbol))
             {
-                if (!IsConcrete(symbol) || !HasValidMapEndpoint(symbol))
+                if (!IsValidHttpSliceModule(symbol))
                 {
                     context.ReportDiagnostic(Diagnostic.Create(
                         InvalidSliceShape,
@@ -96,10 +103,21 @@ public sealed class SliceGenerator : IIncrementalGenerator
                     continue;
                 }
 
+                if (IsPartial(symbol))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        PartialSliceModule,
+                        symbol.Locations.FirstOrDefault(),
+                        symbol.ToDisplayString()));
+                    continue;
+                }
+
                 endpointSlices.Add(symbol.ToDisplayString(FullyQualifiedFormat));
             }
 
-            if (discovery.Registrations.Count == 0)
+            List<Registration> discoveredRegistrations = DiscoverRegistrations(symbol);
+
+            if (discoveredRegistrations.Count == 0)
             {
                 continue;
             }
@@ -118,7 +136,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
                 symbol.ToDisplayString(FullyQualifiedFormat),
                 RegistrationKind.TryAdd));
 
-            registrations.AddRange(discovery.Registrations);
+            registrations.AddRange(discoveredRegistrations);
         }
 
         string source = RenderSource(
@@ -130,20 +148,13 @@ public sealed class SliceGenerator : IIncrementalGenerator
         context.AddSource("LayerZero.Slices.g.cs", SourceText.From(source, Encoding.UTF8));
     }
 
-    private static TypeDiscovery Discover(INamedTypeSymbol symbol)
+    private static List<Registration> DiscoverRegistrations(INamedTypeSymbol symbol)
     {
-        bool isEndpointSlice = false;
-        List<Registration> registrations = new();
+        List<Registration> registrations = [];
         string implementationType = symbol.ToDisplayString(FullyQualifiedFormat);
 
         foreach (INamedTypeSymbol interfaceType in symbol.AllInterfaces)
         {
-            if (IsInterface(interfaceType, "LayerZero.AspNetCore", "IEndpointSlice", 0))
-            {
-                isEndpointSlice = true;
-                continue;
-            }
-
             if (IsInterface(interfaceType, "LayerZero.Validation", "IValidator", 1))
             {
                 registrations.Add(new Registration(
@@ -171,7 +182,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
             }
         }
 
-        return new TypeDiscovery(isEndpointSlice, registrations);
+        return registrations;
     }
 
     private static bool IsLayerZeroSingleHandlerInterface(INamedTypeSymbol interfaceType)
@@ -192,21 +203,43 @@ public sealed class SliceGenerator : IIncrementalGenerator
     private static bool IsConcrete(INamedTypeSymbol symbol)
     {
         return symbol.TypeKind == TypeKind.Class
+            && !symbol.IsStatic
             && !symbol.IsAbstract
             && !symbol.IsGenericType
             && !symbol.IsUnboundGenericType;
     }
 
-    private static bool HasValidMapEndpoint(INamedTypeSymbol symbol)
+    private static bool HasMapEndpointCandidate(INamedTypeSymbol symbol)
     {
         return symbol
             .GetMembers("MapEndpoint")
             .OfType<IMethodSymbol>()
+            .Any();
+    }
+
+    private static bool IsValidHttpSliceModule(INamedTypeSymbol symbol)
+    {
+        return symbol.TypeKind == TypeKind.Class
+            && symbol.IsStatic
+            && !symbol.IsGenericType
+            && !symbol.IsUnboundGenericType
+            && symbol
+            .GetMembers("MapEndpoint")
+            .OfType<IMethodSymbol>()
             .Any(static method =>
-                method.IsStatic
+                method.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal
+                && method.IsStatic
                 && method.ReturnsVoid
                 && method.Parameters.Length == 1
                 && IsEndpointRouteBuilder(method.Parameters[0].Type));
+    }
+
+    private static bool IsPartial(INamedTypeSymbol symbol)
+    {
+        return symbol.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax())
+            .OfType<ClassDeclarationSyntax>()
+            .Any(static declaration => declaration.Modifiers.Any(SyntaxKind.PartialKeyword));
     }
 
     private static bool IsEndpointRouteBuilder(ITypeSymbol type)
@@ -279,19 +312,6 @@ public sealed class SliceGenerator : IIncrementalGenerator
         builder.AppendLine("}");
 
         return builder.ToString();
-    }
-
-    private sealed class TypeDiscovery
-    {
-        public TypeDiscovery(bool isEndpointSlice, List<Registration> registrations)
-        {
-            IsEndpointSlice = isEndpointSlice;
-            Registrations = registrations;
-        }
-
-        public bool IsEndpointSlice { get; }
-
-        public List<Registration> Registrations { get; }
     }
 
     private readonly struct Registration : IEquatable<Registration>

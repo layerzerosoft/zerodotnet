@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace LayerZero.MinimalApi.Features.Todos.Get;
 
-public sealed partial class GetTodo : IEndpointSlice
+public static class GetTodo
 {
     public const string EndpointName = "Todos_Get";
 

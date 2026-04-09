@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Routing;
 namespace LayerZero.AspNetCore;
 
 /// <summary>
-/// Maps LayerZero vertical slices to Minimal API endpoints.
+/// Provides lower-level handler-first mapping helpers for Minimal API slices.
 /// </summary>
 public static class EndpointRouteBuilderExtensions
 {

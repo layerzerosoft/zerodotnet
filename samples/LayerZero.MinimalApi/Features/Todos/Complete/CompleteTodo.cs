@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace LayerZero.MinimalApi.Features.Todos.Complete;
 
-public sealed partial class CompleteTodo : IEndpointSlice
+public static class CompleteTodo
 {
     public const string EndpointName = "Todos_Complete";
 

@@ -31,6 +31,8 @@ clear package boundaries, and boringly reliable builds.
 - Source generation is the default slice discovery model for performance,
   AOT, and trimming posture. Do not introduce runtime reflection assembly
   scanning as the default path.
+- HTTP slices are static modules discovered by `public static void MapEndpoint`.
+  Do not use interface-based HTTP slice markers or partial HTTP slice modules.
 - HTTP slices must preserve native Minimal API control. Developers should still
   use route groups, `MapGet`, `MapPost`, filters, auth, metadata,
   `[AsParameters]`, typed results, `HttpContext`, `LinkGenerator`, and OpenAPI

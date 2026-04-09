@@ -15,7 +15,6 @@ public sealed class SliceGeneratorTests
     public void Generates_add_slices_and_map_slices_for_discovered_types()
     {
         const string source = """
-            using LayerZero.AspNetCore;
             using LayerZero.Core;
             using Microsoft.AspNetCore.Routing;
             using System.Threading;
@@ -23,7 +22,7 @@ public sealed class SliceGeneratorTests
 
             namespace Demo;
 
-            internal sealed partial class AlphaSlice : IEndpointSlice
+            internal static class AlphaSlice
             {
                 public static void MapEndpoint(IEndpointRouteBuilder endpoints)
                 {
@@ -94,12 +93,11 @@ public sealed class SliceGeneratorTests
     public void Reports_invalid_endpoint_slice_shapes()
     {
         const string source = """
-            using LayerZero.AspNetCore;
             using Microsoft.AspNetCore.Routing;
 
             namespace Demo;
 
-            internal abstract partial class BrokenSlice : IEndpointSlice
+            internal sealed class BrokenSlice
             {
                 public static void MapEndpoint(IEndpointRouteBuilder endpoints)
                 {
@@ -110,6 +108,27 @@ public sealed class SliceGeneratorTests
         GeneratorRunResult result = RunGenerator(source);
 
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "LZGEN001");
+    }
+
+    [Fact]
+    public void Reports_partial_endpoint_slice_modules()
+    {
+        const string source = """
+            using Microsoft.AspNetCore.Routing;
+
+            namespace Demo;
+
+            internal static partial class PartialSlice
+            {
+                public static void MapEndpoint(IEndpointRouteBuilder endpoints)
+                {
+                }
+            }
+            """;
+
+        GeneratorRunResult result = RunGenerator(source);
+
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "LZGEN004");
     }
 
     [Fact]
@@ -168,7 +187,7 @@ public sealed class SliceGeneratorTests
         string[] projectReferences =
         [
             typeof(Result).Assembly.Location,
-            typeof(IEndpointSlice).Assembly.Location,
+            typeof(ServiceCollectionExtensions).Assembly.Location,
             typeof(IValidator<>).Assembly.Location,
             typeof(IServiceCollection).Assembly.Location,
         ];

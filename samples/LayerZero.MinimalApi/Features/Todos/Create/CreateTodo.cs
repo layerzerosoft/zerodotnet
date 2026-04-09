@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace LayerZero.MinimalApi.Features.Todos.Create;
 
-public sealed partial class CreateTodo : IEndpointSlice
+public static class CreateTodo
 {
     public const string EndpointName = "Todos_Create";
 

@@ -21,21 +21,6 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers a vertical-slice handler as a scoped service.
-    /// </summary>
-    /// <typeparam name="THandler">The handler type.</typeparam>
-    /// <param name="services">The service collection.</param>
-    /// <returns>The service collection.</returns>
-    public static IServiceCollection AddSlice<THandler>(this IServiceCollection services)
-        where THandler : class
-    {
-        ArgumentNullException.ThrowIfNull(services);
-
-        services.TryAdd(ServiceDescriptor.Scoped<THandler, THandler>());
-        return services;
-    }
-
-    /// <summary>
     /// Registers a validator for a request type.
     /// </summary>
     /// <typeparam name="TRequest">The request type.</typeparam>
