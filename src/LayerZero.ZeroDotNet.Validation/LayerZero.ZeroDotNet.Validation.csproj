@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../LayerZero.ZeroDotNet.Core/LayerZero.ZeroDotNet.Core.csproj" />
+  </ItemGroup>
+</Project>

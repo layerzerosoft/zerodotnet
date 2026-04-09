@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <ProjectReference Include="../LayerZero.ZeroDotNet.Core/LayerZero.ZeroDotNet.Core.csproj" />
+    <ProjectReference Include="../LayerZero.ZeroDotNet.Validation/LayerZero.ZeroDotNet.Validation.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,40 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+    <PackRelease>false</PackRelease>
+    <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsPackable)' != 'false'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>$(MSBuildProjectName)</PackageId>
+    <PackageVersion>0.1.0-alpha.1</PackageVersion>
+    <Authors>LayerZero</Authors>
+    <Company>layerzerosoft</Company>
+    <Product>ZeroDotNet</Product>
+    <Description>Modern, AI-agent-friendly layer zero primitives for .NET.</Description>
+    <PackageTags>dotnet;aspnetcore;minimal-api;vertical-slice;validation;ai-agents</PackageTags>
+    <PackageProjectUrl>https://github.com/layerzerosoft/zerodotnet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/layerzerosoft/zerodotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" Visible="false" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
