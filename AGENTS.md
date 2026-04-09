@@ -37,6 +37,9 @@ clear package boundaries, and boringly reliable builds.
   conventions directly.
 - Prefer feature folders for application and sample slices: one use case near
   its request, response, handler, validator, messages, and tests.
+- Sample and app launch profiles must use explicit non-zero development ports.
+  Do not use `localhost:0` as the default developer startup experience. If
+  dynamic ports are ever required, use loopback IPs only by explicit design.
 - Non-HTTP slices start as command/event contracts. Do not add dispatchers,
   in-memory buses, broker abstractions, retries, outbox, transport envelopes,
   or adapter packages without an explicit architecture decision.

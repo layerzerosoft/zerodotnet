@@ -64,6 +64,11 @@ Run the sample:
 dotnet run --project samples/LayerZero.MinimalApi
 ```
 
+Sample launch profiles use stable dev URLs:
+
+- HTTP: `http://localhost:5270`
+- HTTPS: `https://localhost:7270`
+
 Then open `/openapi/v1.json`, `GET /todos`, or `POST /todos`.
 
 ## References
