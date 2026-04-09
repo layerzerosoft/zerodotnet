@@ -1,4 +1,8 @@
-# Copilot Instructions
+---
+description: LayerZero canonical agent rules
+globs:
+alwaysApply: true
+---
 
 Use `AGENTS.md` as the canonical LayerZero rulebook.
 

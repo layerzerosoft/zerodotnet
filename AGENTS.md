@@ -1,4 +1,4 @@
-# ZeroDotNet Agent Rulebook
+# LayerZero Agent Rulebook
 
 This file is the canonical instruction source for every AI agent working in
 this repository. Other agent files must stay thin and point back here.
@@ -9,13 +9,13 @@ Build modern and revolutionary standardised steroids for the .NET community:
 small primitives, sharp APIs, excellent defaults, and first-class agent
 collaboration.
 
-ZeroDotNet should feel bold without becoming chaotic. Favor simple contracts,
+LayerZero should feel bold without becoming chaotic. Favor simple contracts,
 clear package boundaries, and boringly reliable builds.
 
 ## Project Identity
 
-- Public product name: ZeroDotNet.
-- Public package prefix: `LayerZero.ZeroDotNet.*`.
+- Public product name: LayerZero.
+- Public packages: `LayerZero.Core`, `LayerZero.Validation`, `LayerZero.AspNetCore`, and `LayerZero.Testing`.
 - Legal and repository owner: `layerzerosoft`.
 - License: MIT.
 - Baseline framework: .NET 10 LTS, `net10.0`.
@@ -34,6 +34,12 @@ clear package boundaries, and boringly reliable builds.
 - Add tests with behavior-level names and failure messages that help agents act.
 - Keep package boundaries clean: core has no ASP.NET Core dependency, broker
   SDKs live only in future transport adapters.
+- Do not reintroduce retired project codenames or standalone framework prefixes
+  from earlier naming passes. Public symbols should be concise names like
+  `Result`, `Error`, `Validator<T>`, `IRequestHandler<TRequest, TResponse>`,
+  and `MapPostSlice`.
+- Use `LayerZero` for brand and package identity only. Use `layerzero.*` for
+  wire-level error codes and ProblemDetails extension keys.
 
 ## Code Style
 

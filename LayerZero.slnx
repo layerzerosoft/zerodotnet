@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/LayerZero.MinimalApi/LayerZero.MinimalApi.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
+    <Project Path="src/LayerZero.Core/LayerZero.Core.csproj" />
+    <Project Path="src/LayerZero.Testing/LayerZero.Testing.csproj" />
+    <Project Path="src/LayerZero.Validation/LayerZero.Validation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LayerZero.Architecture.Tests/LayerZero.Architecture.Tests.csproj" />
+    <Project Path="tests/LayerZero.AspNetCore.Tests/LayerZero.AspNetCore.Tests.csproj" />
+    <Project Path="tests/LayerZero.Core.Tests/LayerZero.Core.Tests.csproj" />
+    <Project Path="tests/LayerZero.Testing.Tests/LayerZero.Testing.Tests.csproj" />
+    <Project Path="tests/LayerZero.Validation.Tests/LayerZero.Validation.Tests.csproj" />
+  </Folder>
+</Solution>

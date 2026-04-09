@@ -1,6 +1,6 @@
-# ZeroDotNet Foundation Architecture
+# LayerZero Foundation Architecture
 
-ZeroDotNet is the layer zero for modern .NET services. It should feel small,
+LayerZero is the layer zero for modern .NET services. It should feel small,
 sharp, and inevitable: a clear standard for the things every service needs
 before teams reach for heavy frameworks.
 
@@ -9,20 +9,20 @@ before teams reach for heavy frameworks.
 - Core result and error primitives.
 - Sync and async vertical-slice handler contracts.
 - Minimal API endpoint mapping for GET and POST slices.
-- Request validation through ZeroDotNet validators and endpoint filters.
-- ProblemDetails responses with machine-readable `zero.errors` metadata.
+- Request validation through LayerZero validators and endpoint filters.
+- ProblemDetails responses with machine-readable `layerzero.errors` metadata.
 - First-party testing assertions.
 - Dependency policy tests that block commercial-pressure and drift-prone dependencies.
 
 ## Validation
 
-Validators inherit from `ZeroValidator<T>` and declare rules with
+Validators inherit from `Validator<T>` and declare rules with
 `RuleFor(name, accessor)`. The API avoids expression-tree reflection in the
 foundation so it stays friendlier to AOT and trimming.
 
 ASP.NET Core integration validates request models before handlers run and
 returns `application/problem+json` with standard validation errors plus
-`zero.errors` for code-aware clients and agents.
+`layerzero.errors` for code-aware clients and agents.
 
 ## Messaging Roadmap
 

@@ -1,6 +1,6 @@
-# ZeroDotNet
+# LayerZero
 
-ZeroDotNet is LayerZero's modern, AI-agent-friendly layer zero for .NET.
+LayerZero is a modern, AI-agent-friendly foundation for .NET.
 
 The project starts with ASP.NET Core, Minimal APIs, vertical slices, validation,
 OpenAPI, and first-party testing primitives. Message broker adapters and the
@@ -10,7 +10,7 @@ to carry them without drift.
 ## Foundation
 
 - Baseline: .NET 10 LTS, `net10.0`, C# latest.
-- Public package prefix: `LayerZero.ZeroDotNet.*`.
+- Public packages: `LayerZero.Core`, `LayerZero.Validation`, `LayerZero.AspNetCore`, and `LayerZero.Testing`.
 - Legal and repository owner: `layerzerosoft`.
 - API posture: dependency-light, AOT-aware, trimming-aware, Minimal API native.
 - OpenAPI posture: Microsoft built-in `Microsoft.AspNetCore.OpenApi`, OpenAPI 3.1.
@@ -19,10 +19,10 @@ to carry them without drift.
 
 ## Packages
 
-- `LayerZero.ZeroDotNet.Core`: result/error primitives and sync/async vertical-slice contracts.
-- `LayerZero.ZeroDotNet.Validation`: fluent validation rules for Minimal API request models.
-- `LayerZero.ZeroDotNet.AspNetCore`: Minimal API registration, endpoint mapping, endpoint filters, and ProblemDetails integration.
-- `LayerZero.ZeroDotNet.Testing`: first-party assertions for ZeroDotNet result and validation flows.
+- `LayerZero.Core`: result/error primitives and sync/async vertical-slice contracts.
+- `LayerZero.Validation`: fluent validation rules for Minimal API request models.
+- `LayerZero.AspNetCore`: Minimal API registration, endpoint mapping, endpoint filters, and ProblemDetails integration.
+- `LayerZero.Testing`: fluent first-party assertions for LayerZero result and validation flows.
 
 ## Commands
 
@@ -36,7 +36,7 @@ dotnet pack --no-build
 Run the sample:
 
 ```bash
-dotnet run --project samples/LayerZero.ZeroDotNet.MinimalApi
+dotnet run --project samples/LayerZero.MinimalApi
 ```
 
 Then open `/openapi/v1.json`, `/pulse`, or `POST /widgets`.

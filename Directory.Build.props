@@ -19,7 +19,7 @@
     <PackageVersion>0.1.0-alpha.1</PackageVersion>
     <Authors>LayerZero</Authors>
     <Company>layerzerosoft</Company>
-    <Product>ZeroDotNet</Product>
+    <Product>LayerZero</Product>
     <Description>Modern, AI-agent-friendly layer zero primitives for .NET.</Description>
     <PackageTags>dotnet;aspnetcore;minimal-api;vertical-slice;validation;ai-agents</PackageTags>
     <PackageProjectUrl>https://github.com/layerzerosoft/zerodotnet</PackageProjectUrl>
