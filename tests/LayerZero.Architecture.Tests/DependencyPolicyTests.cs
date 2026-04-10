@@ -18,13 +18,18 @@ public sealed class DependencyPolicyTests
         "NSwag",
         "Microsoft.Kiota",
         "Microsoft.EntityFrameworkCore",
+        "KafkaFlow",
+        "NServiceBus",
+        "Rebus",
+    ];
+
+    private static readonly string[] BrokerPackages =
+    [
         "RabbitMQ.Client",
         "Azure.Messaging.ServiceBus",
         "Microsoft.Azure.ServiceBus",
         "Confluent.Kafka",
-        "KafkaFlow",
-        "NServiceBus",
-        "Rebus",
+        "NATS.Net",
     ];
 
     private static readonly string[] RuntimeAssemblyScanningPatterns =
@@ -46,6 +51,23 @@ public sealed class DependencyPolicyTests
         var violations = packageIds
             .Where(IsBannedPackage)
             .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Broker_packages_are_limited_to_messaging_adapters_samples_and_tests()
+    {
+        var root = FindRepositoryRoot();
+
+        var violations = Directory
+            .EnumerateFiles(root.FullName, "*.csproj", SearchOption.AllDirectories)
+            .Where(file => !IsIgnoredPath(root, file))
+            .Where(file => ReferencesBrokerPackage(file))
+            .Where(file => !IsBrokerPackageAllowed(file, root))
+            .Select(file => Path.GetRelativePath(root.FullName, file))
+            .Order(StringComparer.Ordinal)
             .ToArray();
 
         Assert.Empty(violations);
@@ -172,10 +194,6 @@ public sealed class DependencyPolicyTests
             }
         }
 
-        foreach (var packageId in GetPackageIds(Path.Combine(root.FullName, "Directory.Packages.props"), "PackageVersion"))
-        {
-            yield return packageId;
-        }
     }
 
     private static IEnumerable<string> GetPackageIds(string file, string elementName)
@@ -205,6 +223,30 @@ public sealed class DependencyPolicyTests
         return BannedPackages.Any(banned =>
             packageId.Equals(banned, StringComparison.OrdinalIgnoreCase)
             || packageId.StartsWith($"{banned}.", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool ReferencesBrokerPackage(string file)
+    {
+        var document = XDocument.Load(file);
+
+        return document
+            .Descendants()
+            .Where(element => element.Name.LocalName == "PackageReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(static packageId => !string.IsNullOrWhiteSpace(packageId))
+            .Cast<string>()
+            .Any(packageId => BrokerPackages.Any(brokerPackage =>
+                packageId.Equals(brokerPackage, StringComparison.OrdinalIgnoreCase)
+                || packageId.StartsWith($"{brokerPackage}.", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static bool IsBrokerPackageAllowed(string file, DirectoryInfo root)
+    {
+        var relativePath = Path.GetRelativePath(root.FullName, file);
+
+        return relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Messaging.", StringComparison.Ordinal)
+            || relativePath.StartsWith($"samples{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || relativePath.StartsWith($"tests{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
     }
 
     private static IEnumerable<string> EnumerateNamingPolicyFiles(DirectoryInfo root)

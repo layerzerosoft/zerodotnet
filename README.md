@@ -4,23 +4,24 @@ LayerZero is a modern, AI-agent-friendly foundation for .NET.
 
 The project starts with ASP.NET Core, Minimal APIs, first-class slices,
 source-generated slice registration, validation, OpenAPI, source-controlled
-HTTP contracts, explicit typed clients, non-HTTP message contracts, and
-first-party testing primitives. Message broker adapters and the React dashboard
-are intentionally deferred until the foundation is sharp enough to carry them
-without drift.
+HTTP contracts, explicit typed clients, transport-neutral async messaging,
+and first-party testing primitives. Broker-specific adapters and the React
+dashboard still sit behind that foundation so they can stay small, explicit,
+and reliable instead of turning into framework-sized magic.
 
 ## Foundation
 
 - Baseline: .NET 10 LTS, `net10.0`, C# latest.
 - Public packages: `LayerZero.Core`, `LayerZero.Validation`,
   `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
-  `LayerZero.Testing`, and `LayerZero.Client`.
+  `LayerZero.Messaging`, `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.
 - API posture: dependency-light, source-generator-first, AOT-aware, trimming-aware, Minimal API native.
 - OpenAPI posture: Microsoft built-in `Microsoft.AspNetCore.OpenApi`, OpenAPI 3.1.
 - Excluded from foundation dependencies: MassTransit, MediatR/Mediator,
   FluentValidation, FluentAssertions, Shouldly, AwesomeAssertions, Swashbuckle,
-  NSwag, EF Core, and broker SDKs.
+  NSwag, EF Core, and framework-level messaging stacks. Broker SDKs stay
+  confined to dedicated adapter packages.
 
 ## Packages
 
@@ -29,6 +30,7 @@ without drift.
 - `LayerZero.AspNetCore`: self-mapping endpoint slices, explicit registration escape hatches, endpoint filters, and ProblemDetails integration.
 - `LayerZero.Generators`: compile-time slice discovery for `AddSlices()` and `MapSlices()`.
 - `LayerZero.Http`: source-controlled HTTP contracts shared by servers and clients.
+- `LayerZero.Messaging`: transport-neutral command/event dispatch, message envelopes, routing, idempotency hooks, and compile-time message manifests.
 - `LayerZero.Testing`: fluent first-party assertions for LayerZero result and validation flows.
 - `LayerZero.Client`: `LayerZeroClient`, `ApiResponse`,
   `Result`-first failure mapping, and `IHttpClientFactory` registration for explicit typed clients.
@@ -59,9 +61,36 @@ CreateTodo.MapEndpoint(app);
 remain lower-level escape hatches. Runtime assembly scanning is not the default
 discovery model.
 
-Non-HTTP slices begin as command and event contracts in `LayerZero.Core`.
-Dispatchers, brokers, retries, outbox, envelopes, and transport adapters are
-future architecture decisions.
+Non-HTTP slices start with command and event contracts in `LayerZero.Core`,
+then opt into the transport-neutral messaging runtime in
+`LayerZero.Messaging`. The default generated path is:
+
+```csharp
+builder.Services
+    .AddMessaging()
+    .AddMessages();
+```
+
+`AddMessages()` is generated at compile time alongside `AddSlices()`. It
+registers discovered validators, command handlers, event handlers, a message
+registry, and handler invokers without runtime assembly scanning.
+
+The current messaging foundation is documented in
+`docs/messaging/async-messaging.md`.
+
+## Async Messaging
+
+LayerZero messaging standardizes:
+
+- generated message discovery and logical names
+- transport-neutral `ICommandSender` and `IEventPublisher`
+- envelope metadata such as message id, correlation id, causation id, trace
+  context, timestamp, attempt, and headers
+- validation-aware and result-aware processing through `IMessageProcessor`
+- idempotency hooks through `IMessageIdempotencyStore`
+
+Dedicated RabbitMQ, Azure Service Bus, Kafka, and NATS transport adapters are
+the next layer on top of this foundation.
 
 ## HTTP Clients
 

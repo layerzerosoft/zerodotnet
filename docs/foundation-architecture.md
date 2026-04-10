@@ -8,9 +8,11 @@ before teams reach for heavy frameworks.
 
 - Core result and error primitives.
 - Sync and async vertical-slice handler contracts.
-- Command and event message contracts without dispatch or broker behavior.
+- Command and event message contracts in `LayerZero.Core`.
+- Transport-neutral async messaging runtime in `LayerZero.Messaging`.
 - Self-mapping Minimal API endpoint slices.
 - Source-generated `AddSlices()` and `MapSlices()` as the default discovery path.
+- Source-generated `AddMessages()` and compile-time message manifests.
 - Request validation through LayerZero validators and endpoint-filter factories.
 - ProblemDetails responses with machine-readable `layerzero.errors` metadata.
 - First-party testing assertions.
@@ -71,19 +73,29 @@ Minimal API signatures while avoiding per-request argument scanning.
 `Program` remaining `partial` for test-host wiring is unrelated to slice
 design and should not be mirrored by HTTP slice modules.
 
-## Messaging Roadmap
+## Messaging Foundation
 
-Messaging will be introduced as ports first, transports second.
+Messaging is now implemented as ports first, transports second.
 
-- Core abstractions currently describe commands and events without referencing
-  broker SDKs.
-- Future contracts may add envelopes, metadata, retry hints, and idempotency
-  only after an explicit architecture decision.
-- RabbitMQ, Azure Service Bus, Kafka, and other transports must live in
-  dedicated adapter packages.
-- Transport adapters must not leak broker-specific APIs into the core contracts.
-- The sync request/response and async message flows must share validation,
-  observability, error, and testing concepts.
+- `LayerZero.Core` still owns the command and event contracts.
+- `LayerZero.Messaging` owns transport-neutral runtime behavior such as
+  `ICommandSender`, `IEventPublisher`, `MessageContext`,
+  `IMessageProcessor`, `IMessageFailureClassifier`, and
+  `IMessageIdempotencyStore`.
+- The generator now emits `AddMessages()`, a compile-time message registry,
+  deterministic logical names, and handler invokers for command/event flows.
+- Validation and handler execution stay generated and DI-first. Runtime
+  assembly scanning remains out of scope.
+- Envelope metadata is standardized so adapters can share correlation,
+  tracing, timestamp, attempt, and header behavior.
+- Transport adapters for RabbitMQ, Azure Service Bus, Kafka, NATS, and future
+  brokers must live in dedicated adapter packages and must not leak
+  broker-specific APIs into the core contracts.
+- The sync request/response and async message flows share the same validation,
+  result, observability, and testing concepts.
+
+The package-level setup and current scope are documented in
+`docs/messaging/async-messaging.md`.
 
 ## HTTP Clients
 

@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using LayerZero.AspNetCore;
 using LayerZero.Core;
 using LayerZero.Generators;
+using LayerZero.Messaging;
 using LayerZero.Validation;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -16,6 +17,7 @@ public sealed class SliceGeneratorTests
     {
         const string source = """
             using LayerZero.Core;
+            using LayerZero.Messaging;
             using Microsoft.AspNetCore.Routing;
             using System.Threading;
             using System.Threading.Tasks;
@@ -61,31 +63,55 @@ public sealed class SliceGeneratorTests
                         return ValueTask.FromResult(Result.Success());
                     }
                 }
+
+                [IdempotentMessage]
+                public sealed record Archive(string Name) : ICommand;
+
+                [IdempotentHandler]
+                public sealed class ArchiveHandler : ICommandHandler<Archive>
+                {
+                    public ValueTask<Result> HandleAsync(Archive command, CancellationToken cancellationToken = default)
+                    {
+                        return ValueTask.FromResult(Result.Success());
+                    }
+                }
             }
             """;
 
         var result = RunGenerator(source);
-        var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+        var generatedSources = result.GeneratedSources.Select(static source => source.SourceText.ToString()).ToArray();
+        var combinedSource = string.Join(Environment.NewLine, generatedSources);
 
         Assert.Empty(result.Diagnostics);
-        Assert.Contains("AddSlices", generatedSource, StringComparison.Ordinal);
-        Assert.Contains("MapSlices", generatedSource, StringComparison.Ordinal);
-        Assert.Contains("global::Demo.AlphaSlice.MapEndpoint(endpoints);", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("AddSlices", combinedSource, StringComparison.Ordinal);
+        Assert.Contains("MapSlices", combinedSource, StringComparison.Ordinal);
+        Assert.Contains("AddMessages", combinedSource, StringComparison.Ordinal);
+        Assert.Contains("LayerZeroGeneratedMessageRegistry", combinedSource, StringComparison.Ordinal);
+        Assert.Contains("LayerZeroGeneratedMessageJsonContext", combinedSource, StringComparison.Ordinal);
+        Assert.Contains("global::Demo.AlphaSlice.MapEndpoint(endpoints);", combinedSource, StringComparison.Ordinal);
         Assert.Contains(
             "global::LayerZero.Core.IAsyncRequestHandler<global::Demo.AlphaSlice.Request, string>",
-            generatedSource,
+            combinedSource,
             StringComparison.Ordinal);
         Assert.Contains(
             "global::LayerZero.Validation.IValidator<global::Demo.AlphaSlice.Request>",
-            generatedSource,
+            combinedSource,
             StringComparison.Ordinal);
         Assert.Contains(
             "global::LayerZero.Core.ICommandHandler<global::Demo.AlphaSlice.Command, string>",
-            generatedSource,
+            combinedSource,
             StringComparison.Ordinal);
         Assert.Contains(
             "global::LayerZero.Core.IEventHandler<global::Demo.AlphaSlice.Published>",
-            generatedSource,
+            combinedSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "global::LayerZero.Core.ICommandHandler<global::Demo.AlphaSlice.Archive>",
+            combinedSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "RequiresIdempotency => true",
+            combinedSource,
             StringComparison.Ordinal);
     }
 
@@ -148,6 +174,68 @@ public sealed class SliceGeneratorTests
         Assert.Empty(result.GeneratedSources);
     }
 
+    [Fact]
+    public void Reports_duplicate_command_handlers_for_messaging()
+    {
+        const string source = """
+            using LayerZero.Core;
+            using LayerZero.Messaging;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace Demo;
+
+            public sealed record Archive() : ICommand;
+
+            public sealed class FirstArchiveHandler : ICommandHandler<Archive>
+            {
+                public ValueTask<Result> HandleAsync(Archive command, CancellationToken cancellationToken = default)
+                {
+                    return ValueTask.FromResult(Result.Success());
+                }
+            }
+
+            public sealed class SecondArchiveHandler : ICommandHandler<Archive>
+            {
+                public ValueTask<Result> HandleAsync(Archive command, CancellationToken cancellationToken = default)
+                {
+                    return ValueTask.FromResult(Result.Success());
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "LZGEN005");
+    }
+
+    [Fact]
+    public void Reports_duplicate_message_names()
+    {
+        const string source = """
+            using LayerZero.Core;
+            using LayerZero.Messaging;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace Demo
+            {
+                [MessageName("demo.shared")]
+                public sealed record Created() : IEvent;
+            }
+
+            namespace Demo.More
+            {
+                [MessageName("demo.shared")]
+                public sealed record CreatedAgain() : IEvent;
+            }
+            """;
+
+        var result = RunGenerator(source);
+
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "LZGEN006");
+    }
+
     private static GeneratorRunResult RunGenerator(string source)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default);
@@ -187,7 +275,8 @@ public sealed class SliceGeneratorTests
         var projectReferences = new[]
         {
             typeof(Result).Assembly.Location,
-            typeof(ServiceCollectionExtensions).Assembly.Location,
+            typeof(IMessageRegistry).Assembly.Location,
+            typeof(LayerZero.AspNetCore.ServiceCollectionExtensions).Assembly.Location,
             typeof(IValidator<>).Assembly.Location,
             typeof(IServiceCollection).Assembly.Location,
         };

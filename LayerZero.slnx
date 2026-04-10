@@ -10,6 +10,7 @@
     <Project Path="src/LayerZero.Core/LayerZero.Core.csproj" />
     <Project Path="src/LayerZero.Generators/LayerZero.Generators.csproj" />
     <Project Path="src/LayerZero.Http/LayerZero.Http.csproj" />
+    <Project Path="src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
     <Project Path="src/LayerZero.Testing/LayerZero.Testing.csproj" />
     <Project Path="src/LayerZero.Validation/LayerZero.Validation.csproj" />
   </Folder>
@@ -21,6 +22,7 @@
     <Project Path="tests/LayerZero.Core.Tests/LayerZero.Core.Tests.csproj" />
     <Project Path="tests/LayerZero.Generators.Tests/LayerZero.Generators.Tests.csproj" />
     <Project Path="tests/LayerZero.Http.Tests/LayerZero.Http.Tests.csproj" />
+    <Project Path="tests/LayerZero.Messaging.Tests/LayerZero.Messaging.Tests.csproj" />
     <Project Path="tests/LayerZero.Testing.Tests/LayerZero.Testing.Tests.csproj" />
     <Project Path="tests/LayerZero.Validation.Tests/LayerZero.Validation.Tests.csproj" />
   </Folder>
