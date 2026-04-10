@@ -1,7 +1,9 @@
 using LayerZero.Core;
 using LayerZero.MinimalApi.Infrastructure.Todos;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
+using ListTodosRequest = LayerZero.MinimalApi.Contracts.Todos.ListTodos.Request;
+using TodoContract = LayerZero.MinimalApi.Contracts.Todos.Todo;
+using TodoRoutes = LayerZero.MinimalApi.Contracts.Todos.TodoRoutes;
 
 namespace LayerZero.MinimalApi.Features.Todos.List;
 
@@ -11,15 +13,15 @@ public static class ListTodos
 
     public static void MapEndpoint(IEndpointRouteBuilder endpoints)
     {
-        RouteGroupBuilder group = endpoints.MapGroup("/todos").WithTags("Todos");
+        RouteGroupBuilder group = endpoints.MapGroup(TodoRoutes.Base).WithTags("Todos");
 
-        group.MapGet("", async Task<Ok<IReadOnlyList<Response>>> (
-                [AsParameters] Request request,
-                IAsyncRequestHandler<Request, IReadOnlyList<Response>> handler,
+        group.MapGet("", async Task<Ok<IReadOnlyList<TodoContract>>> (
+                bool? includeCompleted,
+                IAsyncRequestHandler<ListTodosRequest, IReadOnlyList<TodoContract>> handler,
                 CancellationToken cancellationToken) =>
             {
-                Result<IReadOnlyList<Response>> result = await handler
-                    .HandleAsync(request, cancellationToken)
+                Result<IReadOnlyList<TodoContract>> result = await handler
+                    .HandleAsync(new ListTodosRequest(includeCompleted), cancellationToken)
                     .ConfigureAwait(false);
 
                 return TypedResults.Ok(result.Value);
@@ -29,34 +31,30 @@ public static class ListTodos
             .WithDescription("List active todos by default. Omit includeCompleted for active todos only, or set includeCompleted=true to include completed todos.");
     }
 
-    public sealed class Request
+    public sealed class Handler : IAsyncRequestHandler<ListTodosRequest, IReadOnlyList<TodoContract>>
     {
-        [FromQuery(Name = "includeCompleted")]
-        public bool? IncludeCompleted { get; init; }
+        private readonly ITodoRepository todos;
 
-        [FromServices]
-        public ITodoRepository Todos { get; init; } = null!;
-    }
+        public Handler(ITodoRepository todos)
+        {
+            this.todos = todos;
+        }
 
-    public sealed record Response(Guid Id, string Title, DateOnly? DueOn, bool IsCompleted);
-
-    public sealed class Handler : IAsyncRequestHandler<Request, IReadOnlyList<Response>>
-    {
-        public async ValueTask<Result<IReadOnlyList<Response>>> HandleAsync(
-            Request request,
+        public async ValueTask<Result<IReadOnlyList<TodoContract>>> HandleAsync(
+            ListTodosRequest request,
             CancellationToken cancellationToken = default)
         {
             bool includeCompleted = request.IncludeCompleted ?? false;
 
-            IReadOnlyList<TodoItem> todos = await request.Todos
+            IReadOnlyList<TodoItem> items = await todos
                 .ListAsync(includeCompleted, cancellationToken)
                 .ConfigureAwait(false);
 
-            Response[] response = todos
-                .Select(todo => new Response(todo.Id, todo.Title, todo.DueOn, todo.IsCompleted))
+            TodoContract[] response = items
+                .Select(todo => new TodoContract(todo.Id, todo.Title, todo.DueOn, todo.IsCompleted))
                 .ToArray();
 
-            return Result<IReadOnlyList<Response>>.Success(response);
+            return Result<IReadOnlyList<TodoContract>>.Success(response);
         }
     }
 }

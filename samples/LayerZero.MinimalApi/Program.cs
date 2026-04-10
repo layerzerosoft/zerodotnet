@@ -4,7 +4,7 @@ using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi(options =>
+builder.Services.AddOpenApi("v1", options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1;
 });
@@ -17,7 +17,7 @@ builder.Services
 
 var app = builder.Build();
 
-app.MapOpenApi();
+app.MapOpenApi("/openapi/{documentName}.json");
 
 app.MapGet("/", () => Results.Redirect("/openapi/v1.json"))
     .ExcludeFromDescription();

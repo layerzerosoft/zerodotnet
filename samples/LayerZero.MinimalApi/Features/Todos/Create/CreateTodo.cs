@@ -3,76 +3,69 @@ using LayerZero.Core;
 using LayerZero.MinimalApi.Features.Todos.Get;
 using LayerZero.MinimalApi.Infrastructure.Todos;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
+using CreateTodoRequest = LayerZero.MinimalApi.Contracts.Todos.CreateTodo.Request;
+using TodoContract = LayerZero.MinimalApi.Contracts.Todos.Todo;
+using TodoRoutes = LayerZero.MinimalApi.Contracts.Todos.TodoRoutes;
 
 namespace LayerZero.MinimalApi.Features.Todos.Create;
 
 public static class CreateTodo
 {
-    public const string EndpointName = "Todos_Create";
-
     public static void MapEndpoint(IEndpointRouteBuilder endpoints)
     {
-        RouteGroupBuilder group = endpoints.MapGroup("/todos").WithTags("Todos");
-
-        group.MapPost("", async Task<Created<Response>> (
-                [FromBody] Request request,
-                ICommandHandler<Command, Response> handler,
+        endpoints
+            .MapGroup(TodoRoutes.Base)
+            .WithTags("Todos")
+            .MapPost("", async Task<Created<TodoContract>> (
+                CreateTodoRequest request,
+                IAsyncRequestHandler<CreateTodoRequest, TodoContract> handler,
                 LinkGenerator links,
                 HttpContext httpContext,
                 CancellationToken cancellationToken) =>
-            {
-                Result<Response> result = await handler
-                    .HandleAsync(new Command(request.Title!.Trim(), request.DueOn), cancellationToken)
-                    .ConfigureAwait(false);
+                {
+                    var result = await handler
+                        .HandleAsync(request, cancellationToken)
+                        .ConfigureAwait(false);
 
-                string? location = links.GetPathByName(
-                    httpContext,
-                    GetTodo.EndpointName,
-                    new { id = result.Value.Id });
+                    var location = links.GetPathByName(
+                        httpContext,
+                        nameof(GetTodo),
+                        new { id = result.Value.Id });
 
-                return TypedResults.Created(location ?? $"/todos/{result.Value.Id}", result.Value);
-            })
-            .Validate<Request>()
-            .WithName(EndpointName)
-            .WithSummary("Create a todo")
-            .WithDescription("Create a todo and return its canonical resource link.")
-            .Produces<Response>(StatusCodes.Status201Created);
+                    return TypedResults.Created(location ?? $"/todos/{result.Value.Id}", result.Value);
+                })
+                .Validate<CreateTodoRequest>()
+                .WithName(nameof(CreateTodo))
+                .WithSummary("Create a todo")
+                .WithDescription("Create a todo and return its canonical resource link.")
+                .Produces<TodoContract>(StatusCodes.Status201Created);
     }
 
-    public sealed record Request(string? Title, DateOnly? DueOn);
-
-    public sealed record Command(string Title, DateOnly? DueOn) : ICommand<Response>;
-
-    public sealed record Response(Guid Id, string Title, DateOnly? DueOn, bool IsCompleted);
-
-    public sealed class Handler : ICommandHandler<Command, Response>
+    public sealed class Handler(ITodoRepository todos) : IAsyncRequestHandler<CreateTodoRequest, TodoContract>
     {
-        private readonly ITodoRepository todos;
+        private readonly ITodoRepository todos = todos;
 
-        public Handler(ITodoRepository todos)
-        {
-            this.todos = todos;
-        }
-
-        public async ValueTask<Result<Response>> HandleAsync(
-            Command command,
+        public async ValueTask<Result<TodoContract>> HandleAsync(
+            CreateTodoRequest command,
             CancellationToken cancellationToken = default)
         {
-            TodoItem todo = await todos
-                .AddAsync(command.Title, command.DueOn, cancellationToken)
+            var title = command.Title?.Trim() ?? string.Empty;
+
+            var todo = await todos
+                .AddAsync(title, command.DueOn, cancellationToken)
                 .ConfigureAwait(false);
 
-            Response response = new(todo.Id, todo.Title, todo.DueOn, todo.IsCompleted);
-            return Result<Response>.Success(response);
+            var response = new TodoContract(todo.Id, todo.Title, todo.DueOn, todo.IsCompleted);
+
+            return Result<TodoContract>.Success(response);
         }
     }
 
-    public sealed class Validator : LayerZero.Validation.Validator<Request>
+    public sealed class Validator : Validation.Validator<CreateTodoRequest>
     {
         public Validator()
         {
-            RuleFor(nameof(Request.Title), request => request.Title)
+            RuleFor(nameof(CreateTodoRequest.Title), request => request.Title)
                 .NotEmpty()
                 .MaximumLength(120);
         }

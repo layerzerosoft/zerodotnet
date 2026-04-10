@@ -3,15 +3,18 @@
 LayerZero is a modern, AI-agent-friendly foundation for .NET.
 
 The project starts with ASP.NET Core, Minimal APIs, first-class slices,
-source-generated registration, validation, OpenAPI, non-HTTP message contracts,
-and first-party testing primitives. Message broker adapters and the React
-dashboard are intentionally deferred until the foundation is sharp enough to
-carry them without drift.
+source-generated slice registration, validation, OpenAPI, source-controlled
+HTTP contracts, explicit typed clients, non-HTTP message contracts, and
+first-party testing primitives. Message broker adapters and the React dashboard
+are intentionally deferred until the foundation is sharp enough to carry them
+without drift.
 
 ## Foundation
 
 - Baseline: .NET 10 LTS, `net10.0`, C# latest.
-- Public packages: `LayerZero.Core`, `LayerZero.Validation`, `LayerZero.AspNetCore`, `LayerZero.Generators`, and `LayerZero.Testing`.
+- Public packages: `LayerZero.Core`, `LayerZero.Validation`,
+  `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
+  `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.
 - API posture: dependency-light, source-generator-first, AOT-aware, trimming-aware, Minimal API native.
 - OpenAPI posture: Microsoft built-in `Microsoft.AspNetCore.OpenApi`, OpenAPI 3.1.
@@ -25,7 +28,10 @@ carry them without drift.
 - `LayerZero.Validation`: fluent validation rules for Minimal API request models.
 - `LayerZero.AspNetCore`: self-mapping endpoint slices, explicit registration escape hatches, endpoint filters, and ProblemDetails integration.
 - `LayerZero.Generators`: compile-time slice discovery for `AddSlices()` and `MapSlices()`.
+- `LayerZero.Http`: source-controlled HTTP contracts shared by servers and clients.
 - `LayerZero.Testing`: fluent first-party assertions for LayerZero result and validation flows.
+- `LayerZero.Client`: `LayerZeroClient`, `ApiResponse`,
+  `Result`-first failure mapping, and `IHttpClientFactory` registration for explicit typed clients.
 
 ## Slice Model
 
@@ -57,6 +63,48 @@ Non-HTTP slices begin as command and event contracts in `LayerZero.Core`.
 Dispatchers, brokers, retries, outbox, envelopes, and transport adapters are
 future architecture decisions.
 
+## HTTP Clients
+
+LayerZero clients stay secondary to native Minimal API authoring. Server code
+keeps using built-in ASP.NET Core OpenAPI and normal Minimal API metadata, but
+client consumption is driven by shared HTTP contracts, not by OpenAPI codegen.
+
+Shared contracts project setup:
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\..\src\LayerZero.Http\LayerZero.Http.csproj" />
+</ItemGroup>
+```
+
+Example contract:
+
+```csharp
+public static class GetTodo
+{
+    public static readonly GetEndpoint<Request, Todo> Endpoint = HttpEndpoint
+        .Get<Request, Todo>(TodoRoutes.Resource)
+        .Route("id", static request => request.Id);
+
+    public sealed record Request(Guid Id);
+}
+```
+
+Typed client registration and usage:
+
+```csharp
+services.AddLayerZeroClient<TodosClient>(client =>
+{
+    client.BaseAddress = new Uri("https://localhost:7270");
+});
+
+Result<IReadOnlyList<Todo>> todos =
+    await todosClient.ListAsync(includeCompleted: true, cancellationToken);
+```
+
+The exact edit/build/use loop is documented in
+`docs/client-dev-experience.md`.
+
 ## Commands
 
 ```bash
@@ -79,8 +127,11 @@ Sample launch profiles use stable dev URLs:
 
 Then open `/openapi/v1.json`, `GET /todos`, or `POST /todos`.
 
-`Program` remains `partial` only for test-host wiring. That is unrelated to the
-HTTP slice shape.
+Run the client sample against the API:
+
+```bash
+dotnet run --project samples/LayerZero.MinimalApi.Client -- https://localhost:7270
+```
 
 ## References
 
@@ -88,7 +139,7 @@ HTTP slice shape.
 - Minimal API parameter binding and `[AsParameters]`: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/parameter-binding?view=aspnetcore-10.0
 - Typed results and OpenAPI metadata: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-10.0
 - Built-in ASP.NET Core OpenAPI: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/openapi/aspnetcore-openapi?view=aspnetcore-10.0
-- Incremental source generators: https://learn.microsoft.com/en-us/dotnet/api/microsoft.codeanalysis.iincrementalgenerator
+- `IHttpClientFactory`: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-10.0
 
 ## Agent Rules
 

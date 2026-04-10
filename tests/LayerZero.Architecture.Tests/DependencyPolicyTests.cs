@@ -16,6 +16,7 @@ public sealed class DependencyPolicyTests
         "AwesomeAssertions",
         "Swashbuckle",
         "NSwag",
+        "Microsoft.Kiota",
         "Microsoft.EntityFrameworkCore",
         "RabbitMQ.Client",
         "Azure.Messaging.ServiceBus",
@@ -96,6 +97,59 @@ public sealed class DependencyPolicyTests
 
         string[] violations = EnumerateNamingPolicyFiles(root)
             .SelectMany(file => GetNamingViolations(root, file, allowedRepositoryUrl, retiredCompound, retiredNamespace, retiredLower, retiredSymbolPattern, retiredWirePattern))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Repository_does_not_use_the_retired_client_generation_path()
+    {
+        DirectoryInfo root = FindRepositoryRoot();
+        string[] retiredPatterns =
+        [
+            "LayerZero.Client" + ".Generators",
+            "LayerZeroApi" + "ProjectReference",
+            "LayerZeroOpenApi" + "Reference",
+            "TodoApiClient" + ".g.cs",
+        ];
+
+        string[] violations = EnumerateNamingPolicyFiles(root)
+            .SelectMany(file => GetRetiredClientGenerationViolations(root, file, retiredPatterns))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Shared_contract_projects_do_not_reference_aspnet_core()
+    {
+        DirectoryInfo root = FindRepositoryRoot();
+
+        string[] violations = Directory
+            .EnumerateFiles(root.FullName, "*.csproj", SearchOption.AllDirectories)
+            .Where(file => !IsIgnoredPath(root, file))
+            .Where(file => file.Contains(".Contracts", StringComparison.Ordinal))
+            .SelectMany(GetAspNetCoreReferenceViolations)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Client_sample_does_not_hardcode_todo_routes()
+    {
+        DirectoryInfo root = FindRepositoryRoot();
+        string clientSamplePath = Path.Combine(root.FullName, "samples", "LayerZero.MinimalApi.Client");
+
+        string[] violations = Directory
+            .EnumerateFiles(clientSamplePath, "*.cs", SearchOption.AllDirectories)
+            .Where(file => !IsIgnoredPath(root, file))
+            .Where(file => File.ReadAllText(file).Contains("/todos", StringComparison.Ordinal))
+            .Select(file => Path.GetRelativePath(root.FullName, file))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -214,6 +268,50 @@ public sealed class DependencyPolicyTests
         if (wireMatch.Success)
         {
             yield return $"{relativePath}: retired wire name '{wireMatch.Value}'";
+        }
+    }
+
+    private static IEnumerable<string> GetRetiredClientGenerationViolations(
+        DirectoryInfo root,
+        string file,
+        string[] retiredPatterns)
+    {
+        string relativePath = Path.GetRelativePath(root.FullName, file);
+        string content = File.ReadAllText(file);
+
+        foreach (string retiredPattern in retiredPatterns)
+        {
+            if (relativePath.Contains(retiredPattern, StringComparison.Ordinal)
+                || content.Contains(retiredPattern, StringComparison.Ordinal))
+            {
+                yield return $"{relativePath}: retired client generation marker '{retiredPattern}'";
+            }
+        }
+    }
+
+    private static IEnumerable<string> GetAspNetCoreReferenceViolations(string file)
+    {
+        XDocument document = XDocument.Load(file);
+        string relativePath = Path.GetRelativePath(FindRepositoryRoot().FullName, file);
+
+        foreach (XElement packageReference in document.Descendants().Where(element => element.Name.LocalName == "PackageReference"))
+        {
+            string? include = packageReference.Attribute("Include")?.Value;
+            if (!string.IsNullOrWhiteSpace(include)
+                && include.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal))
+            {
+                yield return $"{relativePath}: ASP.NET Core package reference '{include}'";
+            }
+        }
+
+        foreach (XElement projectReference in document.Descendants().Where(element => element.Name.LocalName == "ProjectReference"))
+        {
+            string? include = projectReference.Attribute("Include")?.Value;
+            if (!string.IsNullOrWhiteSpace(include)
+                && include.Contains("AspNetCore", StringComparison.Ordinal))
+            {
+                yield return $"{relativePath}: ASP.NET Core project reference '{include}'";
+            }
         }
     }
 

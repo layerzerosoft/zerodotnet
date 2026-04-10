@@ -2,9 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using LayerZero.Core;
-using LayerZero.MinimalApi.Features.Todos.Create;
 using LayerZero.MinimalApi.Features.Todos.Events;
-using LayerZero.MinimalApi.Features.Todos.Get;
+using LayerZero.MinimalApi.Contracts.Todos;
 using LayerZero.Validation;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,8 +44,8 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
         using IServiceScope scope = factory.Services.CreateScope();
         IServiceProvider services = scope.ServiceProvider;
 
-        Assert.NotNull(services.GetService<ICommandHandler<CreateTodo.Command, CreateTodo.Response>>());
-        Assert.NotNull(services.GetService<IAsyncRequestHandler<GetTodo.Request, GetTodo.Response>>());
+        Assert.NotNull(services.GetService<IAsyncRequestHandler<CreateTodo.Request, Todo>>());
+        Assert.NotNull(services.GetService<IAsyncRequestHandler<GetTodo.Request, Todo>>());
         Assert.NotEmpty(services.GetServices<IValidator<CreateTodo.Request>>());
         Assert.NotEmpty(services.GetServices<IEventHandler<TodoCreated>>());
     }

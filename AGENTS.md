@@ -15,7 +15,9 @@ clear package boundaries, and boringly reliable builds.
 ## Project Identity
 
 - Public product name: LayerZero.
-- Public packages: `LayerZero.Core`, `LayerZero.Validation`, `LayerZero.AspNetCore`, `LayerZero.Generators`, and `LayerZero.Testing`.
+- Public packages: `LayerZero.Core`, `LayerZero.Validation`,
+  `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
+  `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.
 - License: MIT.
 - Baseline framework: .NET 10 LTS, `net10.0`.
@@ -24,8 +26,9 @@ clear package boundaries, and boringly reliable builds.
 
 - Keep the foundation dependency-light.
 - Do not add MassTransit, MediatR/Mediator, FluentValidation, FluentAssertions,
-  Shouldly, AwesomeAssertions, Swashbuckle, NSwag, EF Core, broker SDKs, or
-  transport frameworks without an explicit architecture decision.
+  Shouldly, AwesomeAssertions, Swashbuckle, NSwag, Microsoft.Kiota, EF Core,
+  broker SDKs, or transport frameworks without an explicit architecture
+  decision.
 - Prefer Microsoft built-in ASP.NET Core and OpenAPI primitives.
 - Treat Minimal APIs and slices as first-class citizens.
 - Source generation is the default slice discovery model for performance,
@@ -52,6 +55,16 @@ clear package boundaries, and boringly reliable builds.
 - Add tests with behavior-level names and failure messages that help agents act.
 - Keep package boundaries clean: core has no ASP.NET Core dependency, broker
   SDKs live only in future transport adapters.
+- Keep HTTP contracts and HTTP clients secondary to native Minimal API
+  authoring. Do not introduce LayerZero-specific server DSLs, client-generation
+  attributes, or alternate endpoint models just to improve clients.
+- Shared HTTP contracts should describe HTTP API surface only: methods, route
+  templates, request and response DTOs, and route/query/header/body bindings.
+  They must not own tags, summaries, descriptions, or other OpenAPI metadata.
+- Typed clients should be explicit source-controlled classes built on
+  `LayerZeroClient` and normal `IHttpClientFactory` composition.
+- Prefer LayerZero `Result` and `ApiResponse` surfaces for normal API failures.
+  Do not default clients to exception-heavy API behavior.
 - Do not reintroduce retired project codenames or standalone framework prefixes
   from earlier naming passes. Public symbols should be concise names like
   `Result`, `Error`, `Validator<T>`, `IRequestHandler<TRequest, TResponse>`,
@@ -92,3 +105,6 @@ Messaging starts with ports, then transport adapters. Dashboard starts with
 middleware and stable JSON endpoints, then a packaged React static app. Do not
 stub broad packages just to look complete; add packages when their contracts are
 clear enough to test.
+
+OpenAPI is for documentation and CI artifact flows. The client story is shared
+contracts plus explicit typed clients, not hidden generated code in `obj`.

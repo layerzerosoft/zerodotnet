@@ -14,6 +14,7 @@ before teams reach for heavy frameworks.
 - Request validation through LayerZero validators and endpoint-filter factories.
 - ProblemDetails responses with machine-readable `layerzero.errors` metadata.
 - First-party testing assertions.
+- Source-controlled HTTP contracts and explicit typed clients.
 - Dependency policy tests that block commercial-pressure and drift-prone dependencies.
 
 ## Slice Mechanics
@@ -84,6 +85,29 @@ Messaging will be introduced as ports first, transports second.
 - The sync request/response and async message flows must share validation,
   observability, error, and testing concepts.
 
+## HTTP Clients
+
+HTTP clients are secondary to server authoring, but they are still a first
+class part of the foundation.
+
+- `LayerZero.Http` owns shared HTTP contracts: route templates, HTTP methods,
+  request and response DTOs, and request metadata such as route, query, header,
+  and JSON body bindings.
+- `LayerZero.Client` owns runtime client primitives such as `LayerZeroClient`,
+  `ApiResponse`, `ApiResponse<T>`, failure normalization into LayerZero
+  `Result`, and standard `IHttpClientFactory` registration.
+- Typed clients are explicit source-controlled classes. They wrap
+  `LayerZeroClient`, reference shared contracts, and stay fully reviewable.
+- Shared contracts define HTTP API surface only. They must not absorb
+  ASP.NET Core binding attributes, tags, summaries, descriptions, DI services,
+  or other server-only concerns.
+- Server slices remain native Minimal APIs. They may reuse contract routes and
+  DTOs, but they keep full control over binding, validation, filters, auth,
+  typed results, and OpenAPI metadata.
+- OpenAPI remains documentation and CI artifact infrastructure. It is not the
+  client source of truth and must not drive the endpoint authoring model.
+- Swashbuckle, NSwag, and Kiota stay outside the foundation.
+
 ## Dashboard Roadmap
 
 The dashboard will ship as a NuGet package that serves a React static web app
@@ -102,4 +126,5 @@ from ASP.NET Core middleware.
 - Minimal API parameter binding and `[AsParameters]`: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/parameter-binding?view=aspnetcore-10.0
 - Typed results and OpenAPI metadata: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-10.0
 - Built-in ASP.NET Core OpenAPI: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/openapi/aspnetcore-openapi?view=aspnetcore-10.0
+- `IHttpClientFactory`: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-10.0
 - Incremental source generators: https://learn.microsoft.com/en-us/dotnet/api/microsoft.codeanalysis.iincrementalgenerator
