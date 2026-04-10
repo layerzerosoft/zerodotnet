@@ -43,8 +43,6 @@ public static class CreateTodo
 
     public sealed class Handler(ITodoRepository todos) : IAsyncRequestHandler<CreateTodoRequest, TodoContract>
     {
-        private readonly ITodoRepository todos = todos;
-
         public async ValueTask<Result<TodoContract>> HandleAsync(
             CreateTodoRequest command,
             CancellationToken cancellationToken = default)
@@ -55,9 +53,8 @@ public static class CreateTodo
                 .AddAsync(title, command.DueOn, cancellationToken)
                 .ConfigureAwait(false);
 
-            var response = new TodoContract(todo.Id, todo.Title, todo.DueOn, todo.IsCompleted);
-
-            return Result<TodoContract>.Success(response);
+            return Result<TodoContract>.Success(
+                new TodoContract(todo.Id, todo.Title, todo.DueOn, todo.IsCompleted));
         }
     }
 

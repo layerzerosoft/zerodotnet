@@ -36,8 +36,6 @@ public static class GetTodo
 
     public sealed class Handler(ITodoRepository todos) : IAsyncRequestHandler<GetTodoRequest, TodoContract>
     {
-        private readonly ITodoRepository todos = todos;
-
         public async ValueTask<Result<TodoContract>> HandleAsync(
             GetTodoRequest request,
             CancellationToken cancellationToken = default)

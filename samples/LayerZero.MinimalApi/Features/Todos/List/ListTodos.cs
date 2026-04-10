@@ -9,37 +9,28 @@ namespace LayerZero.MinimalApi.Features.Todos.List;
 
 public static class ListTodos
 {
-    public const string EndpointName = "Todos_List";
-
     public static void MapEndpoint(IEndpointRouteBuilder endpoints)
     {
-        RouteGroupBuilder group = endpoints.MapGroup(TodoRoutes.Base).WithTags("Todos");
-
-        group.MapGet("", async Task<Ok<IReadOnlyList<TodoContract>>> (
+        endpoints.MapGroup(TodoRoutes.Base)
+            .WithTags("Todos")
+            .MapGet("", async Task<Ok<IReadOnlyList<TodoContract>>> (
                 bool? includeCompleted,
                 IAsyncRequestHandler<ListTodosRequest, IReadOnlyList<TodoContract>> handler,
                 CancellationToken cancellationToken) =>
-            {
-                Result<IReadOnlyList<TodoContract>> result = await handler
-                    .HandleAsync(new ListTodosRequest(includeCompleted), cancellationToken)
-                    .ConfigureAwait(false);
+                {
+                    Result<IReadOnlyList<TodoContract>> result = await handler
+                        .HandleAsync(new ListTodosRequest(includeCompleted), cancellationToken)
+                        .ConfigureAwait(false);
 
-                return TypedResults.Ok(result.Value);
-            })
-            .WithName(EndpointName)
-            .WithSummary("List todos")
-            .WithDescription("List active todos by default. Omit includeCompleted for active todos only, or set includeCompleted=true to include completed todos.");
+                    return TypedResults.Ok(result.Value);
+                })
+                .WithName(nameof(ListTodos))
+                .WithSummary("List todos")
+                .WithDescription("List active todos by default. Omit includeCompleted for active todos only, or set includeCompleted=true to include completed todos.");
     }
 
-    public sealed class Handler : IAsyncRequestHandler<ListTodosRequest, IReadOnlyList<TodoContract>>
+    public sealed class Handler(ITodoRepository todos) : IAsyncRequestHandler<ListTodosRequest, IReadOnlyList<TodoContract>>
     {
-        private readonly ITodoRepository todos;
-
-        public Handler(ITodoRepository todos)
-        {
-            this.todos = todos;
-        }
-
         public async ValueTask<Result<IReadOnlyList<TodoContract>>> HandleAsync(
             ListTodosRequest request,
             CancellationToken cancellationToken = default)

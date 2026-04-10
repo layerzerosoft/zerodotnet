@@ -13,38 +13,31 @@ public static class CompleteTodo
 
     public static void MapEndpoint(IEndpointRouteBuilder endpoints)
     {
-        RouteGroupBuilder group = endpoints.MapGroup(TodoRoutes.Base).WithTags("Todos");
-
-        group.MapPost(TodoRoutes.Complete, async Task<Results<Ok<TodoContract>, NotFound>> (
+        endpoints.MapGroup(TodoRoutes.Base)
+            .WithTags("Todos")
+            .MapPost(TodoRoutes.Complete, async Task<Results<Ok<TodoContract>, NotFound>> (
                 Guid id,
                 IAsyncRequestHandler<CompleteTodoRequest, TodoContract> handler,
                 CancellationToken cancellationToken) =>
-            {
-                Result<TodoContract> result = await handler
-                    .HandleAsync(new CompleteTodoRequest(id), cancellationToken)
-                    .ConfigureAwait(false);
-
-                if (result.IsFailure)
                 {
-                    return TypedResults.NotFound();
-                }
+                    Result<TodoContract> result = await handler
+                        .HandleAsync(new CompleteTodoRequest(id), cancellationToken)
+                        .ConfigureAwait(false);
 
-                return TypedResults.Ok(result.Value);
-            })
-            .WithName(EndpointName)
-            .WithSummary("Complete a todo")
-            .WithDescription("Mark a todo as complete.");
+                    if (result.IsFailure)
+                    {
+                        return TypedResults.NotFound();
+                    }
+
+                    return TypedResults.Ok(result.Value);
+                })
+                .WithName(EndpointName)
+                .WithSummary("Complete a todo")
+                .WithDescription("Mark a todo as complete.");
     }
 
-    public sealed class Handler : IAsyncRequestHandler<CompleteTodoRequest, TodoContract>
+    public sealed class Handler(ITodoRepository todos) : IAsyncRequestHandler<CompleteTodoRequest, TodoContract>
     {
-        private readonly ITodoRepository todos;
-
-        public Handler(ITodoRepository todos)
-        {
-            this.todos = todos;
-        }
-
         public async ValueTask<Result<TodoContract>> HandleAsync(
             CompleteTodoRequest command,
             CancellationToken cancellationToken = default)
