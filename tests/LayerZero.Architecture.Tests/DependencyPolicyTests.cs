@@ -40,10 +40,10 @@ public sealed class DependencyPolicyTests
     [Fact]
     public void Foundation_does_not_reference_banned_packages()
     {
-        DirectoryInfo root = FindRepositoryRoot();
-        IEnumerable<string> packageIds = EnumeratePackageIds(root);
+        var root = FindRepositoryRoot();
+        var packageIds = EnumeratePackageIds(root);
 
-        string[] violations = packageIds
+        var violations = packageIds
             .Where(IsBannedPackage)
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -54,9 +54,9 @@ public sealed class DependencyPolicyTests
     [Fact]
     public void Project_package_references_use_central_versions()
     {
-        DirectoryInfo root = FindRepositoryRoot();
+        var root = FindRepositoryRoot();
 
-        string[] referencesWithVersions = Directory
+        var referencesWithVersions = Directory
             .EnumerateFiles(root.FullName, "*.csproj", SearchOption.AllDirectories)
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
@@ -70,9 +70,9 @@ public sealed class DependencyPolicyTests
     [Fact]
     public void Slice_discovery_does_not_use_runtime_assembly_scanning_by_default()
     {
-        DirectoryInfo root = FindRepositoryRoot();
+        var root = FindRepositoryRoot();
 
-        string[] violations = Directory
+        var violations = Directory
             .EnumerateFiles(Path.Combine(root.FullName, "src"), "*.cs", SearchOption.AllDirectories)
             .Where(file => !IsIgnoredPath(root, file))
             .SelectMany(file => GetRuntimeAssemblyScanningViolations(root, file))
@@ -85,17 +85,17 @@ public sealed class DependencyPolicyTests
     [Fact]
     public void Repository_uses_current_layerzero_naming()
     {
-        DirectoryInfo root = FindRepositoryRoot();
-        string allowedRepositoryUrl = "https://github.com/layerzerosoft/" + "zero" + "dotnet";
-        string retiredCompound = "Zero" + "Dot" + "Net";
-        string retiredNamespace = "LayerZero." + retiredCompound;
-        string retiredLower = "zero" + "dotnet";
-        string retiredPrefix = "Zero";
-        Regex retiredSymbolPattern = new(
+        var root = FindRepositoryRoot();
+        var allowedRepositoryUrl = "https://github.com/layerzerosoft/" + "zero" + "dotnet";
+        var retiredCompound = "Zero" + "Dot" + "Net";
+        var retiredNamespace = "LayerZero." + retiredCompound;
+        var retiredLower = "zero" + "dotnet";
+        var retiredPrefix = "Zero";
+        var retiredSymbolPattern = new Regex(
             $@"\b(I?{retiredPrefix}[A-Z][A-Za-z0-9_]*|Add{retiredPrefix}[A-Za-z0-9_]*|Map{retiredPrefix}[A-Za-z0-9_]*)\b");
-        Regex retiredWirePattern = new(@"(?<!layer)zero\.(errors|validation\.)");
+        var retiredWirePattern = new Regex(@"(?<!layer)zero\.(errors|validation\.)");
 
-        string[] violations = EnumerateNamingPolicyFiles(root)
+        var violations = EnumerateNamingPolicyFiles(root)
             .SelectMany(file => GetNamingViolations(root, file, allowedRepositoryUrl, retiredCompound, retiredNamespace, retiredLower, retiredSymbolPattern, retiredWirePattern))
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -106,16 +106,16 @@ public sealed class DependencyPolicyTests
     [Fact]
     public void Repository_does_not_use_the_retired_client_generation_path()
     {
-        DirectoryInfo root = FindRepositoryRoot();
-        string[] retiredPatterns =
-        [
+        var root = FindRepositoryRoot();
+        var retiredPatterns = new[]
+        {
             "LayerZero.Client" + ".Generators",
             "LayerZeroApi" + "ProjectReference",
             "LayerZeroOpenApi" + "Reference",
             "TodoApiClient" + ".g.cs",
-        ];
+        };
 
-        string[] violations = EnumerateNamingPolicyFiles(root)
+        var violations = EnumerateNamingPolicyFiles(root)
             .SelectMany(file => GetRetiredClientGenerationViolations(root, file, retiredPatterns))
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -126,9 +126,9 @@ public sealed class DependencyPolicyTests
     [Fact]
     public void Shared_contract_projects_do_not_reference_aspnet_core()
     {
-        DirectoryInfo root = FindRepositoryRoot();
+        var root = FindRepositoryRoot();
 
-        string[] violations = Directory
+        var violations = Directory
             .EnumerateFiles(root.FullName, "*.csproj", SearchOption.AllDirectories)
             .Where(file => !IsIgnoredPath(root, file))
             .Where(file => file.Contains(".Contracts", StringComparison.Ordinal))
@@ -142,10 +142,10 @@ public sealed class DependencyPolicyTests
     [Fact]
     public void Client_sample_does_not_hardcode_todo_routes()
     {
-        DirectoryInfo root = FindRepositoryRoot();
-        string clientSamplePath = Path.Combine(root.FullName, "samples", "LayerZero.MinimalApi.Client");
+        var root = FindRepositoryRoot();
+        var clientSamplePath = Path.Combine(root.FullName, "samples", "LayerZero.MinimalApi.Client");
 
-        string[] violations = Directory
+        var violations = Directory
             .EnumerateFiles(clientSamplePath, "*.cs", SearchOption.AllDirectories)
             .Where(file => !IsIgnoredPath(root, file))
             .Where(file => File.ReadAllText(file).Contains("/todos", StringComparison.Ordinal))
@@ -158,7 +158,7 @@ public sealed class DependencyPolicyTests
 
     private static IEnumerable<string> EnumeratePackageIds(DirectoryInfo root)
     {
-        foreach (string file in Directory.EnumerateFiles(root.FullName, "*.csproj", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(root.FullName, "*.csproj", SearchOption.AllDirectories))
         {
             if (file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 || file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
@@ -166,13 +166,13 @@ public sealed class DependencyPolicyTests
                 continue;
             }
 
-            foreach (string packageId in GetPackageIds(file, "PackageReference"))
+            foreach (var packageId in GetPackageIds(file, "PackageReference"))
             {
                 yield return packageId;
             }
         }
 
-        foreach (string packageId in GetPackageIds(Path.Combine(root.FullName, "Directory.Packages.props"), "PackageVersion"))
+        foreach (var packageId in GetPackageIds(Path.Combine(root.FullName, "Directory.Packages.props"), "PackageVersion"))
         {
             yield return packageId;
         }
@@ -180,7 +180,7 @@ public sealed class DependencyPolicyTests
 
     private static IEnumerable<string> GetPackageIds(string file, string elementName)
     {
-        XDocument document = XDocument.Load(file);
+        var document = XDocument.Load(file);
         return document
             .Descendants()
             .Where(element => element.Name.LocalName == elementName)
@@ -191,7 +191,7 @@ public sealed class DependencyPolicyTests
 
     private static IEnumerable<string> GetVersionedPackageReferences(string file)
     {
-        XDocument document = XDocument.Load(file);
+        var document = XDocument.Load(file);
 
         return document
             .Descendants()
@@ -209,8 +209,8 @@ public sealed class DependencyPolicyTests
 
     private static IEnumerable<string> EnumerateNamingPolicyFiles(DirectoryInfo root)
     {
-        string[] extensions =
-        [
+        var extensions = new[]
+        {
             ".cs",
             ".csproj",
             ".props",
@@ -219,7 +219,7 @@ public sealed class DependencyPolicyTests
             ".mdc",
             ".yml",
             ".yaml",
-        ];
+        };
 
         return Directory
             .EnumerateFiles(root.FullName, "*", SearchOption.AllDirectories)
@@ -237,9 +237,9 @@ public sealed class DependencyPolicyTests
         Regex retiredSymbolPattern,
         Regex retiredWirePattern)
     {
-        string relativePath = Path.GetRelativePath(root.FullName, file);
-        string content = File.ReadAllText(file).Replace(allowedRepositoryUrl, string.Empty, StringComparison.Ordinal);
-        string comparablePath = relativePath.Replace(allowedRepositoryUrl, string.Empty, StringComparison.Ordinal);
+        var relativePath = Path.GetRelativePath(root.FullName, file);
+        var content = File.ReadAllText(file).Replace(allowedRepositoryUrl, string.Empty, StringComparison.Ordinal);
+        var comparablePath = relativePath.Replace(allowedRepositoryUrl, string.Empty, StringComparison.Ordinal);
 
         if (comparablePath.Contains(retiredCompound, StringComparison.Ordinal)
             || comparablePath.Contains(retiredLower, StringComparison.OrdinalIgnoreCase))
@@ -258,13 +258,13 @@ public sealed class DependencyPolicyTests
             yield return $"{relativePath}: retired lowercase product name";
         }
 
-        Match symbolMatch = retiredSymbolPattern.Match(content);
+        var symbolMatch = retiredSymbolPattern.Match(content);
         if (symbolMatch.Success)
         {
             yield return $"{relativePath}: retired symbol prefix '{symbolMatch.Value}'";
         }
 
-        Match wireMatch = retiredWirePattern.Match(content);
+        var wireMatch = retiredWirePattern.Match(content);
         if (wireMatch.Success)
         {
             yield return $"{relativePath}: retired wire name '{wireMatch.Value}'";
@@ -276,10 +276,10 @@ public sealed class DependencyPolicyTests
         string file,
         string[] retiredPatterns)
     {
-        string relativePath = Path.GetRelativePath(root.FullName, file);
-        string content = File.ReadAllText(file);
+        var relativePath = Path.GetRelativePath(root.FullName, file);
+        var content = File.ReadAllText(file);
 
-        foreach (string retiredPattern in retiredPatterns)
+        foreach (var retiredPattern in retiredPatterns)
         {
             if (relativePath.Contains(retiredPattern, StringComparison.Ordinal)
                 || content.Contains(retiredPattern, StringComparison.Ordinal))
@@ -291,12 +291,12 @@ public sealed class DependencyPolicyTests
 
     private static IEnumerable<string> GetAspNetCoreReferenceViolations(string file)
     {
-        XDocument document = XDocument.Load(file);
-        string relativePath = Path.GetRelativePath(FindRepositoryRoot().FullName, file);
+        var document = XDocument.Load(file);
+        var relativePath = Path.GetRelativePath(FindRepositoryRoot().FullName, file);
 
-        foreach (XElement packageReference in document.Descendants().Where(element => element.Name.LocalName == "PackageReference"))
+        foreach (var packageReference in document.Descendants().Where(element => element.Name.LocalName == "PackageReference"))
         {
-            string? include = packageReference.Attribute("Include")?.Value;
+            var include = packageReference.Attribute("Include")?.Value;
             if (!string.IsNullOrWhiteSpace(include)
                 && include.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal))
             {
@@ -304,9 +304,9 @@ public sealed class DependencyPolicyTests
             }
         }
 
-        foreach (XElement projectReference in document.Descendants().Where(element => element.Name.LocalName == "ProjectReference"))
+        foreach (var projectReference in document.Descendants().Where(element => element.Name.LocalName == "ProjectReference"))
         {
-            string? include = projectReference.Attribute("Include")?.Value;
+            var include = projectReference.Attribute("Include")?.Value;
             if (!string.IsNullOrWhiteSpace(include)
                 && include.Contains("AspNetCore", StringComparison.Ordinal))
             {
@@ -317,10 +317,10 @@ public sealed class DependencyPolicyTests
 
     private static IEnumerable<string> GetRuntimeAssemblyScanningViolations(DirectoryInfo root, string file)
     {
-        string content = File.ReadAllText(file);
-        string relativePath = Path.GetRelativePath(root.FullName, file);
+        var content = File.ReadAllText(file);
+        var relativePath = Path.GetRelativePath(root.FullName, file);
 
-        foreach (string pattern in RuntimeAssemblyScanningPatterns)
+        foreach (var pattern in RuntimeAssemblyScanningPatterns)
         {
             if (content.Contains(pattern, StringComparison.Ordinal))
             {
@@ -331,8 +331,8 @@ public sealed class DependencyPolicyTests
 
     private static bool IsIgnoredPath(DirectoryInfo root, string file)
     {
-        string relativePath = Path.GetRelativePath(root.FullName, file);
-        string[] segments = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var relativePath = Path.GetRelativePath(root.FullName, file);
+        var segments = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
         return segments.Any(segment =>
             segment is ".git" or "bin" or "obj"
@@ -341,7 +341,7 @@ public sealed class DependencyPolicyTests
 
     private static DirectoryInfo FindRepositoryRoot()
     {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
             if (File.Exists(Path.Combine(directory.FullName, "LayerZero.slnx")))

@@ -123,8 +123,8 @@ public sealed class RuleBuilder<T, TProperty>
 
         addRule(new Rule<T>(async (instance, _, cancellationToken) =>
         {
-            TProperty value = accessor(instance);
-            bool isValid = await predicate(value, cancellationToken).ConfigureAwait(false);
+            var value = accessor(instance);
+            var isValid = await predicate(value, cancellationToken).ConfigureAwait(false);
             return isValid ? null : new ValidationFailure(propertyName, code, message, value);
         }));
 
@@ -142,7 +142,7 @@ public sealed class RuleBuilder<T, TProperty>
 
         addRule(new Rule<T>((instance, _, _) =>
         {
-            TProperty value = accessor(instance);
+            var value = accessor(instance);
             return ValueTask.FromResult(predicate(value)
                 ? null
                 : new ValidationFailure(propertyName, code, message, value));
@@ -170,7 +170,7 @@ public sealed class RuleBuilder<T, TProperty>
 
         if (value is System.Collections.IEnumerable enumerable)
         {
-            System.Collections.IEnumerator enumerator = enumerable.GetEnumerator();
+            var enumerator = enumerable.GetEnumerator();
             try
             {
                 return enumerator.MoveNext();

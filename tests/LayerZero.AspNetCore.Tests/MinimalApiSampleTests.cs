@@ -22,10 +22,10 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
     [Fact]
     public async Task Todo_endpoints_are_mapped_by_generated_slice_extensions()
     {
-        HttpClient client = factory.CreateClient();
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
 
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/todos",
             new { title = "  Draft slice mechanics  ", dueOn = "2026-04-10" },
             cancellationToken);
@@ -33,7 +33,7 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.StartsWith("/todos/", response.Headers.Location?.OriginalString, StringComparison.Ordinal);
 
-        JsonObject body = (await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
+        var body = (await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
         Assert.Equal("Draft slice mechanics", body["title"]?.GetValue<string>());
         Assert.False(body["isCompleted"]?.GetValue<bool>());
     }
@@ -41,8 +41,8 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
     [Fact]
     public void Generated_add_slices_registers_handlers_validators_and_event_handlers()
     {
-        using IServiceScope scope = factory.Services.CreateScope();
-        IServiceProvider services = scope.ServiceProvider;
+        using var scope = factory.Services.CreateScope();
+        var services = scope.ServiceProvider;
 
         Assert.NotNull(services.GetService<IAsyncRequestHandler<CreateTodo.Request, Todo>>());
         Assert.NotNull(services.GetService<IAsyncRequestHandler<GetTodo.Request, Todo>>());
@@ -53,10 +53,10 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
     [Fact]
     public async Task Validation_returns_problem_details_with_layerzero_errors()
     {
-        HttpClient client = factory.CreateClient();
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
 
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/todos",
             new { title = "" },
             cancellationToken);
@@ -64,7 +64,7 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
 
-        JsonObject body = (await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
+        var body = (await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
         Assert.Equal("Validation failed.", body["title"]?.GetValue<string>());
         Assert.NotNull(body["errors"]?["Title"]);
         Assert.NotNull(body["layerzero.errors"]);
@@ -73,47 +73,47 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
     [Fact]
     public async Task Native_minimal_api_binding_services_links_and_query_values_still_work()
     {
-        HttpClient client = factory.CreateClient();
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
 
-        Guid todoId = await CreateTodoAsync(client, "Complete the generated slice", cancellationToken);
+        var todoId = await CreateTodoAsync(client, "Complete the generated slice", cancellationToken);
 
-        JsonObject todo = await client.GetFromJsonAsync<JsonObject>($"/todos/{todoId}", cancellationToken)
+        var todo = await client.GetFromJsonAsync<JsonObject>($"/todos/{todoId}", cancellationToken)
             ?? throw new InvalidOperationException("Todo response was empty.");
         Assert.Equal(todoId, todo["id"]?.GetValue<Guid>());
 
-        HttpResponseMessage completeResponse = await client.PostAsync($"/todos/{todoId}/complete", null, cancellationToken);
+        var completeResponse = await client.PostAsync($"/todos/{todoId}/complete", null, cancellationToken);
         completeResponse.EnsureSuccessStatusCode();
 
-        JsonObject completed = (await completeResponse.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
+        var completed = (await completeResponse.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
         Assert.True(completed["isCompleted"]?.GetValue<bool>());
 
-        JsonArray defaultTodos = await client.GetFromJsonAsync<JsonArray>("/todos", cancellationToken)
+        var defaultTodos = await client.GetFromJsonAsync<JsonArray>("/todos", cancellationToken)
             ?? throw new InvalidOperationException("Default todo response was empty.");
         Assert.DoesNotContain(defaultTodos, node => HasId(node, todoId));
 
-        JsonArray activeTodos = await client.GetFromJsonAsync<JsonArray>("/todos?includeCompleted=false", cancellationToken)
+        var activeTodos = await client.GetFromJsonAsync<JsonArray>("/todos?includeCompleted=false", cancellationToken)
             ?? throw new InvalidOperationException("Active todo response was empty.");
         Assert.DoesNotContain(activeTodos, node => HasId(node, todoId));
 
-        JsonArray allTodos = await client.GetFromJsonAsync<JsonArray>("/todos?includeCompleted=true", cancellationToken)
+        var allTodos = await client.GetFromJsonAsync<JsonArray>("/todos?includeCompleted=true", cancellationToken)
             ?? throw new InvalidOperationException("All todo response was empty.");
         Assert.Contains(allTodos, node => HasId(node, todoId));
 
-        HttpResponseMessage invalidQueryResponse = await client.GetAsync("/todos?includeCompleted=abc", cancellationToken);
+        var invalidQueryResponse = await client.GetAsync("/todos?includeCompleted=abc", cancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, invalidQueryResponse.StatusCode);
     }
 
     [Fact]
     public async Task OpenApi_document_includes_self_mapped_endpoints_without_swashbuckle_or_nswag()
     {
-        HttpClient client = factory.CreateClient();
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
 
-        string document = await client.GetStringAsync("/openapi/v1.json", cancellationToken);
-        JsonObject openApi = JsonNode.Parse(document)!.AsObject();
+        var document = await client.GetStringAsync("/openapi/v1.json", cancellationToken);
+        var openApi = JsonNode.Parse(document)!.AsObject();
 
-        string? openApiVersion = openApi["openapi"]?.GetValue<string>();
+        var openApiVersion = openApi["openapi"]?.GetValue<string>();
         Assert.NotNull(openApiVersion);
         Assert.StartsWith("3.1.", openApiVersion, StringComparison.Ordinal);
         Assert.Contains("\"/todos\"", document, StringComparison.Ordinal);
@@ -122,9 +122,9 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
         Assert.DoesNotContain("Swashbuckle", document, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("NSwag", document, StringComparison.OrdinalIgnoreCase);
 
-        JsonArray parameters = openApi["paths"]?["/todos"]?["get"]?["parameters"]?.AsArray()
+        var parameters = openApi["paths"]?["/todos"]?["get"]?["parameters"]?.AsArray()
             ?? throw new InvalidOperationException("Todo list parameters were missing from OpenAPI.");
-        JsonObject includeCompleted = parameters
+        var includeCompleted = parameters
             .Select(parameter => parameter?.AsObject())
             .FirstOrDefault(parameter => parameter?["name"]?.GetValue<string>() == "includeCompleted")
             ?? throw new InvalidOperationException("includeCompleted parameter was missing from OpenAPI.");
@@ -138,14 +138,14 @@ public sealed class MinimalApiSampleTests : IClassFixture<WebApplicationFactory<
         string title,
         CancellationToken cancellationToken)
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/todos",
             new { title },
             cancellationToken);
 
         response.EnsureSuccessStatusCode();
 
-        JsonObject body = (await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
+        var body = (await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken))!;
         return body["id"]!.GetValue<Guid>();
     }
 

@@ -42,7 +42,7 @@ public sealed class ValidationResult
     {
         ArgumentNullException.ThrowIfNull(errors);
 
-        ValidationFailure[] materialized = errors.Where(error => error is not null).ToArray();
+        var materialized = errors.Where(error => error is not null).ToArray();
         if (materialized.Length == 0)
         {
             return Valid();

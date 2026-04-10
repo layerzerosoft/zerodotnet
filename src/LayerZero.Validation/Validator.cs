@@ -28,12 +28,12 @@ public abstract class Validator<T> : IValidator<T>
         ArgumentNullException.ThrowIfNull(instance);
         ArgumentNullException.ThrowIfNull(context);
 
-        List<ValidationFailure> failures = [];
-        foreach (Rule<T> rule in rules)
+        var failures = new List<ValidationFailure>();
+        foreach (var rule in rules)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            ValidationFailure? failure = await rule
+            var failure = await rule
                 .ValidateAsync(instance, context, cancellationToken)
                 .ConfigureAwait(false);
 

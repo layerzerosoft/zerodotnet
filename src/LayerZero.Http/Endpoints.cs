@@ -31,17 +31,17 @@ internal sealed class JsonBodyBinding<TRequest, TBody> : JsonBodyBinding<TReques
 
     public override HttpContent? CreateContent(TRequest request, JsonSerializerContext serializerContext)
     {
-        TBody? value = selector(request);
+        var value = selector(request);
         if (value is null)
         {
             return null;
         }
 
-        JsonTypeInfo<TBody> typeInfo = serializerContext.GetTypeInfo(typeof(TBody)) as JsonTypeInfo<TBody>
+        var typeInfo = serializerContext.GetTypeInfo(typeof(TBody)) as JsonTypeInfo<TBody>
             ?? throw new InvalidOperationException($"JSON metadata for '{typeof(TBody).FullName}' is unavailable.");
 
-        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(value, typeInfo);
-        ByteArrayContent content = new(payload);
+        var payload = JsonSerializer.SerializeToUtf8Bytes(value, typeInfo);
+        var content = new ByteArrayContent(payload);
         content.Headers.ContentType = new("application/json")
         {
             CharSet = Encoding.UTF8.WebName,

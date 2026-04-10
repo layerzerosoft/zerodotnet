@@ -64,8 +64,8 @@ public sealed class SliceGeneratorTests
             }
             """;
 
-        GeneratorRunResult result = RunGenerator(source);
-        string generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
 
         Assert.Empty(result.Diagnostics);
         Assert.Contains("AddSlices", generatedSource, StringComparison.Ordinal);
@@ -105,7 +105,7 @@ public sealed class SliceGeneratorTests
             }
             """;
 
-        GeneratorRunResult result = RunGenerator(source);
+        var result = RunGenerator(source);
 
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "LZGEN001");
     }
@@ -126,7 +126,7 @@ public sealed class SliceGeneratorTests
             }
             """;
 
-        GeneratorRunResult result = RunGenerator(source);
+        var result = RunGenerator(source);
 
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "LZGEN004");
     }
@@ -142,7 +142,7 @@ public sealed class SliceGeneratorTests
             }
             """;
 
-        GeneratorRunResult result = RunGenerator(source);
+        var result = RunGenerator(source);
 
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "LZGEN002");
         Assert.Empty(result.GeneratedSources);
@@ -150,21 +150,21 @@ public sealed class SliceGeneratorTests
 
     private static GeneratorRunResult RunGenerator(string source)
     {
-        SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default);
+        var syntaxTree = CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default);
 
-        CSharpCompilation compilation = CSharpCompilation.Create(
+        var compilation = CSharpCompilation.Create(
             "LayerZero.Generator.Tests.Input",
             [syntaxTree],
             MetadataReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        GeneratorDriver driver = CSharpGeneratorDriver.Create(new SliceGenerator().AsSourceGenerator());
+        var driver = (GeneratorDriver)CSharpGeneratorDriver.Create(new SliceGenerator().AsSourceGenerator());
         driver = driver.RunGeneratorsAndUpdateCompilation(
             compilation,
-            out Compilation outputCompilation,
-            out ImmutableArray<Diagnostic> diagnostics);
+            out var outputCompilation,
+            out var diagnostics);
 
-        Diagnostic[] failures = diagnostics
+        var failures = diagnostics
             .Concat(outputCompilation.GetDiagnostics())
             .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .Where(diagnostic => !diagnostic.Id.StartsWith("LZGEN", StringComparison.Ordinal))
@@ -177,20 +177,20 @@ public sealed class SliceGeneratorTests
 
     private static IReadOnlyList<MetadataReference> MetadataReferences()
     {
-        string trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")
+        var trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")
             ?? throw new InvalidOperationException("Trusted platform assemblies are unavailable.");
 
-        IEnumerable<string> platformReferences = trustedPlatformAssemblies
+        var platformReferences = trustedPlatformAssemblies
             .Split(Path.PathSeparator)
             .Where(File.Exists);
 
-        string[] projectReferences =
-        [
+        var projectReferences = new[]
+        {
             typeof(Result).Assembly.Location,
             typeof(ServiceCollectionExtensions).Assembly.Location,
             typeof(IValidator<>).Assembly.Location,
             typeof(IServiceCollection).Assembly.Location,
-        ];
+        };
 
         return platformReferences
             .Concat(projectReferences)

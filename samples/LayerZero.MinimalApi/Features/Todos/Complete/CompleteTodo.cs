@@ -20,7 +20,7 @@ public static class CompleteTodo
                 IAsyncRequestHandler<CompleteTodoRequest, TodoContract> handler,
                 CancellationToken cancellationToken) =>
                 {
-                    Result<TodoContract> result = await handler
+                    var result = await handler
                         .HandleAsync(new CompleteTodoRequest(id), cancellationToken)
                         .ConfigureAwait(false);
 
@@ -42,7 +42,7 @@ public static class CompleteTodo
             CompleteTodoRequest command,
             CancellationToken cancellationToken = default)
         {
-            TodoItem? todo = await todos
+            var todo = await todos
                 .CompleteAsync(command.Id, cancellationToken)
                 .ConfigureAwait(false);
 

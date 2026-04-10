@@ -11,7 +11,7 @@ public sealed class InMemoryTodoRepository : ITodoRepository
     {
         this.timeProvider = timeProvider;
 
-        TodoItem sample = new(
+        var sample = new TodoItem(
             Guid.Parse("8a0f8ac8-f090-4f7e-bb0f-a2f0b8df6d63"),
             "Map the first LayerZero slice",
             DateOnly.FromDateTime(timeProvider.GetUtcNow().DateTime.AddDays(1)),
@@ -25,7 +25,7 @@ public sealed class InMemoryTodoRepository : ITodoRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        TodoItem todo = new(Guid.NewGuid(), title, dueOn, IsCompleted: false, timeProvider.GetUtcNow());
+        var todo = new TodoItem(Guid.NewGuid(), title, dueOn, IsCompleted: false, timeProvider.GetUtcNow());
         todos[todo.Id] = todo;
 
         return ValueTask.FromResult(todo);
@@ -34,7 +34,7 @@ public sealed class InMemoryTodoRepository : ITodoRepository
     public ValueTask<TodoItem?> FindAsync(Guid id, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        todos.TryGetValue(id, out TodoItem? todo);
+        todos.TryGetValue(id, out var todo);
 
         return ValueTask.FromResult(todo);
     }
@@ -43,7 +43,7 @@ public sealed class InMemoryTodoRepository : ITodoRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        TodoItem[] result = todos.Values
+        var result = todos.Values
             .Where(todo => includeCompleted || !todo.IsCompleted)
             .OrderBy(todo => todo.CreatedAt)
             .ThenBy(todo => todo.Title, StringComparer.Ordinal)
@@ -56,9 +56,9 @@ public sealed class InMemoryTodoRepository : ITodoRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        while (todos.TryGetValue(id, out TodoItem? existing))
+        while (todos.TryGetValue(id, out var existing))
         {
-            TodoItem completed = existing with { IsCompleted = true };
+            var completed = existing with { IsCompleted = true };
             if (todos.TryUpdate(id, completed, existing))
             {
                 return ValueTask.FromResult<TodoItem?>(completed);

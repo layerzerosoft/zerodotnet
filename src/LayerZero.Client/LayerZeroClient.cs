@@ -43,7 +43,7 @@ public sealed class LayerZeroClient
         CancellationToken cancellationToken = default)
         where TEndpoint : Endpoint<TEndpoint, TRequest>
     {
-        ApiResponse response = await SendForResponseAsync(endpoint, request, cancellationToken).ConfigureAwait(false);
+        var response = await SendForResponseAsync(endpoint, request, cancellationToken).ConfigureAwait(false);
         return response.Result;
     }
 
@@ -56,7 +56,7 @@ public sealed class LayerZeroClient
         CancellationToken cancellationToken = default)
         where TEndpoint : ResponseEndpoint<TEndpoint, TRequest, TResponse>
     {
-        ApiResponse<TResponse> response = await SendForResponseAsync(endpoint, request, cancellationToken).ConfigureAwait(false);
+        var response = await SendForResponseAsync(endpoint, request, cancellationToken).ConfigureAwait(false);
         return response.Result;
     }
 
@@ -71,12 +71,12 @@ public sealed class LayerZeroClient
     {
         ArgumentNullException.ThrowIfNull(endpoint);
 
-        using HttpRequestMessage requestMessage = CreateRequest(endpoint.Descriptor, request);
-        using HttpResponseMessage response = await HttpClient
+        using var requestMessage = CreateRequest(endpoint.Descriptor, request);
+        using var response = await HttpClient
             .SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
 
-        HeaderSnapshot headers = CaptureHeaders(response);
+        var headers = CaptureHeaders(response);
 
         if (response.IsSuccessStatusCode)
         {
@@ -88,7 +88,7 @@ public sealed class LayerZeroClient
                 problem: null);
         }
 
-        ApiProblemDetails? problem = await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
+        var problem = await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
         return new ApiResponse(
             response.StatusCode,
             headers.Headers,
@@ -108,16 +108,16 @@ public sealed class LayerZeroClient
     {
         ArgumentNullException.ThrowIfNull(endpoint);
 
-        using HttpRequestMessage requestMessage = CreateRequest(endpoint.Descriptor, request);
-        using HttpResponseMessage response = await HttpClient
+        using var requestMessage = CreateRequest(endpoint.Descriptor, request);
+        using var response = await HttpClient
             .SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
 
-        HeaderSnapshot headers = CaptureHeaders(response);
+        var headers = CaptureHeaders(response);
 
         if (response.IsSuccessStatusCode)
         {
-            byte[] payload = await ReadContentBytesAsync(response.Content, cancellationToken).ConfigureAwait(false);
+            var payload = await ReadContentBytesAsync(response.Content, cancellationToken).ConfigureAwait(false);
             if (payload.Length == 0 || response.StatusCode == HttpStatusCode.NoContent)
             {
                 return new ApiResponse<TResponse>(
@@ -128,8 +128,8 @@ public sealed class LayerZeroClient
                     problem: null);
             }
 
-            JsonTypeInfo<TResponse> responseTypeInfo = GetTypeInfo<TResponse>();
-            TResponse? value = JsonSerializer.Deserialize(payload, responseTypeInfo);
+            var responseTypeInfo = GetTypeInfo<TResponse>();
+            var value = JsonSerializer.Deserialize(payload, responseTypeInfo);
 
             if (value is null)
             {
@@ -149,7 +149,7 @@ public sealed class LayerZeroClient
                 problem: null);
         }
 
-        ApiProblemDetails? problem = await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
+        var problem = await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
         return new ApiResponse<TResponse>(
             response.StatusCode,
             headers.Headers,
@@ -162,18 +162,18 @@ public sealed class LayerZeroClient
         EndpointDescriptor<TRequest> descriptor,
         TRequest request)
     {
-        string path = ResolvePath(descriptor, request);
-        StringBuilder uriBuilder = new(path);
-        bool hasQuery = false;
+        var path = ResolvePath(descriptor, request);
+        var uriBuilder = new StringBuilder(path);
+        var hasQuery = false;
 
-        foreach (ValueBinding<TRequest> binding in descriptor.QueryBindings)
+        foreach (var binding in descriptor.QueryBindings)
         {
             AppendQueryParameter(uriBuilder, binding.Name, binding.Selector(request), ref hasQuery);
         }
 
-        HttpRequestMessage message = new(descriptor.Method, uriBuilder.ToString());
+        var message = new HttpRequestMessage(descriptor.Method, uriBuilder.ToString());
 
-        foreach (ValueBinding<TRequest> binding in descriptor.HeaderBindings)
+        foreach (var binding in descriptor.HeaderBindings)
         {
             AddHeader(message, binding.Name, binding.Selector(request));
         }
@@ -189,15 +189,15 @@ public sealed class LayerZeroClient
             return descriptor.Template;
         }
 
-        Dictionary<string, object?> routeValues = descriptor.RouteBindings.ToDictionary(
+        var routeValues = descriptor.RouteBindings.ToDictionary(
             binding => binding.Name,
             binding => binding.Selector(request),
             StringComparer.Ordinal);
 
-        HashSet<string> consumed = new(StringComparer.Ordinal);
-        StringBuilder builder = new(descriptor.Template.Length + 32);
+        var consumed = new HashSet<string>(StringComparer.Ordinal);
+        var builder = new StringBuilder(descriptor.Template.Length + 32);
 
-        for (int index = 0; index < descriptor.Template.Length;)
+        for (var index = 0; index < descriptor.Template.Length;)
         {
             if (descriptor.Template[index] != '{')
             {
@@ -206,17 +206,17 @@ public sealed class LayerZeroClient
                 continue;
             }
 
-            int tokenEnd = descriptor.Template.IndexOf('}', index + 1);
+            var tokenEnd = descriptor.Template.IndexOf('}', index + 1);
             if (tokenEnd < 0)
             {
                 throw new InvalidOperationException($"HTTP route template '{descriptor.Template}' is invalid.");
             }
 
-            string token = descriptor.Template[(index + 1)..tokenEnd];
-            int separator = token.IndexOf(':');
-            string name = separator >= 0 ? token[..separator] : token;
+            var token = descriptor.Template[(index + 1)..tokenEnd];
+            var separator = token.IndexOf(':');
+            var name = separator >= 0 ? token[..separator] : token;
 
-            if (!routeValues.TryGetValue(name, out object? value))
+            if (!routeValues.TryGetValue(name, out var value))
             {
                 throw new InvalidOperationException(
                     $"HTTP route template '{descriptor.Template}' requires a route value named '{name}'.");
@@ -233,7 +233,7 @@ public sealed class LayerZeroClient
             index = tokenEnd + 1;
         }
 
-        string? unused = routeValues.Keys.FirstOrDefault(name => !consumed.Contains(name));
+        var unused = routeValues.Keys.FirstOrDefault(name => !consumed.Contains(name));
         if (unused is not null)
         {
             throw new InvalidOperationException(
@@ -324,9 +324,9 @@ public sealed class LayerZeroClient
 
     private static IReadOnlyDictionary<string, IReadOnlyList<string>> SnapshotHeaders(HttpHeaders headers)
     {
-        Dictionary<string, IReadOnlyList<string>> snapshot = new(StringComparer.OrdinalIgnoreCase);
+        var snapshot = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (KeyValuePair<string, IEnumerable<string>> header in headers)
+        foreach (var header in headers)
         {
             snapshot[header.Key] = header.Value.ToArray();
         }
@@ -365,28 +365,28 @@ public sealed class LayerZeroClient
             return null;
         }
 
-        string? mediaType = response.Content.Headers.ContentType?.MediaType;
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
         if (!string.Equals(mediaType, "application/problem+json", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
 
-        byte[] payload = await ReadContentBytesAsync(response.Content, cancellationToken).ConfigureAwait(false);
+        var payload = await ReadContentBytesAsync(response.Content, cancellationToken).ConfigureAwait(false);
         if (payload.Length == 0)
         {
             return null;
         }
 
-        using JsonDocument document = JsonDocument.Parse(payload);
-        JsonElement root = document.RootElement.Clone();
+        using var document = JsonDocument.Parse(payload);
+        var root = document.RootElement.Clone();
 
-        string? type = GetString(root, "type");
-        string? title = GetString(root, "title");
-        string? detail = GetString(root, "detail");
-        string? instance = GetString(root, "instance");
+        var type = GetString(root, "type");
+        var title = GetString(root, "title");
+        var detail = GetString(root, "detail");
+        var instance = GetString(root, "instance");
         int? status = GetInt32(root, "status") ?? (int)response.StatusCode;
 
-        List<Error> errors = ReadLayerZeroErrors(root);
+        var errors = ReadLayerZeroErrors(root);
         if (errors.Count == 0)
         {
             errors.Add(Error.Create(
@@ -408,19 +408,19 @@ public sealed class LayerZeroClient
 
     private static List<Error> ReadLayerZeroErrors(JsonElement root)
     {
-        if (!TryGetProperty(root, "layerzero.errors", out JsonElement errorsElement)
+        if (!TryGetProperty(root, "layerzero.errors", out var errorsElement)
             || errorsElement.ValueKind != JsonValueKind.Array)
         {
             return [];
         }
 
-        List<Error> errors = [];
+        var errors = new List<Error>();
 
-        foreach (JsonElement item in errorsElement.EnumerateArray())
+        foreach (var item in errorsElement.EnumerateArray())
         {
-            string? code = GetString(item, "code");
-            string? message = GetString(item, "message");
-            string? target = GetString(item, "target") ?? GetString(item, "propertyName");
+            var code = GetString(item, "code");
+            var message = GetString(item, "message");
+            var target = GetString(item, "target") ?? GetString(item, "propertyName");
 
             if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(message))
             {
@@ -438,7 +438,7 @@ public sealed class LayerZeroClient
         string propertyName,
         out JsonElement value)
     {
-        foreach (JsonProperty property in element.EnumerateObject())
+        foreach (var property in element.EnumerateObject())
         {
             if (property.NameEquals(propertyName))
             {
@@ -453,7 +453,7 @@ public sealed class LayerZeroClient
 
     private static string? GetString(JsonElement element, string propertyName)
     {
-        return TryGetProperty(element, propertyName, out JsonElement value)
+        return TryGetProperty(element, propertyName, out var value)
             && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
@@ -461,8 +461,8 @@ public sealed class LayerZeroClient
 
     private static int? GetInt32(JsonElement element, string propertyName)
     {
-        return TryGetProperty(element, propertyName, out JsonElement value)
-            && value.TryGetInt32(out int result)
+        return TryGetProperty(element, propertyName, out var value)
+            && value.TryGetInt32(out var result)
             ? result
             : null;
     }

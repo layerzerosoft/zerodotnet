@@ -21,7 +21,7 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        IHttpClientBuilder builder = services.AddHttpClient<TClient>();
+        var builder = services.AddHttpClient<TClient>();
         if (configureClient is not null)
         {
             builder.ConfigureHttpClient(configureClient);

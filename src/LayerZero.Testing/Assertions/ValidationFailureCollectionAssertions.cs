@@ -25,10 +25,10 @@ public sealed class ValidationFailureCollectionAssertions
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
-        foreach (ValidationFailure failure in failures)
+        foreach (var failure in failures)
         {
-            bool codeMatches = StringComparer.Ordinal.Equals(failure.Code, code);
-            bool propertyMatches = StringComparer.Ordinal.Equals(failure.PropertyName, propertyName);
+            var codeMatches = StringComparer.Ordinal.Equals(failure.Code, code);
+            var propertyMatches = StringComparer.Ordinal.Equals(failure.PropertyName, propertyName);
             if (codeMatches && propertyMatches)
             {
                 return failure;

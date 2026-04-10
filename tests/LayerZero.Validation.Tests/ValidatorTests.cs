@@ -8,13 +8,13 @@ public sealed class ValidatorTests
     [Fact]
     public async Task Validator_reports_all_rule_failures()
     {
-        CreateProjectValidator validator = new();
+        var validator = new CreateProjectValidator();
 
-        ValidationResult result = await validator.ValidateAsync(
+        var result = await validator.ValidateAsync(
             new CreateProjectRequest(" ", 0),
             TestContext.Current.CancellationToken);
 
-        ValidationFailureCollectionAssertions failures = result.Should().BeInvalid();
+        var failures = result.Should().BeInvalid();
 
         failures.Contain(ValidationCodes.NotEmpty, nameof(CreateProjectRequest.Name));
         failures.Contain("layerzero.validation.capacity_positive", nameof(CreateProjectRequest.Capacity));
@@ -23,9 +23,9 @@ public sealed class ValidatorTests
     [Fact]
     public async Task Validator_passes_valid_request()
     {
-        CreateProjectValidator validator = new();
+        var validator = new CreateProjectValidator();
 
-        ValidationResult result = await validator.ValidateAsync(
+        var result = await validator.ValidateAsync(
             new CreateProjectRequest("Nova", 4),
             TestContext.Current.CancellationToken);
 

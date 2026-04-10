@@ -4,14 +4,9 @@ using LayerZero.MinimalApi.Contracts.Todos;
 
 namespace LayerZero.MinimalApi.Client.Sample.Clients;
 
-public sealed class TodosClient
+public sealed class TodosClient(HttpClient httpClient)
 {
-    private readonly LayerZeroClient client;
-
-    public TodosClient(HttpClient httpClient)
-    {
-        client = new LayerZeroClient(httpClient, TodosJsonContext.Default);
-    }
+    private readonly LayerZeroClient client = new(httpClient, TodosJsonContext.Default);
 
     public ValueTask<Result<IReadOnlyList<Todo>>> ListAsync(
         bool? includeCompleted = null,

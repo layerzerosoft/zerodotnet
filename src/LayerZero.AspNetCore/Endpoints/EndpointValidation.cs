@@ -10,12 +10,12 @@ internal static class EndpointValidation
         IServiceProvider services,
         CancellationToken cancellationToken)
     {
-        List<ValidationFailure> failures = [];
-        ValidationContext context = new(services);
+        var failures = new List<ValidationFailure>();
+        var context = new ValidationContext(services);
 
-        foreach (IValidator<TRequest> validator in validators)
+        foreach (var validator in validators)
         {
-            ValidationResult result = await validator
+            var result = await validator
                 .ValidateAsync(request, context, cancellationToken)
                 .ConfigureAwait(false);
 

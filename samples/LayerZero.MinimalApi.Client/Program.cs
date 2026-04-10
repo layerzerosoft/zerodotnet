@@ -9,16 +9,16 @@ internal static class Program
 {
     public static async Task Main(string[] args)
     {
-        Uri baseAddress = new(args.FirstOrDefault() ?? "http://localhost:5270", UriKind.Absolute);
+        var baseAddress = new Uri(args.FirstOrDefault() ?? "http://localhost:5270", UriKind.Absolute);
 
-        ServiceCollection services = new();
+        var services = new ServiceCollection();
         services.AddLayerZeroClient<TodosClient>(client =>
         {
             client.BaseAddress = baseAddress;
         });
 
-        using ServiceProvider provider = services.BuildServiceProvider();
-        TodosClient api = provider.GetRequiredService<TodosClient>();
+        using var provider = services.BuildServiceProvider();
+        var api = provider.GetRequiredService<TodosClient>();
 
         var listed = await api.ListAsync(includeCompleted: true);
         if (listed.IsFailure)

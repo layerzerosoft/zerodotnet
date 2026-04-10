@@ -24,17 +24,17 @@ public sealed class ErrorCollectionAssertions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
 
-        foreach (Error error in errors)
+        foreach (var error in errors)
         {
-            bool codeMatches = StringComparer.Ordinal.Equals(error.Code, code);
-            bool targetMatches = target is null || StringComparer.Ordinal.Equals(error.Target, target);
+            var codeMatches = StringComparer.Ordinal.Equals(error.Code, code);
+            var targetMatches = target is null || StringComparer.Ordinal.Equals(error.Target, target);
             if (codeMatches && targetMatches)
             {
                 return error;
             }
         }
 
-        string targetText = target is null ? string.Empty : $" and target '{target}'";
+        var targetText = target is null ? string.Empty : $" and target '{target}'";
         throw new AssertionException($"Expected error code '{code}'{targetText}, but it was not found.");
     }
 }

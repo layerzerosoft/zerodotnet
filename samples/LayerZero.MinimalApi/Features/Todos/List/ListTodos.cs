@@ -18,7 +18,7 @@ public static class ListTodos
                 IAsyncRequestHandler<ListTodosRequest, IReadOnlyList<TodoContract>> handler,
                 CancellationToken cancellationToken) =>
                 {
-                    Result<IReadOnlyList<TodoContract>> result = await handler
+                    var result = await handler
                         .HandleAsync(new ListTodosRequest(includeCompleted), cancellationToken)
                         .ConfigureAwait(false);
 
@@ -35,13 +35,13 @@ public static class ListTodos
             ListTodosRequest request,
             CancellationToken cancellationToken = default)
         {
-            bool includeCompleted = request.IncludeCompleted ?? false;
+            var includeCompleted = request.IncludeCompleted ?? false;
 
-            IReadOnlyList<TodoItem> items = await todos
+            var items = await todos
                 .ListAsync(includeCompleted, cancellationToken)
                 .ConfigureAwait(false);
 
-            TodoContract[] response = items
+            var response = items
                 .Select(todo => new TodoContract(todo.Id, todo.Title, todo.DueOn, todo.IsCompleted))
                 .ToArray();
 

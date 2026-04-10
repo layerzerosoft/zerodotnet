@@ -5,12 +5,12 @@ public sealed class SliceModulePolicyTests
     [Fact]
     public void Sample_http_slice_modules_are_static_and_not_partial()
     {
-        DirectoryInfo root = FindRepositoryRoot();
-        string featuresPath = Path.Combine(root.FullName, "samples", "LayerZero.MinimalApi", "Features");
+        var root = FindRepositoryRoot();
+        var featuresPath = Path.Combine(root.FullName, "samples", "LayerZero.MinimalApi", "Features");
 
-        foreach (string file in Directory.EnumerateFiles(featuresPath, "*.cs", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(featuresPath, "*.cs", SearchOption.AllDirectories))
         {
-            string content = File.ReadAllText(file);
+            var content = File.ReadAllText(file);
             if (!content.Contains("MapEndpoint(", StringComparison.Ordinal))
             {
                 continue;
@@ -25,7 +25,7 @@ public sealed class SliceModulePolicyTests
     [Fact]
     public void Documentation_describes_static_http_slice_modules()
     {
-        DirectoryInfo root = FindRepositoryRoot();
+        var root = FindRepositoryRoot();
         string[] files =
         [
             Path.Combine(root.FullName, "README.md"),
@@ -33,9 +33,9 @@ public sealed class SliceModulePolicyTests
             Path.Combine(root.FullName, "AGENTS.md"),
         ];
 
-        foreach (string file in files)
+        foreach (var file in files)
         {
-            string content = File.ReadAllText(file);
+            var content = File.ReadAllText(file);
 
             Assert.DoesNotContain("IEndpointSlice", content, StringComparison.Ordinal);
             Assert.DoesNotContain("AddSlice<T>()", content, StringComparison.Ordinal);
@@ -44,7 +44,7 @@ public sealed class SliceModulePolicyTests
 
     private static DirectoryInfo FindRepositoryRoot()
     {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
             if (File.Exists(Path.Combine(directory.FullName, "LayerZero.slnx")))

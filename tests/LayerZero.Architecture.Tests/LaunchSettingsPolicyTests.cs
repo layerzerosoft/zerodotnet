@@ -7,16 +7,16 @@ public sealed class LaunchSettingsPolicyTests
     [Fact]
     public void Minimal_api_sample_uses_stable_supported_launch_profile_urls()
     {
-        DirectoryInfo root = FindRepositoryRoot();
-        string launchSettingsPath = Path.Combine(
+        var root = FindRepositoryRoot();
+        var launchSettingsPath = Path.Combine(
             root.FullName,
             "samples",
             "LayerZero.MinimalApi",
             "Properties",
             "launchSettings.json");
 
-        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(launchSettingsPath));
-        JsonElement profiles = document.RootElement.GetProperty("profiles");
+        using var document = JsonDocument.Parse(File.ReadAllText(launchSettingsPath));
+        var profiles = document.RootElement.GetProperty("profiles");
 
         AssertLaunchProfile(
             profiles.GetProperty("http"),
@@ -34,13 +34,13 @@ public sealed class LaunchSettingsPolicyTests
         string expectedApplicationUrl,
         string expectedLaunchUrl)
     {
-        string applicationUrl = profile.GetProperty("applicationUrl").GetString()
+        var applicationUrl = profile.GetProperty("applicationUrl").GetString()
             ?? throw new InvalidOperationException("The launch profile applicationUrl must be present.");
 
         Assert.DoesNotContain("localhost:0", applicationUrl, StringComparison.Ordinal);
         Assert.Equal(expectedApplicationUrl, applicationUrl);
 
-        bool launchBrowser = profile.GetProperty("launchBrowser").GetBoolean();
+        var launchBrowser = profile.GetProperty("launchBrowser").GetBoolean();
         Assert.True(launchBrowser);
 
         if (launchBrowser)
@@ -50,7 +50,7 @@ public sealed class LaunchSettingsPolicyTests
                 static address => Assert.False(address.EndsWith(":0", StringComparison.Ordinal)));
         }
 
-        string launchUrl = profile.GetProperty("launchUrl").GetString()
+        var launchUrl = profile.GetProperty("launchUrl").GetString()
             ?? throw new InvalidOperationException("The launch profile launchUrl must be present.");
 
         Assert.Equal(expectedLaunchUrl, launchUrl);
@@ -58,7 +58,7 @@ public sealed class LaunchSettingsPolicyTests
 
     private static DirectoryInfo FindRepositoryRoot()
     {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
             if (File.Exists(Path.Combine(directory.FullName, "LayerZero.slnx")))

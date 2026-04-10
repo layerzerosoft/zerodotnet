@@ -69,7 +69,7 @@ public sealed class Result<T>
     {
         ArgumentNullException.ThrowIfNull(errors);
 
-        Error[] materialized = errors.Where(error => error is not null).ToArray();
+        var materialized = errors.Where(error => error is not null).ToArray();
         if (materialized.Length == 0)
         {
             throw new ArgumentException("A failed result must contain at least one error.", nameof(errors));

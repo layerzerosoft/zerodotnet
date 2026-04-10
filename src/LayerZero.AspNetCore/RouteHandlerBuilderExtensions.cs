@@ -24,7 +24,7 @@ public static class RouteHandlerBuilderExtensions
         return builder
             .AddEndpointFilterFactory((factoryContext, next) =>
             {
-                int requestArgumentIndex = GetRequestArgumentIndex<TRequest>(factoryContext.MethodInfo);
+                var requestArgumentIndex = GetRequestArgumentIndex<TRequest>(factoryContext.MethodInfo);
 
                 return async invocationContext =>
                 {
@@ -34,11 +34,11 @@ public static class RouteHandlerBuilderExtensions
                         return await next(invocationContext).ConfigureAwait(false);
                     }
 
-                    IEnumerable<IValidator<TRequest>> validators = invocationContext.HttpContext
+                    var validators = invocationContext.HttpContext
                         .RequestServices
                         .GetServices<IValidator<TRequest>>();
 
-                    ValidationResult validation = await EndpointValidation.ValidateAsync(
+                    var validation = await EndpointValidation.ValidateAsync(
                         request,
                         validators,
                         invocationContext.HttpContext.RequestServices,
@@ -58,9 +58,9 @@ public static class RouteHandlerBuilderExtensions
 
     private static int GetRequestArgumentIndex<TRequest>(MethodInfo methodInfo)
     {
-        ParameterInfo[] parameters = methodInfo.GetParameters();
+        var parameters = methodInfo.GetParameters();
 
-        for (int index = 0; index < parameters.Length; index++)
+        for (var index = 0; index < parameters.Length; index++)
         {
             if (parameters[index].ParameterType == typeof(TRequest))
             {

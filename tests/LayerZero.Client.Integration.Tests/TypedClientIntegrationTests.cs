@@ -19,8 +19,8 @@ public sealed class TypedClientIntegrationTests : IClassFixture<WebApplicationFa
     [Fact]
     public async Task Explicit_typed_client_handles_create_get_complete_and_list_flows()
     {
-        TodosClient client = CreateClient();
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var client = CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
 
         var created = await client.CreateAsync(new CreateTodo.Request("Ship explicit LayerZero client", null), cancellationToken);
 
@@ -46,7 +46,7 @@ public sealed class TypedClientIntegrationTests : IClassFixture<WebApplicationFa
     [Fact]
     public async Task Explicit_typed_client_maps_validation_failures_to_layerzero_results()
     {
-        TodosClient client = CreateClient();
+        var client = CreateClient();
 
         var response = await client.CreateForResponseAsync(
             new CreateTodo.Request(string.Empty, null),
@@ -61,8 +61,8 @@ public sealed class TypedClientIntegrationTests : IClassFixture<WebApplicationFa
     [Fact]
     public async Task Explicit_typed_client_maps_not_found_without_throwing_and_exposes_headers()
     {
-        TodosClient client = CreateClient();
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var client = CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
 
         var createdResponse = await client.CreateForResponseAsync(
             new CreateTodo.Request("Inspect headers", null),
@@ -72,7 +72,7 @@ public sealed class TypedClientIntegrationTests : IClassFixture<WebApplicationFa
         Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
         Assert.True(createdResponse.Headers.ContainsKey("Location"));
 
-        Guid missingId = Guid.NewGuid();
+        var missingId = Guid.NewGuid();
         var missing = await client.GetForResponseAsync(missingId, cancellationToken);
 
         Assert.True(missing.IsFailure);
@@ -84,7 +84,7 @@ public sealed class TypedClientIntegrationTests : IClassFixture<WebApplicationFa
     [Fact]
     public void Typed_client_registration_keeps_ihttpclientbuilder_chaining_available()
     {
-        ServiceCollection services = new();
+        var services = new ServiceCollection();
         services.AddTransient<PassthroughHandler>();
 
         var builder = services.AddLayerZeroClient<TodosClient>(client =>

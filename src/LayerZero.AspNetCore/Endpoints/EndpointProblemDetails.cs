@@ -9,14 +9,14 @@ internal static class EndpointProblemDetails
 {
     public static IResult FromValidation(ValidationResult validation)
     {
-        Dictionary<string, string[]> errors = validation.Errors
+        var errors = validation.Errors
             .GroupBy(error => error.PropertyName, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
                 group => group.Select(error => error.Message).ToArray(),
                 StringComparer.Ordinal);
 
-        HttpValidationProblemDetails details = new(errors)
+        var details = new HttpValidationProblemDetails(errors)
         {
             Status = StatusCodes.Status400BadRequest,
             Title = "Validation failed.",
@@ -40,7 +40,7 @@ internal static class EndpointProblemDetails
 
     public static IResult FromFailure(IReadOnlyList<Error> errors)
     {
-        ProblemDetails details = new()
+        var details = new ProblemDetails()
         {
             Status = StatusCodes.Status400BadRequest,
             Title = "Request failed.",

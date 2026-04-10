@@ -13,8 +13,8 @@ internal static class AssertionFormatter
             return string.Empty;
         }
 
-        StringBuilder builder = new();
-        foreach (Error error in errors)
+        var builder = new StringBuilder();
+        foreach (var error in errors)
         {
             builder.AppendLine().Append(" - ").Append(error);
         }
@@ -29,8 +29,8 @@ internal static class AssertionFormatter
             return string.Empty;
         }
 
-        StringBuilder builder = new();
-        foreach (ValidationFailure failure in failures)
+        var builder = new StringBuilder();
+        foreach (var failure in failures)
         {
             builder
                 .AppendLine()

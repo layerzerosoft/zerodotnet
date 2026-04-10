@@ -5,9 +5,9 @@ public sealed class MessageContractTests
     [Fact]
     public async Task Command_handler_returns_result()
     {
-        CreateNoteHandler handler = new();
+        var handler = new CreateNoteHandler();
 
-        Result<CreateNoteResponse> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateNote("Slice mechanics"),
             TestContext.Current.CancellationToken);
 
@@ -18,9 +18,9 @@ public sealed class MessageContractTests
     [Fact]
     public async Task Event_handler_returns_result()
     {
-        NoteCreatedHandler handler = new();
+        var handler = new NoteCreatedHandler();
 
-        Result result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new NoteCreated(Guid.NewGuid()),
             TestContext.Current.CancellationToken);
 
