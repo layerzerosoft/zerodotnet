@@ -6,7 +6,7 @@ public sealed class SliceModulePolicyTests
     public void Sample_http_slice_modules_are_static_and_not_partial()
     {
         var root = FindRepositoryRoot();
-        var featuresPath = Path.Combine(root.FullName, "samples", "LayerZero.MinimalApi", "Features");
+        var featuresPath = Path.Combine(root.FullName, "samples", "LayerZero.Fulfillment.Api", "Features");
 
         foreach (var file in Directory.EnumerateFiles(featuresPath, "*.cs", SearchOption.AllDirectories))
         {

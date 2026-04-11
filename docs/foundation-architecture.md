@@ -10,6 +10,8 @@ before teams reach for heavy frameworks.
 - Sync and async vertical-slice handler contracts.
 - Command and event message contracts in `LayerZero.Core`.
 - Transport-neutral async messaging runtime in `LayerZero.Messaging`.
+- First-party RabbitMQ, Azure Service Bus, Kafka, and NATS JetStream adapters.
+- Real-broker adapter integration suites plus a fulfillment end-to-end broker matrix.
 - Self-mapping Minimal API endpoint slices.
 - Source-generated `AddSlices()` and `MapSlices()` as the default discovery path.
 - Source-generated `AddMessages()` and compile-time message manifests.
@@ -17,6 +19,8 @@ before teams reach for heavy frameworks.
 - ProblemDetails responses with machine-readable `layerzero.errors` metadata.
 - First-party testing assertions.
 - Source-controlled HTTP contracts and explicit typed clients.
+- Fulfillment sample family with API, processing worker, projections worker,
+  bootstrap host, typed client, and Aspire AppHost orchestration.
 - Dependency policy tests that block commercial-pressure and drift-prone dependencies.
 
 ## Slice Mechanics
@@ -82,20 +86,31 @@ Messaging is now implemented as ports first, transports second.
   `ICommandSender`, `IEventPublisher`, `MessageContext`,
   `IMessageProcessor`, `IMessageFailureClassifier`, and
   `IMessageIdempotencyStore`.
+- `MessageContext` and the generated manifest now carry affinity metadata so
+  adapters can project locality concepts such as Kafka keys and Service Bus
+  sessions without promising identical FIFO semantics everywhere.
 - The generator now emits `AddMessages()`, a compile-time message registry,
   deterministic logical names, and handler invokers for command/event flows.
 - Validation and handler execution stay generated and DI-first. Runtime
   assembly scanning remains out of scope.
 - Envelope metadata is standardized so adapters can share correlation,
   tracing, timestamp, attempt, and header behavior.
-- Transport adapters for RabbitMQ, Azure Service Bus, Kafka, NATS, and future
-  brokers must live in dedicated adapter packages and must not leak
-  broker-specific APIs into the core contracts.
+- Commands resolve to one durable consumer path. Events resolve to pub/sub
+  entities with durable subscriptions.
+- Transport adapters now ship for RabbitMQ, Azure Service Bus, Kafka, and
+  NATS JetStream. Future brokers must still live in dedicated adapter packages
+  and must not leak broker-specific APIs into the core contracts.
 - The sync request/response and async message flows share the same validation,
   result, observability, and testing concepts.
+- Startup validation is validate-only by default. Provisioning is explicit
+  through bootstrap paths so production startup does not mutate broker
+  infrastructure by surprise.
+- CI now treats live broker verification as a release gate. RabbitMQ, Kafka,
+  NATS, and the Azure Service Bus emulator run in the local matrix, and a
+  separate cloud parity workflow covers Azure Service Bus session behavior.
 
-The package-level setup and current scope are documented in
-`docs/messaging/async-messaging.md`.
+The package-level setup, broker defaults, and fulfillment sample are documented
+in `docs/messaging/async-messaging.md`.
 
 ## HTTP Clients
 

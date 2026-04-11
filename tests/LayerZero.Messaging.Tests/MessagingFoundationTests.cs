@@ -25,6 +25,7 @@ public sealed partial class MessagingFoundationTests
             "tenant=demo",
             timestamp,
             2,
+            null,
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["tenant"] = "acme",
@@ -89,7 +90,10 @@ public sealed partial class MessagingFoundationTests
             new TestCommand(string.Empty),
             new MessageContext("msg-2", descriptor.Name, MessageKind.Command, "primary", null, null, null, null, DateTimeOffset.UtcNow, 0));
 
-        var result = await processor.ProcessAsync(body, "primary", TestContext.Current.CancellationToken);
+        var result = await processor.ProcessAsync(
+            body,
+            "primary",
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(MessageProcessingAction.DeadLetter, result.Action);
         Assert.Contains(result.Errors, error => error.Code == "layerzero.validation.not_empty");
@@ -119,14 +123,15 @@ public sealed partial class MessagingFoundationTests
             MessageNames.For<TestCommand>(),
             typeof(TestCommand),
             kind,
-            TestJsonContext.Default.GetTypeInfo(typeof(TestCommand))!);
+            MessagingFoundationTestJsonContext.Default.GetTypeInfo(typeof(TestCommand))!,
+            MessageTopologyNames.Entity(kind, MessageNames.For<TestCommand>()));
     }
 
     private sealed record TestCommand(string Title) : ICommand;
 
     [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
     [JsonSerializable(typeof(TestCommand))]
-    private sealed partial class TestJsonContext : JsonSerializerContext;
+    private sealed partial class MessagingFoundationTestJsonContext : JsonSerializerContext;
 
     private sealed class FakeRegistry(MessageDescriptor descriptor) : IMessageRegistry
     {
@@ -163,6 +168,8 @@ public sealed partial class MessagingFoundationTests
         bool requiresIdempotency) : IMessageHandlerInvoker
     {
         public MessageDescriptor Descriptor { get; } = descriptor;
+
+        public string HandlerIdentity { get; } = "tests.fake";
 
         public bool RequiresIdempotency { get; } = requiresIdempotency;
 

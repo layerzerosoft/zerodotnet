@@ -10,10 +10,14 @@ public interface IMessageProcessor
     /// </summary>
     /// <param name="body">The transport body.</param>
     /// <param name="transportName">The logical transport name.</param>
+    /// <param name="handlerIdentity">The optional deterministic handler identity.</param>
+    /// <param name="attempt">The optional transport delivery attempt override.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The processing result.</returns>
     ValueTask<MessageProcessingResult> ProcessAsync(
         ReadOnlyMemory<byte> body,
         string transportName,
+        string? handlerIdentity = null,
+        int? attempt = null,
         CancellationToken cancellationToken = default);
 }

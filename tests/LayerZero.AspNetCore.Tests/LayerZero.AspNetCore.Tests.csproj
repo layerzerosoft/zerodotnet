@@ -11,7 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../samples/LayerZero.MinimalApi/LayerZero.MinimalApi.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
     <ProjectReference Include="../../src/LayerZero.Core/LayerZero.Core.csproj" />
     <ProjectReference Include="../../src/LayerZero.Testing/LayerZero.Testing.csproj" />
     <ProjectReference Include="../../src/LayerZero.Validation/LayerZero.Validation.csproj" />

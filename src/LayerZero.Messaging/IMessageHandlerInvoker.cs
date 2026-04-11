@@ -1,7 +1,7 @@
 namespace LayerZero.Messaging;
 
 /// <summary>
-/// Invokes validators and handlers for one discovered message type.
+/// Invokes validators and one discovered handler path for a message type.
 /// </summary>
 public interface IMessageHandlerInvoker
 {
@@ -11,7 +11,12 @@ public interface IMessageHandlerInvoker
     MessageDescriptor Descriptor { get; }
 
     /// <summary>
-    /// Gets whether any handler path requires idempotency support.
+    /// Gets the deterministic handler identity.
+    /// </summary>
+    string HandlerIdentity { get; }
+
+    /// <summary>
+    /// Gets whether this handler path requires idempotency support.
     /// </summary>
     bool RequiresIdempotency { get; }
 

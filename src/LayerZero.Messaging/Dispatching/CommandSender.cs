@@ -13,6 +13,7 @@ internal sealed class CommandSender(
     MessageRouteResolver routeResolver,
     MessageEnvelopeSerializer serializer,
     IMessageContextAccessor contextAccessor,
+    IMessageConventions conventions,
     TimeProvider timeProvider,
     MessagingTelemetry telemetry) : ICommandSender
 {
@@ -39,8 +40,10 @@ internal sealed class CommandSender(
         var transport = services.GetRequiredKeyedService<IMessageBusTransport>(busName);
         var context = MessageContextFactory.Create(
             descriptor,
+            command,
             busName,
             contextAccessor.Current,
+            conventions,
             timeProvider.GetUtcNow(),
             Activity.Current);
 

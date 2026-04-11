@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Testcontainers.Kafka" />
+    <PackageReference Include="Testcontainers.Nats" />
+    <PackageReference Include="Testcontainers.RabbitMq" />
+    <PackageReference Include="Testcontainers.ServiceBus" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Projections/LayerZero.Fulfillment.Projections.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.Nats/LayerZero.Messaging.Nats.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.RabbitMq/LayerZero.Messaging.RabbitMq.csproj" />
+  </ItemGroup>
+</Project>

@@ -5,13 +5,13 @@ namespace LayerZero.Architecture.Tests;
 public sealed class LaunchSettingsPolicyTests
 {
     [Fact]
-    public void Minimal_api_sample_uses_stable_supported_launch_profile_urls()
+    public void Fulfillment_api_sample_uses_stable_supported_launch_profile_urls()
     {
         var root = FindRepositoryRoot();
         var launchSettingsPath = Path.Combine(
             root.FullName,
             "samples",
-            "LayerZero.MinimalApi",
+            "LayerZero.Fulfillment.Api",
             "Properties",
             "launchSettings.json");
 
@@ -20,12 +20,12 @@ public sealed class LaunchSettingsPolicyTests
 
         AssertLaunchProfile(
             profiles.GetProperty("http"),
-            expectedApplicationUrl: "http://localhost:5270",
+            expectedApplicationUrl: "http://localhost:5380",
             expectedLaunchUrl: "openapi/v1.json");
 
         AssertLaunchProfile(
             profiles.GetProperty("https"),
-            expectedApplicationUrl: "https://localhost:7270;http://localhost:5270",
+            expectedApplicationUrl: "https://localhost:7380;http://localhost:5380",
             expectedLaunchUrl: "openapi/v1.json");
     }
 

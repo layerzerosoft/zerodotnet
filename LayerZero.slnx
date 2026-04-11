@@ -1,8 +1,13 @@
 <Solution>
   <Folder Name="/samples/">
-    <Project Path="samples/LayerZero.MinimalApi.Client/LayerZero.MinimalApi.Client.csproj" />
-    <Project Path="samples/LayerZero.MinimalApi.Contracts/LayerZero.MinimalApi.Contracts.csproj" />
-    <Project Path="samples/LayerZero.MinimalApi/LayerZero.MinimalApi.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.AppHost/LayerZero.Fulfillment.AppHost.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Client/LayerZero.Fulfillment.Client.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Projections/LayerZero.Fulfillment.Projections.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
@@ -11,6 +16,10 @@
     <Project Path="src/LayerZero.Generators/LayerZero.Generators.csproj" />
     <Project Path="src/LayerZero.Http/LayerZero.Http.csproj" />
     <Project Path="src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
+    <Project Path="src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />
+    <Project Path="src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
+    <Project Path="src/LayerZero.Messaging.Nats/LayerZero.Messaging.Nats.csproj" />
+    <Project Path="src/LayerZero.Messaging.RabbitMq/LayerZero.Messaging.RabbitMq.csproj" />
     <Project Path="src/LayerZero.Testing/LayerZero.Testing.csproj" />
     <Project Path="src/LayerZero.Validation/LayerZero.Validation.csproj" />
   </Folder>
@@ -20,8 +29,14 @@
     <Project Path="tests/LayerZero.Client.Integration.Tests/LayerZero.Client.Integration.Tests.csproj" />
     <Project Path="tests/LayerZero.Client.Tests/LayerZero.Client.Tests.csproj" />
     <Project Path="tests/LayerZero.Core.Tests/LayerZero.Core.Tests.csproj" />
+    <Project Path="tests/LayerZero.Fulfillment.EndToEnd.Tests/LayerZero.Fulfillment.EndToEnd.Tests.csproj" />
     <Project Path="tests/LayerZero.Generators.Tests/LayerZero.Generators.Tests.csproj" />
     <Project Path="tests/LayerZero.Http.Tests/LayerZero.Http.Tests.csproj" />
+    <Project Path="tests/LayerZero.Messaging.AzureServiceBus.IntegrationTests/LayerZero.Messaging.AzureServiceBus.IntegrationTests.csproj" />
+    <Project Path="tests/LayerZero.Messaging.IntegrationTesting/LayerZero.Messaging.IntegrationTesting.csproj" />
+    <Project Path="tests/LayerZero.Messaging.Kafka.IntegrationTests/LayerZero.Messaging.Kafka.IntegrationTests.csproj" />
+    <Project Path="tests/LayerZero.Messaging.Nats.IntegrationTests/LayerZero.Messaging.Nats.IntegrationTests.csproj" />
+    <Project Path="tests/LayerZero.Messaging.RabbitMq.IntegrationTests/LayerZero.Messaging.RabbitMq.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.Tests/LayerZero.Messaging.Tests.csproj" />
     <Project Path="tests/LayerZero.Testing.Tests/LayerZero.Testing.Tests.csproj" />
     <Project Path="tests/LayerZero.Validation.Tests/LayerZero.Validation.Tests.csproj" />

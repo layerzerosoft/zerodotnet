@@ -7,12 +7,12 @@ namespace LayerZero.Messaging.Internal;
 
 internal sealed class MessagingStartupValidationHostedService(
     IEnumerable<IMessageHandlerInvoker> invokers,
-    IEnumerable<IMessageBusTopologyValidator> topologyValidators,
+    IEnumerable<IMessageTopologyManager> topologyManagers,
     IOptions<MessagingOptions> options,
     IServiceProvider services) : IHostedService
 {
     private readonly IMessageHandlerInvoker[] invokers = invokers.ToArray();
-    private readonly IMessageBusTopologyValidator[] topologyValidators = topologyValidators.ToArray();
+    private readonly IMessageTopologyManager[] topologyManagers = topologyManagers.ToArray();
     private readonly MessagingOptions options = options.Value;
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -29,9 +29,9 @@ internal sealed class MessagingStartupValidationHostedService(
             return;
         }
 
-        foreach (var validator in topologyValidators)
+        foreach (var manager in topologyManagers)
         {
-            await validator.ValidateAsync(cancellationToken).ConfigureAwait(false);
+            await manager.ValidateAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 

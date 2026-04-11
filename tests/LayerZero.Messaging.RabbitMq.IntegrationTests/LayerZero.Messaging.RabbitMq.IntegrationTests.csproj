@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Testcontainers.RabbitMq" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../LayerZero.Messaging.IntegrationTesting/LayerZero.Messaging.IntegrationTesting.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.RabbitMq/LayerZero.Messaging.RabbitMq.csproj" />
+  </ItemGroup>
+</Project>

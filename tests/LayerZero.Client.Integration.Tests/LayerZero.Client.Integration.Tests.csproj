@@ -11,8 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../samples/LayerZero.MinimalApi/LayerZero.MinimalApi.csproj" />
-    <ProjectReference Include="../../samples/LayerZero.MinimalApi.Client/LayerZero.MinimalApi.Client.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Client/LayerZero.Fulfillment.Client.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
     <ProjectReference Include="../../src/LayerZero.Core/LayerZero.Core.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Client/LayerZero.Client.csproj" />
   </ItemGroup>
 </Project>

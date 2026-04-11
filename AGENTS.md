@@ -17,7 +17,9 @@ clear package boundaries, and boringly reliable builds.
 - Public product name: LayerZero.
 - Public packages: `LayerZero.Core`, `LayerZero.Validation`,
   `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
-  `LayerZero.Testing`, and `LayerZero.Client`.
+  `LayerZero.Messaging`, `LayerZero.Messaging.RabbitMq`,
+  `LayerZero.Messaging.AzureServiceBus`, `LayerZero.Messaging.Kafka`,
+  `LayerZero.Messaging.Nats`, `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.
 - License: MIT.
 - Baseline framework: .NET 10 LTS, `net10.0`.
@@ -45,16 +47,18 @@ clear package boundaries, and boringly reliable builds.
 - Sample and app launch profiles must use explicit non-zero development ports.
   Do not use `localhost:0` as the default developer startup experience. If
   dynamic ports are ever required, use loopback IPs only by explicit design.
-- Non-HTTP slices start as command/event contracts. Do not add dispatchers,
-  in-memory buses, broker abstractions, retries, outbox, transport envelopes,
-  or adapter packages without an explicit architecture decision.
+- Non-HTTP slices start as command/event contracts in `LayerZero.Core`, then
+  compose through `LayerZero.Messaging` and broker adapters. Do not add a
+  hidden in-memory bus, outbox/inbox, broker request/reply, or a second
+  competing messaging model without an explicit architecture decision.
 - Make sync and async flows equally intentional.
 - Keep public APIs AOT-aware and trimming-aware. Avoid reflection unless there
   is a strong documented reason.
 - Prefer small composable abstractions over framework-sized magic.
 - Add tests with behavior-level names and failure messages that help agents act.
 - Keep package boundaries clean: core has no ASP.NET Core dependency, broker
-  SDKs live only in future transport adapters.
+  SDKs live only in dedicated transport adapter packages, samples, and
+  adapter-focused tests.
 - Keep HTTP contracts and HTTP clients secondary to native Minimal API
   authoring. Do not introduce LayerZero-specific server DSLs, client-generation
   attributes, or alternate endpoint models just to improve clients.
@@ -99,12 +103,15 @@ dotnet pack --no-build
 
 If a command cannot run, report the exact blocker.
 
-## Future Architecture Guardrails
+## Architecture Guardrails
 
-Messaging starts with ports, then transport adapters. Dashboard starts with
-middleware and stable JSON endpoints, then a packaged React static app. Do not
-stub broad packages just to look complete; add packages when their contracts are
-clear enough to test.
+Messaging is now ports first, adapters second. Keep broker-specific behavior in
+`LayerZero.Messaging.*` packages and keep transport-neutral contracts in
+`LayerZero.Core` and `LayerZero.Messaging`. Do not stub broad packages just to
+look complete; add new packages when their contracts are clear enough to test.
+
+The dashboard still starts with middleware and stable JSON endpoints, then a
+packaged React static app.
 
 OpenAPI is for documentation and CI artifact flows. The client story is shared
 contracts plus explicit typed clients, not hidden generated code in `obj`.

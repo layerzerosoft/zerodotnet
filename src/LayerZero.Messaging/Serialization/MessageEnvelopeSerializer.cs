@@ -3,7 +3,10 @@ using System.Text.Json;
 
 namespace LayerZero.Messaging.Serialization;
 
-internal sealed class MessageEnvelopeSerializer
+/// <summary>
+/// Serializes and deserializes LayerZero transport envelopes.
+/// </summary>
+public sealed class MessageEnvelopeSerializer
 {
     private const string MessageIdProperty = "messageId";
     private const string MessageNameProperty = "messageName";
@@ -14,9 +17,17 @@ internal sealed class MessageEnvelopeSerializer
     private const string TraceStateProperty = "traceState";
     private const string TimestampProperty = "timestamp";
     private const string AttemptProperty = "attempt";
+    private const string AffinityKeyProperty = "affinityKey";
     private const string HeadersProperty = "headers";
     private const string PayloadProperty = "payload";
 
+    /// <summary>
+    /// Serializes one message and its envelope metadata.
+    /// </summary>
+    /// <param name="descriptor">The message descriptor.</param>
+    /// <param name="message">The message payload.</param>
+    /// <param name="context">The message context.</param>
+    /// <returns>The serialized envelope body.</returns>
     public ReadOnlyMemory<byte> Serialize(MessageDescriptor descriptor, object message, MessageContext context)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
@@ -53,6 +64,12 @@ internal sealed class MessageEnvelopeSerializer
 
         writer.WriteString(TimestampProperty, context.Timestamp);
         writer.WriteNumber(AttemptProperty, context.Attempt);
+
+        if (context.AffinityKey is not null)
+        {
+            writer.WriteString(AffinityKeyProperty, context.AffinityKey);
+        }
+
         writer.WritePropertyName(HeadersProperty);
         writer.WriteStartObject();
 
@@ -70,6 +87,13 @@ internal sealed class MessageEnvelopeSerializer
         return buffer.WrittenMemory.ToArray();
     }
 
+    /// <summary>
+    /// Deserializes one incoming transport envelope.
+    /// </summary>
+    /// <param name="body">The transport body.</param>
+    /// <param name="transportName">The transport name.</param>
+    /// <param name="registry">The message registry.</param>
+    /// <returns>The deserialized envelope.</returns>
     public DeserializedMessageEnvelope Deserialize(
         ReadOnlyMemory<byte> body,
         string transportName,
@@ -111,6 +135,7 @@ internal sealed class MessageEnvelopeSerializer
             TryGetString(root, TraceStateProperty),
             root.GetProperty(TimestampProperty).GetDateTimeOffset(),
             root.GetProperty(AttemptProperty).GetInt32(),
+            TryGetString(root, AffinityKeyProperty),
             headers);
 
         var payload = root.GetProperty(PayloadProperty);

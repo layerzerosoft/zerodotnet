@@ -5,16 +5,19 @@ LayerZero is a modern, AI-agent-friendly foundation for .NET.
 The project starts with ASP.NET Core, Minimal APIs, first-class slices,
 source-generated slice registration, validation, OpenAPI, source-controlled
 HTTP contracts, explicit typed clients, transport-neutral async messaging,
-and first-party testing primitives. Broker-specific adapters and the React
-dashboard still sit behind that foundation so they can stay small, explicit,
-and reliable instead of turning into framework-sized magic.
+RabbitMQ, Azure Service Bus, Kafka, and NATS adapters, and first-party testing
+primitives. The React dashboard still sits behind that foundation so it can
+stay small, explicit, and reliable instead of turning into framework-sized
+magic.
 
 ## Foundation
 
 - Baseline: .NET 10 LTS, `net10.0`, C# latest.
 - Public packages: `LayerZero.Core`, `LayerZero.Validation`,
   `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
-  `LayerZero.Messaging`, `LayerZero.Testing`, and `LayerZero.Client`.
+  `LayerZero.Messaging`, `LayerZero.Messaging.RabbitMq`,
+  `LayerZero.Messaging.AzureServiceBus`, `LayerZero.Messaging.Kafka`,
+  `LayerZero.Messaging.Nats`, `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.
 - API posture: dependency-light, source-generator-first, AOT-aware, trimming-aware, Minimal API native.
 - OpenAPI posture: Microsoft built-in `Microsoft.AspNetCore.OpenApi`, OpenAPI 3.1.
@@ -31,6 +34,10 @@ and reliable instead of turning into framework-sized magic.
 - `LayerZero.Generators`: compile-time slice discovery for `AddSlices()` and `MapSlices()`.
 - `LayerZero.Http`: source-controlled HTTP contracts shared by servers and clients.
 - `LayerZero.Messaging`: transport-neutral command/event dispatch, message envelopes, routing, idempotency hooks, and compile-time message manifests.
+- `LayerZero.Messaging.RabbitMq`: RabbitMQ transport defaults, topology validation/provisioning, hosted consumers, and health checks.
+- `LayerZero.Messaging.AzureServiceBus`: Azure Service Bus transport defaults, session-aware affinity support, topology validation/provisioning, hosted consumers, and health checks.
+- `LayerZero.Messaging.Kafka`: Kafka transport defaults, retry/dead-letter topics, topology validation/provisioning, hosted consumers, and health checks.
+- `LayerZero.Messaging.Nats`: NATS JetStream transport defaults, topology validation/provisioning, hosted consumers, and health checks.
 - `LayerZero.Testing`: fluent first-party assertions for LayerZero result and validation flows.
 - `LayerZero.Client`: `LayerZeroClient`, `ApiResponse`,
   `Result`-first failure mapping, and `IHttpClientFactory` registration for explicit typed clients.
@@ -84,13 +91,25 @@ LayerZero messaging standardizes:
 
 - generated message discovery and logical names
 - transport-neutral `ICommandSender` and `IEventPublisher`
+- point-to-point command routing and pub/sub event fan-out
 - envelope metadata such as message id, correlation id, causation id, trace
   context, timestamp, attempt, and headers
 - validation-aware and result-aware processing through `IMessageProcessor`
 - idempotency hooks through `IMessageIdempotencyStore`
+- transport adapters for RabbitMQ, Azure Service Bus, Kafka, and NATS JetStream
+- topology validation via `IMessageTopologyManager`
+- affinity-aware routing metadata through `MessageContext.AffinityKey`
 
-Dedicated RabbitMQ, Azure Service Bus, Kafka, and NATS transport adapters are
-the next layer on top of this foundation.
+Real-broker verification is part of the repo now. `dotnet test` covers:
+
+- transport-neutral runtime tests
+- generator and architecture tests
+- RabbitMQ, Azure Service Bus emulator, Kafka, and NATS adapter integration tests
+- the fulfillment end-to-end matrix across every local broker profile
+
+The fulfillment sample family exercises those defaults with order placement,
+inventory, payment, shipment, retries, dead-lettering, duplicate-delivery
+protection, and correlation-aware timelines.
 
 ## HTTP Clients
 
@@ -146,21 +165,53 @@ dotnet pack --no-build
 Run the sample:
 
 ```bash
-dotnet run --project samples/LayerZero.MinimalApi
+dotnet run --project samples/LayerZero.Fulfillment.AppHost
 ```
 
-Sample launch profiles use stable dev URLs:
+Local orchestration prerequisites:
 
-- HTTP: `http://localhost:5270`
-- HTTPS: `https://localhost:7270`
+- Docker Desktop, Podman, or another OCI-compatible container runtime
+- .NET 10 SDK
+- enough free ports for RabbitMQ, Azure Service Bus emulator, Kafka, and NATS
 
-Then open `/openapi/v1.json`, `GET /todos`, or `POST /todos`.
+`dotnet test --no-build` expects a live local Docker daemon because the broker
+integration suites run against real containers and the Azure Service Bus
+emulator. The separate cloud Azure Service Bus parity workflow uses these
+secrets:
 
-Run the client sample against the API:
+- `LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING`
+- `LAYERZERO_AZURE_SERVICE_BUS_CLOUD_ADMIN_CONNECTION_STRING`
+
+The flagship sample family lives under `samples/LayerZero.Fulfillment.*`.
+`LayerZero.Fulfillment.AppHost` runs broker profiles side by side, provisions
+local topology through `LayerZero.Fulfillment.Bootstrap`, and starts:
+
+- `LayerZero.Fulfillment.Api`
+- `LayerZero.Fulfillment.Processing`
+- `LayerZero.Fulfillment.Projections`
+
+The API sample launch profiles use stable dev URLs:
+
+- HTTP: `http://localhost:5380`
+- HTTPS: `https://localhost:7380`
+
+Then open `/openapi/v1.json`, `POST /orders`, `GET /orders/{id}`, or
+`GET /orders/{id}/timeline`.
+
+Run the typed client sample against the API:
 
 ```bash
-dotnet run --project samples/LayerZero.MinimalApi.Client -- https://localhost:7270
+dotnet run --project samples/LayerZero.Fulfillment.Client -- https://localhost:7380
 ```
+
+Messaging docs:
+
+- hub: [`docs/messaging/async-messaging.md`](docs/messaging/async-messaging.md)
+- fulfillment runbook: [`docs/messaging/fulfillment-sample.md`](docs/messaging/fulfillment-sample.md)
+- RabbitMQ: [`docs/messaging/rabbitmq.md`](docs/messaging/rabbitmq.md)
+- Azure Service Bus: [`docs/messaging/azure-service-bus.md`](docs/messaging/azure-service-bus.md)
+- Kafka: [`docs/messaging/kafka.md`](docs/messaging/kafka.md)
+- NATS: [`docs/messaging/nats.md`](docs/messaging/nats.md)
 
 ## References
 

@@ -18,6 +18,7 @@ public sealed class MessageContext
     /// <param name="traceState">The W3C tracestate value.</param>
     /// <param name="timestamp">The message timestamp.</param>
     /// <param name="attempt">The delivery attempt count.</param>
+    /// <param name="affinityKey">The optional transport-neutral affinity key.</param>
     /// <param name="headers">Additional arbitrary headers.</param>
     public MessageContext(
         string messageId,
@@ -30,6 +31,7 @@ public sealed class MessageContext
         string? traceState,
         DateTimeOffset timestamp,
         int attempt,
+        string? affinityKey = null,
         IReadOnlyDictionary<string, string>? headers = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(messageId);
@@ -46,6 +48,7 @@ public sealed class MessageContext
         TraceState = string.IsNullOrWhiteSpace(traceState) ? null : traceState;
         Timestamp = timestamp;
         Attempt = attempt;
+        AffinityKey = string.IsNullOrWhiteSpace(affinityKey) ? null : affinityKey;
         Headers = headers is null
             ? EmptyHeaders
             : new Dictionary<string, string>(headers, StringComparer.Ordinal);
@@ -105,6 +108,11 @@ public sealed class MessageContext
     public int Attempt { get; }
 
     /// <summary>
+    /// Gets the optional affinity key used by transports that support ordered or localized processing.
+    /// </summary>
+    public string? AffinityKey { get; }
+
+    /// <summary>
     /// Gets arbitrary additional headers.
     /// </summary>
     public IReadOnlyDictionary<string, string> Headers { get; }
@@ -127,6 +135,7 @@ public sealed class MessageContext
             TraceState,
             Timestamp,
             Attempt,
+            AffinityKey,
             Headers);
     }
 
@@ -148,6 +157,29 @@ public sealed class MessageContext
             TraceState,
             Timestamp,
             attempt,
+            AffinityKey,
+            Headers);
+    }
+
+    /// <summary>
+    /// Creates a copy with a different affinity key.
+    /// </summary>
+    /// <param name="affinityKey">The new affinity key.</param>
+    /// <returns>The copied context.</returns>
+    public MessageContext WithAffinityKey(string? affinityKey)
+    {
+        return new MessageContext(
+            MessageId,
+            MessageName,
+            MessageKind,
+            TransportName,
+            CorrelationId,
+            CausationId,
+            TraceParent,
+            TraceState,
+            Timestamp,
+            Attempt,
+            affinityKey,
             Headers);
     }
 }

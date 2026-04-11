@@ -5,7 +5,8 @@ namespace LayerZero.Messaging.Dispatching;
 
 internal sealed class MessageRouteResolver(
     IOptions<MessagingOptions> options,
-    IEnumerable<MessageBusRegistration> registrations)
+    IMessageConventions conventions,
+    IEnumerable<MessageBusRegistration> registrations) : IMessageRouteResolver
 {
     private readonly MessagingOptions options = options.Value;
     private readonly MessageBusRegistration[] registrations = registrations.ToArray();
@@ -13,6 +14,12 @@ internal sealed class MessageRouteResolver(
     public string Resolve(MessageDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
+
+        var conventionRoute = conventions.GetBusRoute(descriptor);
+        if (!string.IsNullOrWhiteSpace(conventionRoute))
+        {
+            return conventionRoute;
+        }
 
         if (options.MessageRoutes.TryGetValue(descriptor.Name, out var explicitRoute))
         {

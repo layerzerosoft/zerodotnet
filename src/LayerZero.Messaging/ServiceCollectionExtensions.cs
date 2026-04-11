@@ -32,6 +32,16 @@ public static class ServiceCollectionExtensions
             .Validate(static options => options.MessageRoutes.Values.All(static value => !string.IsNullOrWhiteSpace(value)),
                 "Message routes must target a named bus.")
             .ValidateOnStart();
+        services.AddOptions<MessageConventionOptions>()
+            .Validate(static options => options.BusRoutes.Keys.All(static key => !string.IsNullOrWhiteSpace(key)),
+                "Message convention route keys must not be empty.")
+            .Validate(static options => options.BusRoutes.Values.All(static value => !string.IsNullOrWhiteSpace(value)),
+                "Message convention routes must target a named bus.")
+            .Validate(static options => options.EntityNames.Keys.All(static key => !string.IsNullOrWhiteSpace(key)),
+                "Message convention entity keys must not be empty.")
+            .Validate(static options => options.EntityNames.Values.All(static value => !string.IsNullOrWhiteSpace(value)),
+                "Message convention entity names must not be empty.")
+            .ValidateOnStart();
 
         if (configure is not null)
         {
@@ -40,8 +50,10 @@ public static class ServiceCollectionExtensions
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IMessageContextAccessor, AmbientMessageContextAccessor>();
+        services.TryAddSingleton<IMessageConventions, DefaultMessageConventions>();
         services.TryAddSingleton<MessageEnvelopeSerializer>();
         services.TryAddSingleton<MessageRouteResolver>();
+        services.TryAddSingleton<IMessageRouteResolver>(static services => services.GetRequiredService<MessageRouteResolver>());
         services.TryAddSingleton<IMessageFailureClassifier, DefaultMessageFailureClassifier>();
         services.TryAddScoped<ICommandSender, CommandSender>();
         services.TryAddScoped<IEventPublisher, EventPublisher>();
@@ -53,16 +65,16 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Adds a transport topology validator.
+    /// Adds a transport topology manager.
     /// </summary>
-    /// <typeparam name="TValidator">The validator type.</typeparam>
+    /// <typeparam name="TManager">The manager type.</typeparam>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection.</returns>
-    public static IServiceCollection AddMessageTopologyValidator<TValidator>(this IServiceCollection services)
-        where TValidator : class, IMessageBusTopologyValidator
+    public static IServiceCollection AddMessageTopologyManager<TManager>(this IServiceCollection services)
+        where TManager : class, IMessageTopologyManager
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IMessageBusTopologyValidator, TValidator>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IMessageTopologyManager, TManager>());
         return services;
     }
 }

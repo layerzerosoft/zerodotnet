@@ -162,15 +162,15 @@ public sealed class DependencyPolicyTests
     }
 
     [Fact]
-    public void Client_sample_does_not_hardcode_todo_routes()
+    public void Client_sample_does_not_hardcode_order_routes()
     {
         var root = FindRepositoryRoot();
-        var clientSamplePath = Path.Combine(root.FullName, "samples", "LayerZero.MinimalApi.Client");
+        var clientSamplePath = Path.Combine(root.FullName, "samples", "LayerZero.Fulfillment.Client");
 
         var violations = Directory
             .EnumerateFiles(clientSamplePath, "*.cs", SearchOption.AllDirectories)
             .Where(file => !IsIgnoredPath(root, file))
-            .Where(file => File.ReadAllText(file).Contains("/todos", StringComparison.Ordinal))
+            .Where(file => File.ReadAllText(file).Contains("/orders", StringComparison.Ordinal))
             .Select(file => Path.GetRelativePath(root.FullName, file))
             .Order(StringComparer.Ordinal)
             .ToArray();

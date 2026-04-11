@@ -44,6 +44,42 @@ public sealed class MessagingBuilder
     }
 
     /// <summary>
+    /// Overrides the default entity name for one message type.
+    /// </summary>
+    /// <typeparam name="TMessage">The message type.</typeparam>
+    /// <param name="entityName">The entity name.</param>
+    /// <returns>The builder.</returns>
+    public MessagingBuilder Entity<TMessage>(string entityName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(entityName);
+        return ConfigureConventions(options => options.Entity<TMessage>(entityName));
+    }
+
+    /// <summary>
+    /// Declares an affinity selector for one message type.
+    /// </summary>
+    /// <typeparam name="TMessage">The message type.</typeparam>
+    /// <param name="selector">The affinity selector.</param>
+    /// <returns>The builder.</returns>
+    public MessagingBuilder Affinity<TMessage>(Func<TMessage, string?> selector)
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return ConfigureConventions(options => options.Affinity(selector));
+    }
+
+    /// <summary>
+    /// Configures the message conventions.
+    /// </summary>
+    /// <param name="configure">The conventions delegate.</param>
+    /// <returns>The builder.</returns>
+    public MessagingBuilder ConfigureConventions(Action<MessageConventionOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        Services.PostConfigure(configure);
+        return this;
+    }
+
+    /// <summary>
     /// Configures the underlying messaging options.
     /// </summary>
     /// <param name="configure">The configuration delegate.</param>

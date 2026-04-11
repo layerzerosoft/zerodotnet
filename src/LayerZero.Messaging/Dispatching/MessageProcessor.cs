@@ -15,28 +15,49 @@ internal sealed class MessageProcessor(
     MessagingTelemetry telemetry,
     MessageEnvelopeSerializer serializer) : IMessageProcessor
 {
-    private readonly Dictionary<string, IMessageHandlerInvoker> invokersByName = invokers
-        .ToDictionary(invoker => invoker.Descriptor.Name, StringComparer.Ordinal);
+    private readonly Dictionary<string, IMessageHandlerInvoker> invokersByKey = invokers
+        .ToDictionary(static invoker => CreateKey(invoker.Descriptor.Name, invoker.HandlerIdentity), StringComparer.Ordinal);
+    private readonly Dictionary<string, IReadOnlyList<IMessageHandlerInvoker>> invokersByMessageName = invokers
+        .GroupBy(static invoker => invoker.Descriptor.Name, StringComparer.Ordinal)
+        .ToDictionary(
+            static group => group.Key,
+            static group => (IReadOnlyList<IMessageHandlerInvoker>)group.OrderBy(static invoker => invoker.HandlerIdentity, StringComparer.Ordinal).ToArray(),
+            StringComparer.Ordinal);
 
     public async ValueTask<MessageProcessingResult> ProcessAsync(
         ReadOnlyMemory<byte> body,
         string transportName,
+        string? handlerIdentity = null,
+        int? attempt = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(transportName);
 
         var envelope = serializer.Deserialize(body, transportName, registry);
+        if (attempt is { } attemptValue)
+        {
+            envelope = new DeserializedMessageEnvelope(
+                envelope.Descriptor,
+                envelope.Message,
+                envelope.Context.WithAttempt(attemptValue));
+        }
+
         using var activity = telemetry.ActivitySource.StartActivity("layerzero.message.process", ActivityKind.Consumer);
         activity?.SetTag("messaging.layerzero.message_name", envelope.Descriptor.Name);
         activity?.SetTag("messaging.system", transportName);
         activity?.SetTag("messaging.operation", envelope.Descriptor.Kind == MessageKind.Command ? "process" : "publish");
+        if (!string.IsNullOrWhiteSpace(handlerIdentity))
+        {
+            activity?.SetTag("messaging.layerzero.handler", handlerIdentity);
+        }
 
-        if (!invokersByName.TryGetValue(envelope.Descriptor.Name, out var invoker))
+        var invoker = ResolveInvoker(envelope.Descriptor.Name, handlerIdentity);
+        if (invoker is null)
         {
             telemetry.FailedCounter.Add(1);
             return MessageProcessingResult.DeadLetter(
                 envelope.Context,
-                [Error.Create("layerzero.messaging.handler_missing", $"No invoker exists for '{envelope.Descriptor.Name}'.")]);
+                [Error.Create("layerzero.messaging.handler_missing", BuildMissingInvokerMessage(envelope.Descriptor.Name, handlerIdentity))]);
         }
 
         try
@@ -86,5 +107,33 @@ internal sealed class MessageProcessor(
 
         telemetry.ProcessedCounter.Add(1);
         return MessageProcessingResult.Complete(envelope.Context);
+    }
+
+    private IMessageHandlerInvoker? ResolveInvoker(string messageName, string? handlerIdentity)
+    {
+        if (!string.IsNullOrWhiteSpace(handlerIdentity))
+        {
+            invokersByKey.TryGetValue(CreateKey(messageName, handlerIdentity), out var resolved);
+            return resolved;
+        }
+
+        if (!invokersByMessageName.TryGetValue(messageName, out var invokersForMessage))
+        {
+            return null;
+        }
+
+        return invokersForMessage.Count == 1 ? invokersForMessage[0] : null;
+    }
+
+    private static string BuildMissingInvokerMessage(string messageName, string? handlerIdentity)
+    {
+        return string.IsNullOrWhiteSpace(handlerIdentity)
+            ? $"No invoker exists for '{messageName}'."
+            : $"No invoker exists for '{messageName}' and handler '{handlerIdentity}'.";
+    }
+
+    private static string CreateKey(string messageName, string handlerIdentity)
+    {
+        return $"{messageName}::{handlerIdentity}";
     }
 }

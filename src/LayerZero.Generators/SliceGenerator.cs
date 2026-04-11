@@ -18,6 +18,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
     private const string MessagingExtensionsClassName = "LayerZeroGeneratedMessagingExtensions";
     private const string MessagingNamespace = "LayerZero.Messaging";
     private const string MessagingRegistryClassName = "LayerZeroGeneratedMessageRegistry";
+    private const string MessagingTopologyManifestClassName = "LayerZeroGeneratedMessageTopologyManifest";
     private const string MessagingJsonContextClassName = "LayerZeroGeneratedMessageJsonContext";
     private static readonly SymbolDisplayFormat FullyQualifiedFormat = SymbolDisplayFormat.FullyQualifiedFormat;
 
@@ -65,6 +66,14 @@ public sealed class SliceGenerator : IIncrementalGenerator
         "LZGEN006",
         "Duplicate logical message names are not supported",
         "Messages '{0}' and '{1}' resolve to the same logical name '{2}'",
+        "LayerZero.Messaging",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    private static readonly DiagnosticDescriptor InvalidAffinityKey = new(
+        "LZGEN007",
+        "Invalid affinity key declaration",
+        "Message '{0}' declares affinity member '{1}', but no readable instance property or field with that name exists",
         "LayerZero.Messaging",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -169,7 +178,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
 
             if (messagingAvailable)
             {
-                DiscoverMessageArtifacts(messageState, symbol);
+                DiscoverMessageArtifacts(context, messageState, symbol);
             }
         }
 
@@ -217,13 +226,22 @@ public sealed class SliceGenerator : IIncrementalGenerator
         context.AddSource("LayerZero.Messaging.g.cs", SourceText.From(messagingSource, Encoding.UTF8));
     }
 
-    private static void DiscoverMessageArtifacts(MessageGenerationState state, INamedTypeSymbol symbol)
+    private static void DiscoverMessageArtifacts(SourceProductionContext context, MessageGenerationState state, INamedTypeSymbol symbol)
     {
         if (!symbol.IsGenericType && !symbol.IsAbstract && !symbol.IsStatic)
         {
-            if (TryCreateMessageDefinition(symbol, out var message))
+            if (TryCreateMessageDefinition(symbol, out var message, out var invalidAffinityMember))
             {
                 state.MessagesByType[message.TypeName] = message;
+            }
+
+            if (invalidAffinityMember is { } invalidAffinity)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    InvalidAffinityKey,
+                    invalidAffinity.Location,
+                    symbol.ToDisplayString(FullyQualifiedFormat),
+                    invalidAffinity.MemberName));
             }
         }
 
@@ -231,6 +249,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
         {
             if (IsInterface(interfaceType, "LayerZero.Validation", "IValidator", 1))
             {
+                EnsureMessageDefinition(context, state, interfaceType.TypeArguments[0] as INamedTypeSymbol);
                 var messageTypeName = interfaceType.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
                 state.ValidatorTypesByMessageType.GetOrAdd(messageTypeName).Add(symbol.ToDisplayString(FullyQualifiedFormat));
                 continue;
@@ -238,6 +257,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
 
             if (IsInterface(interfaceType, "LayerZero.Core", "ICommandHandler", 1))
             {
+                EnsureMessageDefinition(context, state, interfaceType.TypeArguments[0] as INamedTypeSymbol);
                 var commandTypeName = interfaceType.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
                 state.CommandHandlerTypesByMessageType.GetOrAdd(commandTypeName).Add(new HandlerDefinition(
                     symbol.ToDisplayString(FullyQualifiedFormat),
@@ -247,6 +267,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
 
             if (IsInterface(interfaceType, "LayerZero.Core", "IEventHandler", 1))
             {
+                EnsureMessageDefinition(context, state, interfaceType.TypeArguments[0] as INamedTypeSymbol);
                 var eventTypeName = interfaceType.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
                 state.EventHandlerTypesByMessageType.GetOrAdd(eventTypeName).Add(new HandlerDefinition(
                     symbol.ToDisplayString(FullyQualifiedFormat),
@@ -255,9 +276,44 @@ public sealed class SliceGenerator : IIncrementalGenerator
         }
     }
 
-    private static bool TryCreateMessageDefinition(INamedTypeSymbol symbol, out MessageDefinition message)
+    private static void EnsureMessageDefinition(
+        SourceProductionContext context,
+        MessageGenerationState state,
+        INamedTypeSymbol? messageSymbol)
+    {
+        if (messageSymbol is null)
+        {
+            return;
+        }
+
+        if (state.MessagesByType.ContainsKey(messageSymbol.ToDisplayString(FullyQualifiedFormat)))
+        {
+            return;
+        }
+
+        if (TryCreateMessageDefinition(messageSymbol, out var message, out var invalidAffinityMember))
+        {
+            state.MessagesByType[message.TypeName] = message;
+        }
+
+        if (invalidAffinityMember is { } invalidAffinity)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                InvalidAffinityKey,
+                invalidAffinity.Location,
+                messageSymbol.ToDisplayString(FullyQualifiedFormat),
+                invalidAffinity.MemberName));
+        }
+    }
+
+    private static bool TryCreateMessageDefinition(
+        INamedTypeSymbol symbol,
+        out MessageDefinition message,
+        out InvalidAffinityMemberDefinition? invalidAffinityMember)
     {
         message = default;
+        invalidAffinityMember = null;
+        var affinityMemberName = GetAffinityMemberName(symbol, out invalidAffinityMember);
 
         if (ImplementsInterface(symbol, "LayerZero.Core", "ICommand", 0))
         {
@@ -266,7 +322,8 @@ public sealed class SliceGenerator : IIncrementalGenerator
                 GetLogicalMessageName(symbol),
                 GeneratedMessageKind.Command,
                 symbol.Locations.FirstOrDefault(),
-                RequiresIdempotency(symbol));
+                RequiresIdempotency(symbol),
+                affinityMemberName);
             return true;
         }
 
@@ -277,7 +334,8 @@ public sealed class SliceGenerator : IIncrementalGenerator
                 GetLogicalMessageName(symbol),
                 GeneratedMessageKind.Event,
                 symbol.Locations.FirstOrDefault(),
-                RequiresIdempotency(symbol));
+                RequiresIdempotency(symbol),
+                affinityMemberName);
             return true;
         }
 
@@ -315,6 +373,45 @@ public sealed class SliceGenerator : IIncrementalGenerator
                 attribute.AttributeClass?.ToDisplayString(FullyQualifiedFormat) is
                     "global::LayerZero.Messaging.IdempotentMessageAttribute"
                     or "global::LayerZero.Messaging.IdempotentHandlerAttribute");
+    }
+
+    private static string? GetAffinityMemberName(
+        INamedTypeSymbol symbol,
+        out InvalidAffinityMemberDefinition? invalidAffinityMember)
+    {
+        invalidAffinityMember = null;
+
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!string.Equals(
+                attribute.AttributeClass?.ToDisplayString(FullyQualifiedFormat),
+                "global::LayerZero.Messaging.AffinityKeyAttribute",
+                StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length != 1
+                || attribute.ConstructorArguments[0].Value is not string memberName
+                || string.IsNullOrWhiteSpace(memberName))
+            {
+                return null;
+            }
+
+            var member = symbol.GetMembers(memberName).FirstOrDefault(static candidate =>
+                candidate is IPropertySymbol property && !property.IsStatic && property.GetMethod is not null
+                || candidate is IFieldSymbol field && !field.IsStatic);
+
+            if (member is null)
+            {
+                invalidAffinityMember = new InvalidAffinityMemberDefinition(memberName, attribute.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? symbol.Locations.FirstOrDefault());
+                return null;
+            }
+
+            return memberName;
+        }
+
+        return null;
     }
 
     private static bool ImplementsInterface(INamedTypeSymbol symbol, string @namespace, string name, int arity)
@@ -474,6 +571,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
 
     private static string RenderMessagingSource(IEnumerable<Registration> registrations, MessageGenerationState state)
     {
+        var handledInvocations = state.GetHandledInvocations().ToArray();
         var builder = new StringBuilder();
         builder.AppendLine("// <auto-generated />");
         builder.AppendLine("#nullable enable");
@@ -495,12 +593,13 @@ public sealed class SliceGenerator : IIncrementalGenerator
 
         builder.AppendLine();
         builder.AppendLine("            global::Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<global::LayerZero.Messaging.IMessageRegistry, global::LayerZero.Messaging.LayerZeroGeneratedMessageRegistry>(services);");
+        builder.AppendLine("            global::Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<global::LayerZero.Messaging.IMessageTopologyManifest, global::LayerZero.Messaging.LayerZeroGeneratedMessageTopologyManifest>(services);");
 
-        foreach (var message in state.GetHandledMessages())
+        foreach (var invocation in handledInvocations)
         {
             builder.AppendLine("            global::Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddEnumerable(");
             builder.AppendLine("                services,");
-            builder.AppendLine($"                global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::LayerZero.Messaging.IMessageHandlerInvoker, global::LayerZero.Messaging.{GetInvokerClassName(message.TypeName)}>());");
+            builder.AppendLine($"                global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::LayerZero.Messaging.IMessageHandlerInvoker, global::LayerZero.Messaging.{GetInvokerClassName(invocation.Message.TypeName, invocation.Handler.ImplementationType)}>());");
         }
 
         builder.AppendLine();
@@ -516,14 +615,9 @@ public sealed class SliceGenerator : IIncrementalGenerator
 
         foreach (var message in state.GetAllMessages())
         {
-            builder.Append("            new global::LayerZero.Messaging.MessageDescriptor(");
-            builder.Append($"\"{Escape(message.LogicalName)}\", ");
-            builder.Append($"typeof({message.TypeName}), ");
-            builder.Append(message.Kind == GeneratedMessageKind.Command
-                ? "global::LayerZero.Messaging.MessageKind.Command, "
-                : "global::LayerZero.Messaging.MessageKind.Event, ");
-            builder.Append($"{MessagingJsonContextClassName}.Default.GetTypeInfo(typeof({message.TypeName}))!),");
-            builder.AppendLine();
+            builder.Append("            ");
+            builder.Append(CreateMessageDescriptorExpression(state, message));
+            builder.AppendLine(",");
         }
 
         builder.AppendLine("        ];");
@@ -547,21 +641,69 @@ public sealed class SliceGenerator : IIncrementalGenerator
         builder.AppendLine("        }");
         builder.AppendLine("    }");
         builder.AppendLine();
+        builder.AppendLine($"    internal sealed class {MessagingTopologyManifestClassName} : global::LayerZero.Messaging.IMessageTopologyManifest");
+        builder.AppendLine("    {");
+        builder.AppendLine("        private static readonly global::LayerZero.Messaging.MessageTopologyDescriptor[] AllMessages =");
+        builder.AppendLine("        [");
 
-        builder.AppendLine("    [global::System.Text.Json.Serialization.JsonSourceGenerationOptions(PropertyNamingPolicy = global::System.Text.Json.Serialization.JsonKnownNamingPolicy.CamelCase)]");
         foreach (var message in state.GetAllMessages())
         {
-            builder.AppendLine($"    [global::System.Text.Json.Serialization.JsonSerializable(typeof({message.TypeName}))]");
+            builder.Append("            new global::LayerZero.Messaging.MessageTopologyDescriptor(");
+            builder.Append(CreateMessageDescriptorExpression(state, message));
+
+            var handlers = state.GetHandlers(message);
+            if (handlers.Count == 0)
+            {
+                builder.Append("),");
+                builder.AppendLine();
+                continue;
+            }
+
+            builder.AppendLine(",");
+            builder.AppendLine("                [");
+            foreach (var handler in handlers)
+            {
+                builder.Append("                    new global::LayerZero.Messaging.MessageSubscriptionDescriptor(");
+                builder.Append($"\"{Escape(handler.ImplementationType)}\", ");
+                builder.Append($"typeof({handler.ImplementationType}), ");
+                builder.Append(handler.RequiresIdempotency ? "true" : "false");
+                builder.AppendLine("),");
+            }
+
+            builder.AppendLine("                ]),");
         }
+
+        builder.AppendLine("        ];");
+        builder.AppendLine();
+        builder.AppendLine("        private static readonly global::System.Collections.Generic.Dictionary<global::System.Type, global::LayerZero.Messaging.MessageTopologyDescriptor> ByType =");
+        builder.AppendLine("            global::System.Linq.Enumerable.ToDictionary(AllMessages, static descriptor => descriptor.Message.MessageType);");
+        builder.AppendLine();
+        builder.AppendLine("        private static readonly global::System.Collections.Generic.Dictionary<string, global::LayerZero.Messaging.MessageTopologyDescriptor> ByName =");
+        builder.AppendLine("            global::System.Linq.Enumerable.ToDictionary(AllMessages, static descriptor => descriptor.Message.Name, global::System.StringComparer.Ordinal);");
+        builder.AppendLine();
+        builder.AppendLine("        public global::System.Collections.Generic.IReadOnlyList<global::LayerZero.Messaging.MessageTopologyDescriptor> Messages => AllMessages;");
+        builder.AppendLine();
+        builder.AppendLine("        public bool TryGetDescriptor(global::System.Type messageType, out global::LayerZero.Messaging.MessageTopologyDescriptor descriptor)");
+        builder.AppendLine("        {");
+        builder.AppendLine("            return ByType.TryGetValue(messageType, out descriptor!);");
+        builder.AppendLine("        }");
+        builder.AppendLine();
+        builder.AppendLine("        public bool TryGetDescriptor(string messageName, out global::LayerZero.Messaging.MessageTopologyDescriptor descriptor)");
+        builder.AppendLine("        {");
+        builder.AppendLine("            return ByName.TryGetValue(messageName, out descriptor!);");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine();
 
         builder.AppendLine($"    internal sealed partial class {MessagingJsonContextClassName} : global::System.Text.Json.Serialization.JsonSerializerContext");
         builder.AppendLine("    {");
-        builder.AppendLine("        private static readonly global::System.Text.Json.JsonSerializerOptions OptionsValue = new(global::System.Text.Json.JsonSerializerDefaults.Web)");
+        builder.AppendLine("        private static readonly global::System.Text.Json.JsonSerializerOptions OptionsValue = new(global::System.Text.Json.JsonSerializerDefaults.Web);");
+        builder.AppendLine("        private static readonly global::System.Text.Json.JsonSerializerOptions ResolverOptions = new(global::System.Text.Json.JsonSerializerDefaults.Web)");
         builder.AppendLine("        {");
         builder.AppendLine("            TypeInfoResolver = new global::System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),");
         builder.AppendLine("        };");
         builder.AppendLine();
-        builder.AppendLine($"        public static {MessagingJsonContextClassName} Default {{ get; }} = new(OptionsValue);");
+        builder.AppendLine($"        public static {MessagingJsonContextClassName} Default {{ get; }} = new();");
         builder.AppendLine();
         builder.AppendLine($"        public {MessagingJsonContextClassName}()");
         builder.AppendLine("            : base(OptionsValue)");
@@ -577,14 +719,14 @@ public sealed class SliceGenerator : IIncrementalGenerator
         builder.AppendLine();
         builder.AppendLine("        public override global::System.Text.Json.Serialization.Metadata.JsonTypeInfo? GetTypeInfo(global::System.Type type)");
         builder.AppendLine("        {");
-        builder.AppendLine("            return OptionsValue.GetTypeInfo(type);");
+        builder.AppendLine("            return ResolverOptions.GetTypeInfo(type);");
         builder.AppendLine("        }");
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        foreach (var message in state.GetHandledMessages())
+        foreach (var invocation in handledInvocations)
         {
-            RenderInvoker(builder, state, message);
+            RenderInvoker(builder, state, invocation.Message, invocation.Handler);
             builder.AppendLine();
         }
 
@@ -592,26 +734,18 @@ public sealed class SliceGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
-    private static void RenderInvoker(StringBuilder builder, MessageGenerationState state, MessageDefinition message)
+    private static void RenderInvoker(StringBuilder builder, MessageGenerationState state, MessageDefinition message, HandlerDefinition handler)
     {
-        var invokerClassName = GetInvokerClassName(message.TypeName);
+        var invokerClassName = GetInvokerClassName(message.TypeName, handler.ImplementationType);
         builder.AppendLine($"    internal sealed class {invokerClassName} : global::LayerZero.Messaging.IMessageHandlerInvoker");
         builder.AppendLine("    {");
-        builder.AppendLine("        private static readonly global::LayerZero.Messaging.MessageDescriptor DescriptorValue = new(");
-        builder.AppendLine($"            \"{Escape(message.LogicalName)}\",");
-        builder.AppendLine($"            typeof({message.TypeName}),");
-        builder.AppendLine(message.Kind == GeneratedMessageKind.Command
-            ? "            global::LayerZero.Messaging.MessageKind.Command,"
-            : "            global::LayerZero.Messaging.MessageKind.Event,");
-        builder.AppendLine($"            {MessagingJsonContextClassName}.Default.GetTypeInfo(typeof({message.TypeName}))!);");
+        builder.AppendLine($"        private static readonly global::LayerZero.Messaging.MessageDescriptor DescriptorValue = {CreateMessageDescriptorExpression(state, message)};");
         builder.AppendLine();
         builder.AppendLine("        public global::LayerZero.Messaging.MessageDescriptor Descriptor => DescriptorValue;");
         builder.AppendLine();
-
-        var handlerDefinitions = message.Kind == GeneratedMessageKind.Command
-            ? state.CommandHandlerTypesByMessageType.GetValueOrEmpty(message.TypeName)
-            : state.EventHandlerTypesByMessageType.GetValueOrEmpty(message.TypeName);
-        var requiresIdempotency = message.RequiresIdempotency || handlerDefinitions.Any(static handler => handler.RequiresIdempotency);
+        builder.AppendLine($"        public string HandlerIdentity => \"{Escape(handler.ImplementationType)}\";");
+        builder.AppendLine();
+        var requiresIdempotency = message.RequiresIdempotency || handler.RequiresIdempotency;
         builder.AppendLine($"        public bool RequiresIdempotency => {(requiresIdempotency ? "true" : "false")};");
         builder.AppendLine();
         builder.AppendLine("        public async global::System.Threading.Tasks.ValueTask<global::LayerZero.Messaging.MessageHandlingResult> InvokeAsync(");
@@ -642,28 +776,13 @@ public sealed class SliceGenerator : IIncrementalGenerator
             builder.AppendLine("            }");
         }
 
-        builder.AppendLine();
-        builder.AppendLine("            global::LayerZero.Messaging.IMessageIdempotencyStore? idempotencyStore = null;");
         if (requiresIdempotency)
         {
-            builder.AppendLine("            idempotencyStore = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::LayerZero.Messaging.IMessageIdempotencyStore>(services);");
+            builder.AppendLine();
+            builder.AppendLine("            var idempotencyStore = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::LayerZero.Messaging.IMessageIdempotencyStore>(services);");
         }
 
-        if (message.Kind == GeneratedMessageKind.Command)
-        {
-            var handler = handlerDefinitions.Single();
-            RenderHandlerInvocation(builder, message, handler, isEvent: false, message.RequiresIdempotency);
-        }
-        else
-        {
-            foreach (var handler in handlerDefinitions.OrderBy(static handler => handler.ImplementationType, StringComparer.Ordinal))
-            {
-                RenderHandlerInvocation(builder, message, handler, isEvent: true, message.RequiresIdempotency);
-                builder.AppendLine();
-            }
-
-            builder.AppendLine("            return global::LayerZero.Messaging.MessageHandlingResult.Success();");
-        }
+        RenderHandlerInvocation(builder, message, handler, message.RequiresIdempotency);
 
         builder.AppendLine("        }");
         builder.AppendLine("    }");
@@ -673,7 +792,6 @@ public sealed class SliceGenerator : IIncrementalGenerator
         StringBuilder builder,
         MessageDefinition message,
         HandlerDefinition handler,
-        bool isEvent,
         bool messageRequiresIdempotency)
     {
         var handlerLocal = GetLocalName(handler.ImplementationType);
@@ -688,14 +806,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
             builder.AppendLine($"            var {handlerLocal}DeduplicationKey = $\"{{context.MessageId}}:{dedupeKeyLiteral}\";");
             builder.AppendLine($"            if (!await idempotencyStore!.TryBeginAsync({handlerLocal}DeduplicationKey, cancellationToken).ConfigureAwait(false))");
             builder.AppendLine("            {");
-            if (!isEvent)
-            {
-                builder.AppendLine("                return global::LayerZero.Messaging.MessageHandlingResult.Success();");
-            }
-            else
-            {
-                builder.AppendLine("                goto " + handlerLocal + "Completed;");
-            }
+            builder.AppendLine("                return global::LayerZero.Messaging.MessageHandlingResult.Success();");
             builder.AppendLine("            }");
             builder.AppendLine();
             builder.AppendLine("            try");
@@ -719,34 +830,45 @@ public sealed class SliceGenerator : IIncrementalGenerator
         {
             builder.AppendLine();
             builder.AppendLine($"            await idempotencyStore!.CompleteAsync({handlerLocal}DeduplicationKey, cancellationToken).ConfigureAwait(false);");
-            if (!isEvent)
-            {
-                builder.AppendLine();
-                builder.AppendLine($"            return global::LayerZero.Messaging.MessageHandlingResult.FromResult({resultLocal});");
-            }
+            builder.AppendLine();
+            builder.AppendLine($"            return global::LayerZero.Messaging.MessageHandlingResult.FromResult({resultLocal});");
             builder.AppendLine("            }");
             builder.AppendLine("            catch");
             builder.AppendLine("            {");
             builder.AppendLine($"                await idempotencyStore!.AbandonAsync({handlerLocal}DeduplicationKey, cancellationToken).ConfigureAwait(false);");
             builder.AppendLine("                throw;");
             builder.AppendLine("            }");
-
-            if (isEvent)
-            {
-                builder.AppendLine();
-                builder.AppendLine($"            {handlerLocal}Completed:");
-                builder.AppendLine("            ;");
-            }
         }
 
-        if (!isEvent)
+        if (!dedupeRequired)
         {
-            if (!dedupeRequired)
-            {
-                builder.AppendLine();
-                builder.AppendLine($"            return global::LayerZero.Messaging.MessageHandlingResult.FromResult({resultLocal});");
-            }
+            builder.AppendLine();
+            builder.AppendLine($"            return global::LayerZero.Messaging.MessageHandlingResult.FromResult({resultLocal});");
         }
+    }
+
+    private static string CreateMessageDescriptorExpression(MessageGenerationState state, MessageDefinition message)
+    {
+        var builder = new StringBuilder();
+        builder.Append("new global::LayerZero.Messaging.MessageDescriptor(");
+        builder.Append($"\"{Escape(message.LogicalName)}\", ");
+        builder.Append($"typeof({message.TypeName}), ");
+        builder.Append(message.Kind == GeneratedMessageKind.Command
+            ? "global::LayerZero.Messaging.MessageKind.Command, "
+            : "global::LayerZero.Messaging.MessageKind.Event, ");
+        builder.Append($"{MessagingJsonContextClassName}.Default.GetTypeInfo(typeof({message.TypeName}))!, ");
+        builder.Append($"global::LayerZero.Messaging.MessageTopologyNames.Entity({(message.Kind == GeneratedMessageKind.Command ? "global::LayerZero.Messaging.MessageKind.Command" : "global::LayerZero.Messaging.MessageKind.Event")}, \"{Escape(message.LogicalName)}\"), ");
+        builder.Append(state.MessageRequiresIdempotency(message) ? "true" : "false");
+
+        if (message.AffinityMemberName is null)
+        {
+            builder.Append(", null, null)");
+            return builder.ToString();
+        }
+
+        builder.Append($", \"{Escape(message.AffinityMemberName)}\", ");
+        builder.Append($"static message => global::System.Convert.ToString((({message.TypeName})message).{message.AffinityMemberName}, global::System.Globalization.CultureInfo.InvariantCulture))");
+        return builder.ToString();
     }
 
     private static void AppendRegistration(StringBuilder builder, Registration registration)
@@ -758,10 +880,10 @@ public sealed class SliceGenerator : IIncrementalGenerator
         builder.AppendLine($"                global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Scoped<{registration.ServiceType}, {registration.ImplementationType}>());");
     }
 
-    private static string GetInvokerClassName(string typeName)
+    private static string GetInvokerClassName(string typeName, string handlerTypeName)
     {
-        var sanitized = new StringBuilder(typeName.Length);
-        foreach (var character in typeName)
+        var sanitized = new StringBuilder(typeName.Length + handlerTypeName.Length + 8);
+        foreach (var character in $"{typeName}_{handlerTypeName}")
         {
             sanitized.Append(char.IsLetterOrDigit(character) ? character : '_');
         }
@@ -837,13 +959,15 @@ public sealed class SliceGenerator : IIncrementalGenerator
             string logicalName,
             GeneratedMessageKind kind,
             Location? location,
-            bool requiresIdempotency)
+            bool requiresIdempotency,
+            string? affinityMemberName)
         {
             TypeName = typeName;
             LogicalName = logicalName;
             Kind = kind;
             Location = location;
             RequiresIdempotency = requiresIdempotency;
+            AffinityMemberName = affinityMemberName;
         }
 
         public string TypeName { get; }
@@ -855,6 +979,8 @@ public sealed class SliceGenerator : IIncrementalGenerator
         public Location? Location { get; }
 
         public bool RequiresIdempotency { get; }
+
+        public string? AffinityMemberName { get; }
     }
 
     private readonly struct HandlerDefinition
@@ -894,6 +1020,29 @@ public sealed class SliceGenerator : IIncrementalGenerator
                 .OrderBy(static message => message.LogicalName, StringComparer.Ordinal);
         }
 
+        public IReadOnlyList<HandlerDefinition> GetHandlers(MessageDefinition message)
+        {
+            return message.Kind == GeneratedMessageKind.Command
+                ? CommandHandlerTypesByMessageType.GetValueOrEmpty(message.TypeName)
+                : EventHandlerTypesByMessageType.GetValueOrEmpty(message.TypeName);
+        }
+
+        public IEnumerable<(MessageDefinition Message, HandlerDefinition Handler)> GetHandledInvocations()
+        {
+            foreach (var message in MessagesByType.Values.OrderBy(static entry => entry.LogicalName, StringComparer.Ordinal))
+            {
+                foreach (var handler in GetHandlers(message).OrderBy(static entry => entry.ImplementationType, StringComparer.Ordinal))
+                {
+                    yield return (message, handler);
+                }
+            }
+        }
+
+        public bool MessageRequiresIdempotency(MessageDefinition message)
+        {
+            return message.RequiresIdempotency || GetHandlers(message).Any(static handler => handler.RequiresIdempotency);
+        }
+
         public IEnumerable<(Location? LeftLocation, string LeftType, string RightType, string MessageName)> FindDuplicateMessageNames()
         {
             return MessagesByType.Values
@@ -927,6 +1076,19 @@ public sealed class SliceGenerator : IIncrementalGenerator
                     pair.Value.Select(static handler => handler.ImplementationType).OrderBy(static value => value, StringComparer.Ordinal).ToArray());
             }
         }
+    }
+
+    private readonly struct InvalidAffinityMemberDefinition
+    {
+        public InvalidAffinityMemberDefinition(string memberName, Location? location)
+        {
+            MemberName = memberName;
+            Location = location;
+        }
+
+        public string MemberName { get; }
+
+        public Location? Location { get; }
     }
 
     private enum RegistrationKind

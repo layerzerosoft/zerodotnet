@@ -13,6 +13,7 @@ internal sealed class EventPublisher(
     MessageRouteResolver routeResolver,
     MessageEnvelopeSerializer serializer,
     IMessageContextAccessor contextAccessor,
+    IMessageConventions conventions,
     TimeProvider timeProvider,
     MessagingTelemetry telemetry) : IEventPublisher
 {
@@ -39,8 +40,10 @@ internal sealed class EventPublisher(
         var transport = services.GetRequiredKeyedService<IMessageBusTransport>(busName);
         var context = MessageContextFactory.Create(
             descriptor,
+            eventMessage,
             busName,
             contextAccessor.Current,
+            conventions,
             timeProvider.GetUtcNow(),
             Activity.Current);
 
