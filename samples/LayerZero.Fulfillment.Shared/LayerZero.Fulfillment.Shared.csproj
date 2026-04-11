@@ -1,4 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="LayerZero.Fulfillment.Bootstrap" />
+    <InternalsVisibleTo Include="LayerZero.Fulfillment.EndToEnd.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <IsPackable>false</IsPackable>
   </PropertyGroup>

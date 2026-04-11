@@ -40,6 +40,10 @@ ScaffoldingReadMe.txt
 ~$*
 *~
 CodeCoverage/
+*.db
+
+# Fulfillment sample local state
+samples/LayerZero.Fulfillment.AppHost/data/
 
 # MSBuild Binary and Structured Log
 *.binlog

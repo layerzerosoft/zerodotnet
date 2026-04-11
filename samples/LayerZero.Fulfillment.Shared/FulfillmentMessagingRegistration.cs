@@ -48,33 +48,33 @@ public static class FulfillmentMessagingRegistration
             {
                 Bind(configuration, "Messaging:RabbitMq", options);
                 options.ConnectionString = ResolveConnectionString(
-                    options.ConnectionString,
                     configuration.GetConnectionString("rabbitmq"),
-                    configuration.GetConnectionString("messaging"));
+                    configuration.GetConnectionString("messaging"),
+                    options.ConnectionString);
             }),
             "AzureServiceBus" => builder.AddAzureServiceBusBus("primary", options =>
             {
                 Bind(configuration, "Messaging:AzureServiceBus", options);
                 options.ConnectionString = ResolveConnectionString(
-                    options.ConnectionString,
                     configuration.GetConnectionString("servicebus"),
-                    configuration.GetConnectionString("messaging"));
+                    configuration.GetConnectionString("messaging"),
+                    options.ConnectionString);
             }),
             "Kafka" => builder.AddKafkaBus("primary", options =>
             {
                 Bind(configuration, "Messaging:Kafka", options);
                 options.BootstrapServers = ResolveConnectionString(
-                    options.BootstrapServers,
                     configuration.GetConnectionString("kafka"),
-                    configuration.GetConnectionString("messaging"));
+                    configuration.GetConnectionString("messaging"),
+                    options.BootstrapServers);
             }),
             "Nats" => builder.AddNatsBus("primary", options =>
             {
                 Bind(configuration, "Messaging:Nats", options);
                 options.Url = ResolveConnectionString(
-                    options.Url,
                     configuration.GetConnectionString("nats"),
-                    configuration.GetConnectionString("messaging"));
+                    configuration.GetConnectionString("messaging"),
+                    options.Url);
             }),
             _ => throw new InvalidOperationException($"Unsupported broker '{broker}'."),
         };

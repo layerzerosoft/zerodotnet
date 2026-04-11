@@ -2,7 +2,6 @@ using LayerZero.Fulfillment.Contracts.Orders;
 using LayerZero.Fulfillment.Processing;
 using LayerZero.Fulfillment.Projections;
 using LayerZero.Fulfillment.Shared;
-using LayerZero.Messaging;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
@@ -47,8 +46,8 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         var processingHost = CreateWorkerHost(settings, static (services, configuration) => ProcessingHost.ConfigureServices(services, configuration));
         var projectionHost = CreateWorkerHost(settings, static (services, configuration) => ProjectionHost.ConfigureServices(services, configuration));
 
-        await InitializeStoreAndProvisionAsync(processingHost, cancellationToken).ConfigureAwait(false);
-        await InitializeStoreAndProvisionAsync(projectionHost, cancellationToken).ConfigureAwait(false);
+        await FulfillmentProvisioning.InitializeStoreAndProvisionAsync(processingHost.Services, cancellationToken).ConfigureAwait(false);
+        await FulfillmentProvisioning.InitializeStoreAndProvisionAsync(projectionHost.Services, cancellationToken).ConfigureAwait(false);
 
         await processingHost.StartAsync(cancellationToken).ConfigureAwait(false);
         await projectionHost.StartAsync(cancellationToken).ConfigureAwait(false);
@@ -171,16 +170,6 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         builder.Configuration.AddInMemoryCollection(settings);
         configure(builder.Services, builder.Configuration);
         return builder.Build();
-    }
-
-    private static async Task InitializeStoreAndProvisionAsync(IHost host, CancellationToken cancellationToken)
-    {
-        using var scope = host.Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<FulfillmentStore>().InitializeAsync(cancellationToken).ConfigureAwait(false);
-        foreach (var manager in scope.ServiceProvider.GetServices<IMessageTopologyManager>())
-        {
-            await manager.ProvisionAsync(cancellationToken).ConfigureAwait(false);
-        }
     }
 
     private static async ValueTask DisposeAsync(object instance)

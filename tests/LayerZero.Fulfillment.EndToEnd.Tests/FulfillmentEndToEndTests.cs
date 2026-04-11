@@ -6,6 +6,14 @@ public sealed class RabbitMqFulfillmentEndToEndTests(RabbitMqFulfillmentFixture 
     {
         return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
     }
+
+    [Fact]
+    public async Task Startup_completes_and_openapi_is_reachable()
+    {
+        await using var harness = await CreateHarnessAsync();
+        var response = await harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 }
 
 public sealed class AzureServiceBusFulfillmentEndToEndTests(AzureServiceBusFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<AzureServiceBusFulfillmentFixture>
@@ -13,6 +21,14 @@ public sealed class AzureServiceBusFulfillmentEndToEndTests(AzureServiceBusFulfi
     protected override Task<FulfillmentHarness> CreateHarnessAsync()
     {
         return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Startup_completes_and_openapi_is_reachable()
+    {
+        await using var harness = await CreateHarnessAsync();
+        var response = await harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 }
 
@@ -42,6 +58,14 @@ public sealed class KafkaFulfillmentEndToEndTests : FulfillmentEndToEndTestBase,
     {
         await fixture.DisposeAsync().ConfigureAwait(false);
     }
+
+    [Fact]
+    public async Task Startup_completes_and_openapi_is_reachable()
+    {
+        await using var harness = await CreateHarnessAsync();
+        var response = await harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 }
 
 public sealed class NatsFulfillmentEndToEndTests(NatsFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<NatsFulfillmentFixture>
@@ -49,5 +73,13 @@ public sealed class NatsFulfillmentEndToEndTests(NatsFulfillmentFixture fixture)
     protected override Task<FulfillmentHarness> CreateHarnessAsync()
     {
         return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Startup_completes_and_openapi_is_reachable()
+    {
+        await using var harness = await CreateHarnessAsync();
+        var response = await harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 }

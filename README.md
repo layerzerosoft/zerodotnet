@@ -175,6 +175,13 @@ The AppHost dashboard uses stable development URLs:
 - HTTPS: `https://localhost:17134`
 - HTTP: `http://localhost:15170`
 
+The AppHost also exposes one API endpoint pair per broker profile:
+
+- RabbitMQ: `http://localhost:5381` and `https://localhost:7381`
+- Azure Service Bus emulator: `http://localhost:5382` and `https://localhost:7382`
+- Kafka: `http://localhost:5383` and `https://localhost:7383`
+- NATS JetStream: `http://localhost:5384` and `https://localhost:7384`
+
 Local orchestration prerequisites:
 
 - Docker Desktop, Podman, or another OCI-compatible container runtime
@@ -224,6 +231,10 @@ local topology through `LayerZero.Fulfillment.Bootstrap`, and starts:
 The broker end-to-end suites validate the workflows and transports, but they do
 not launch the AppHost. AppHost startup stays covered by its checked-in launch
 profile and launch-settings policy test.
+
+Each AppHost broker profile shares one SQLite database file across bootstrap,
+API, processing, and projections under
+`samples/LayerZero.Fulfillment.AppHost/data/`.
 
 The API sample launch profiles use stable dev URLs:
 

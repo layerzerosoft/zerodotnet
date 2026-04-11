@@ -44,14 +44,22 @@ This starts one profile for each broker:
 - Kafka
 - NATS JetStream
 
+Each broker profile exposes its API on stable AppHost-managed URLs:
+
+- RabbitMQ: `http://localhost:5381` and `https://localhost:7381`
+- Azure Service Bus emulator: `http://localhost:5382` and `https://localhost:7382`
+- Kafka: `http://localhost:5383` and `https://localhost:7383`
+- NATS JetStream: `http://localhost:5384` and `https://localhost:7384`
+
 Each profile provisions its own topology through `LayerZero.Fulfillment.Bootstrap`
 before the API, processing worker, and projections worker start. Each profile
-also writes to its own SQLite database file:
+also shares one SQLite database file across bootstrap, API, processing, and
+projections:
 
-- `fulfillment-rabbitmq.db`
-- `fulfillment-azureservicebus.db`
-- `fulfillment-kafka.db`
-- `fulfillment-nats.db`
+- `samples/LayerZero.Fulfillment.AppHost/data/fulfillment-rabbitmq.db`
+- `samples/LayerZero.Fulfillment.AppHost/data/fulfillment-azureservicebus.db`
+- `samples/LayerZero.Fulfillment.AppHost/data/fulfillment-kafka.db`
+- `samples/LayerZero.Fulfillment.AppHost/data/fulfillment-nats.db`
 
 The broker end-to-end tests validate the workflows and transports, but they do
 not launch the AppHost. Treat the AppHost launch profile as the supported local
