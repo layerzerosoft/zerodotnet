@@ -169,6 +169,21 @@ normal runtime mode for the sample.
 
 - If API startup fails with topology validation errors, run the bootstrap host first or use the AppHost profile that does it for you.
 - If local tests fail before a broker starts, confirm the Docker daemon is running.
+- If you notice two RabbitMQ containers during a full local test run, that is usually expected because transport integration tests and fulfillment end-to-end tests keep their broker fixtures isolated per project.
+- If broker containers or `testcontainers-ryuk` sidecars remain after the run completes, that is stale-session leakage rather than normal behavior. List and remove stale repo-owned sessions with:
+
+```bash
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --list
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --apply --older-than 30m
+```
+
+If those lingering containers come from a run before repo-owned labels were in
+place, use the explicit session-id path once:
+
+```bash
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --apply --older-than 0m --session-id <testcontainers-session-id>
+```
+
 - If Azure Service Bus provisioning fails against the emulator, make sure the admin connection string points at the emulator's management endpoint.
 - If timelines stop at intermediate states after cancel or duplicate scenarios, inspect the dead-letter list and worker logs first; the sample preserves terminal order states instead of overwriting them later.
 - If duplicate shipment or payment side effects reappear, inspect the SQLite `side_effects` table and the idempotency store wiring before increasing broker retries.

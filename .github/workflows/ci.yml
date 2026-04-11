@@ -54,6 +54,11 @@ jobs:
           path: artifacts/test-results
           if-no-files-found: ignore
 
+      - name: Cleanup stale Testcontainers sessions
+        if: always()
+        continue-on-error: true
+        run: dotnet run --project eng/LayerZero.Testcontainers.Cleanup --no-build -- --apply --older-than 0m
+
       - name: Upload packages
         if: always()
         uses: actions/upload-artifact@v4

@@ -21,6 +21,7 @@
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Projections/LayerZero.Fulfillment.Projections.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />
+    <ProjectReference Include="../LayerZero.Messaging.IntegrationTesting/LayerZero.Messaging.IntegrationTesting.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.Nats/LayerZero.Messaging.Nats.csproj" />

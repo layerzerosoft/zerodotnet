@@ -33,24 +33,19 @@ public sealed class AzureServiceBusTransportIntegrationTests(ServiceBusFixture f
     }
 }
 
-public sealed class ServiceBusFixture : IAsyncLifetime, IAsyncDisposable
+public sealed class ServiceBusFixture : TestcontainerFixtureBase<ServiceBusContainer>
 {
-    public ServiceBusContainer Container { get; private set; } = null!;
-
-    public async ValueTask DisposeAsync()
+    public ServiceBusFixture()
+        : base("LayerZero.Messaging.AzureServiceBus.IntegrationTests", "servicebus")
     {
-        if (Container is not null)
-        {
-            await Container.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
-    public async ValueTask InitializeAsync()
+    protected override ValueTask<ServiceBusContainer> CreateContainerAsync(TestcontainerFixtureMetadata metadata)
     {
-        Container = new ServiceBusBuilder("mcr.microsoft.com/azure-messaging/servicebus-emulator:latest")
-            .WithAcceptLicenseAgreement(true)
-            .Build();
-        await Container.StartAsync().ConfigureAwait(false);
+        return ValueTask.FromResult(
+            ApplyContainerDefaults(new ServiceBusBuilder("mcr.microsoft.com/azure-messaging/servicebus-emulator:latest"))
+                .WithAcceptLicenseAgreement(true)
+                .Build());
     }
 }
 

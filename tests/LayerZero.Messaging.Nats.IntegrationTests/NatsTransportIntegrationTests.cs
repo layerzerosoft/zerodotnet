@@ -30,23 +30,18 @@ public sealed class NatsTransportIntegrationTests(NatsFixture fixture) : Message
     }
 }
 
-public sealed class NatsFixture : IAsyncLifetime, IAsyncDisposable
+public sealed class NatsFixture : TestcontainerFixtureBase<NatsContainer>
 {
-    public NatsContainer Container { get; private set; } = null!;
-
-    public async ValueTask DisposeAsync()
+    public NatsFixture()
+        : base("LayerZero.Messaging.Nats.IntegrationTests", "nats")
     {
-        if (Container is not null)
-        {
-            await Container.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
-    public async ValueTask InitializeAsync()
+    protected override ValueTask<NatsContainer> CreateContainerAsync(TestcontainerFixtureMetadata metadata)
     {
-        Container = new NatsBuilder("nats:2.9")
-            .WithCommand("-js")
-            .Build();
-        await Container.StartAsync().ConfigureAwait(false);
+        return ValueTask.FromResult(
+            ApplyContainerDefaults(new NatsBuilder("nats:2.9"))
+                .WithCommand("-js")
+                .Build());
     }
 }

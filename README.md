@@ -182,6 +182,30 @@ secrets:
 - `LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING`
 - `LAYERZERO_AZURE_SERVICE_BUS_CLOUD_ADMIN_CONNECTION_STRING`
 
+During a full local broker matrix run it is normal to briefly see multiple
+containers for the same broker, such as one RabbitMQ instance for transport
+integration tests and another for fulfillment end-to-end tests. What is not
+normal is those broker containers or their `testcontainers-ryuk` sidecars
+lingering after the run completes.
+
+The supported cleanup path for stale local sessions is:
+
+```bash
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --list
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --apply --older-than 30m
+```
+
+If you still have legacy orphaned sessions from before repo-owned labels were
+added, remove them explicitly by session id:
+
+```bash
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --apply --older-than 0m --session-id <testcontainers-session-id>
+```
+
+The cleanup tool only targets repo-owned stale Testcontainers sessions. Local
+cleanup stays explicit; CI uses the same tool with a zero-minute threshold in
+its final `always()` cleanup step.
+
 The flagship sample family lives under `samples/LayerZero.Fulfillment.*`.
 `LayerZero.Fulfillment.AppHost` runs broker profiles side by side, provisions
 local topology through `LayerZero.Fulfillment.Bootstrap`, and starts:

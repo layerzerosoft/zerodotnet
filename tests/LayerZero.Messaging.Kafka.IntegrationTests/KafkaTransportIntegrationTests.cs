@@ -30,23 +30,18 @@ public sealed class KafkaTransportIntegrationTests(KafkaFixture fixture) : Messa
     }
 }
 
-public sealed class KafkaFixture : IAsyncLifetime, IAsyncDisposable
+public sealed class KafkaFixture : TestcontainerFixtureBase<KafkaContainer>
 {
-    public KafkaContainer Container { get; private set; } = null!;
-
-    public async ValueTask DisposeAsync()
+    public KafkaFixture()
+        : base("LayerZero.Messaging.Kafka.IntegrationTests", "kafka")
     {
-        if (Container is not null)
-        {
-            await Container.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
-    public async ValueTask InitializeAsync()
+    protected override ValueTask<KafkaContainer> CreateContainerAsync(TestcontainerFixtureMetadata metadata)
     {
-        Container = new KafkaBuilder("confluentinc/cp-kafka:7.5.12")
-            .WithKRaft()
-            .Build();
-        await Container.StartAsync().ConfigureAwait(false);
+        return ValueTask.FromResult(
+            ApplyContainerDefaults(new KafkaBuilder("confluentinc/cp-kafka:7.5.12"))
+                .WithKRaft()
+                .Build());
     }
 }

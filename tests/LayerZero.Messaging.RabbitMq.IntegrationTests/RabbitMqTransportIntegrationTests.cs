@@ -9,6 +9,18 @@ public sealed class RabbitMqTransportIntegrationTests(RabbitMqFixture fixture) :
 {
     protected override string BrokerName => "rabbitmq";
 
+    [Fact]
+    public async Task Fixture_applies_repo_owned_testcontainer_labels()
+    {
+        var labels = await fixture.GetContainerLabelsAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(TestcontainerFixtureMetadata.RepositoryName, labels[TestcontainerFixtureMetadata.RepositoryLabel]);
+        Assert.Equal("LayerZero.Messaging.RabbitMq.IntegrationTests", labels[TestcontainerFixtureMetadata.ProjectLabel]);
+        Assert.Equal("rabbitmq", labels[TestcontainerFixtureMetadata.BrokerLabel]);
+        Assert.Equal(fixture.RunId, labels[TestcontainerFixtureMetadata.RunIdLabel]);
+        Assert.False(string.IsNullOrWhiteSpace(labels["org.testcontainers.session-id"]));
+    }
+
     protected override IHost CreateHost(string applicationName, IntegrationState? state = null)
     {
         return IntegrationTestHost.Build(
@@ -30,21 +42,17 @@ public sealed class RabbitMqTransportIntegrationTests(RabbitMqFixture fixture) :
     }
 }
 
-public sealed class RabbitMqFixture : IAsyncLifetime, IAsyncDisposable
+public sealed class RabbitMqFixture : TestcontainerFixtureBase<RabbitMqContainer>
 {
-    public RabbitMqContainer Container { get; private set; } = null!;
-
-    public async ValueTask DisposeAsync()
+    public RabbitMqFixture()
+        : base("LayerZero.Messaging.RabbitMq.IntegrationTests", "rabbitmq")
     {
-        if (Container is not null)
-        {
-            await Container.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
-    public async ValueTask InitializeAsync()
+    protected override ValueTask<RabbitMqContainer> CreateContainerAsync(TestcontainerFixtureMetadata metadata)
     {
-        Container = new RabbitMqBuilder("rabbitmq:3.11").Build();
-        await Container.StartAsync().ConfigureAwait(false);
+        return ValueTask.FromResult(
+            ApplyContainerDefaults(new RabbitMqBuilder("rabbitmq:3.11"))
+                .Build());
     }
 }

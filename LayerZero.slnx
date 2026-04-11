@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/eng/">
+    <Project Path="eng/LayerZero.Testcontainers.Cleanup/LayerZero.Testcontainers.Cleanup.csproj" />
+  </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.AppHost/LayerZero.Fulfillment.AppHost.csproj" />
@@ -34,10 +37,12 @@
     <Project Path="tests/LayerZero.Http.Tests/LayerZero.Http.Tests.csproj" />
     <Project Path="tests/LayerZero.Messaging.AzureServiceBus.IntegrationTests/LayerZero.Messaging.AzureServiceBus.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.IntegrationTesting/LayerZero.Messaging.IntegrationTesting.csproj" />
+    <Project Path="tests/LayerZero.Messaging.IntegrationTesting.Tests/LayerZero.Messaging.IntegrationTesting.Tests.csproj" />
     <Project Path="tests/LayerZero.Messaging.Kafka.IntegrationTests/LayerZero.Messaging.Kafka.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.Nats.IntegrationTests/LayerZero.Messaging.Nats.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.RabbitMq.IntegrationTests/LayerZero.Messaging.RabbitMq.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.Tests/LayerZero.Messaging.Tests.csproj" />
+    <Project Path="tests/LayerZero.Testcontainers.Cleanup.Tests/LayerZero.Testcontainers.Cleanup.Tests.csproj" />
     <Project Path="tests/LayerZero.Testing.Tests/LayerZero.Testing.Tests.csproj" />
     <Project Path="tests/LayerZero.Validation.Tests/LayerZero.Validation.Tests.csproj" />
   </Folder>

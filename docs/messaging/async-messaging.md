@@ -194,6 +194,25 @@ Local `dotnet test` runs require the same Docker daemon because the adapter
 integration suites and fulfillment matrix use Testcontainers plus the official
 Azure Service Bus emulator.
 
+Testcontainers hygiene is part of the supported workflow:
+
+- temporary duplicate broker containers during a full matrix run are expected
+- lingering broker or `testcontainers-ryuk` containers after the run completes
+  are not expected
+- the supported local remediation path is:
+
+```bash
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --list
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --apply --older-than 30m
+```
+
+For one-time cleanup of legacy unlabeled sessions that predate this hardening,
+target them explicitly by Testcontainers session id:
+
+```bash
+dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --apply --older-than 0m --session-id <testcontainers-session-id>
+```
+
 Cloud parity for Azure Service Bus sessions is handled separately through the
 `azure-service-bus-cloud-parity` workflow. Set:
 
