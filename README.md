@@ -156,6 +156,8 @@ The exact edit/build/use loop is documented in
 ## Commands
 
 ```bash
+dotnet format analyzers LayerZero.slnx --diagnostics IDE0005 --verify-no-changes
+dotnet format analyzers LayerZero.slnx --diagnostics IDE0005
 dotnet restore
 dotnet build --no-restore
 dotnet test --no-build

@@ -1,11 +1,7 @@
 using System.Net;
-using LayerZero.Client;
 using LayerZero.Fulfillment.Client.Sample.Clients;
 using LayerZero.Fulfillment.Contracts.Orders;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LayerZero.Client.Integration.Tests;
 

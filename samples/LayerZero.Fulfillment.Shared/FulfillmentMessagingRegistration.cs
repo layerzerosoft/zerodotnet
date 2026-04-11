@@ -1,13 +1,9 @@
 using LayerZero.Messaging.Configuration;
 using LayerZero.Messaging;
 using LayerZero.Messaging.AzureServiceBus;
-using LayerZero.Messaging.AzureServiceBus.Configuration;
 using LayerZero.Messaging.Kafka;
-using LayerZero.Messaging.Kafka.Configuration;
 using LayerZero.Messaging.Nats;
-using LayerZero.Messaging.Nats.Configuration;
 using LayerZero.Messaging.RabbitMq;
-using LayerZero.Messaging.RabbitMq.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using DotNet.Testcontainers.Builders;
-using LayerZero.Testcontainers.Cleanup;
 
 namespace LayerZero.Testcontainers.Cleanup.Tests;
 

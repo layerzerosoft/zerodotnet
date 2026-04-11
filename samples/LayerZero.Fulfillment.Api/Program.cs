@@ -2,7 +2,6 @@ using System.Reflection;
 using LayerZero.AspNetCore;
 using LayerZero.Fulfillment.Shared;
 using LayerZero.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);

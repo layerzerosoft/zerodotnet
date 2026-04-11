@@ -1,5 +1,3 @@
-using LayerZero.Http;
-
 namespace LayerZero.Http.Tests;
 
 public sealed class EndpointContractTests

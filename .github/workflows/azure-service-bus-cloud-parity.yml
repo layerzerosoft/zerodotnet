@@ -38,6 +38,9 @@ jobs:
       - name: Restore
         run: dotnet restore $SOLUTION_FILE
 
+      - name: Verify Unused Usings
+        run: dotnet format analyzers $SOLUTION_FILE --diagnostics IDE0005 --verify-no-changes
+
       - name: Build
         run: dotnet build $SOLUTION_FILE --no-restore
 

@@ -1,15 +1,11 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using LayerZero.Core;
 using LayerZero.Fulfillment.Api.Features.Orders.Get;
 using LayerZero.Fulfillment.Api.Features.Orders.Place;
 using LayerZero.Fulfillment.Contracts.Orders;
 using LayerZero.Validation;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LayerZero.AspNetCore.Tests;
 
