@@ -170,6 +170,11 @@ Run the sample:
 dotnet run --project samples/LayerZero.Fulfillment.AppHost
 ```
 
+The AppHost dashboard uses stable development URLs:
+
+- HTTPS: `https://localhost:17134`
+- HTTP: `http://localhost:15170`
+
 Local orchestration prerequisites:
 
 - Docker Desktop, Podman, or another OCI-compatible container runtime
@@ -216,6 +221,10 @@ local topology through `LayerZero.Fulfillment.Bootstrap`, and starts:
 - `LayerZero.Fulfillment.Processing`
 - `LayerZero.Fulfillment.Projections`
 
+The broker end-to-end suites validate the workflows and transports, but they do
+not launch the AppHost. AppHost startup stays covered by its checked-in launch
+profile and launch-settings policy test.
+
 The API sample launch profiles use stable dev URLs:
 
 - HTTP: `http://localhost:5380`
@@ -223,6 +232,13 @@ The API sample launch profiles use stable dev URLs:
 
 Then open `/openapi/v1.json`, `POST /orders`, `GET /orders/{id}`, or
 `GET /orders/{id}/timeline`.
+
+If the AppHost HTTPS profile cannot start because the local development
+certificate is missing, trust the standard .NET dev certificate:
+
+```bash
+dotnet dev-certs https --trust
+```
 
 Run the typed client sample against the API:
 

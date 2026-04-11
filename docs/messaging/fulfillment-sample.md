@@ -32,6 +32,11 @@ Run the full multi-broker sample:
 dotnet run --project samples/LayerZero.Fulfillment.AppHost
 ```
 
+The AppHost dashboard uses stable development URLs:
+
+- HTTPS: `https://localhost:17134`
+- HTTP: `http://localhost:15170`
+
 This starts one profile for each broker:
 
 - RabbitMQ
@@ -47,6 +52,17 @@ also writes to its own SQLite database file:
 - `fulfillment-azureservicebus.db`
 - `fulfillment-kafka.db`
 - `fulfillment-nats.db`
+
+The broker end-to-end tests validate the workflows and transports, but they do
+not launch the AppHost. Treat the AppHost launch profile as the supported local
+startup contract for IDE and `dotnet run` flows.
+
+If the AppHost HTTPS profile fails because the local development certificate is
+missing, trust the standard .NET dev certificate:
+
+```bash
+dotnet dev-certs https --trust
+```
 
 Run a single host manually:
 

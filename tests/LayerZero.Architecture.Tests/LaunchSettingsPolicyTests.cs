@@ -8,15 +8,10 @@ public sealed class LaunchSettingsPolicyTests
     public void Fulfillment_api_sample_uses_stable_supported_launch_profile_urls()
     {
         var root = FindRepositoryRoot();
-        var launchSettingsPath = Path.Combine(
-            root.FullName,
-            "samples",
+        var profiles = ReadProfiles(
+            root,
             "LayerZero.Fulfillment.Api",
-            "Properties",
-            "launchSettings.json");
-
-        using var document = JsonDocument.Parse(File.ReadAllText(launchSettingsPath));
-        var profiles = document.RootElement.GetProperty("profiles");
+            "The fulfillment API sample launch settings must exist.");
 
         AssertLaunchProfile(
             profiles.GetProperty("http"),
@@ -29,10 +24,31 @@ public sealed class LaunchSettingsPolicyTests
             expectedLaunchUrl: "openapi/v1.json");
     }
 
+    [Fact]
+    public void Fulfillment_apphost_sample_uses_stable_supported_launch_profile_urls()
+    {
+        var root = FindRepositoryRoot();
+        var profiles = ReadProfiles(
+            root,
+            "LayerZero.Fulfillment.AppHost",
+            "The fulfillment AppHost launch settings must exist.");
+
+        var httpsProfile = profiles.GetProperty("https");
+
+        AssertLaunchProfile(
+            httpsProfile,
+            expectedApplicationUrl: "https://localhost:17134;http://localhost:15170");
+
+        AssertEnvironmentVariable(httpsProfile, "ASPNETCORE_ENVIRONMENT", "Development");
+        AssertEnvironmentVariable(httpsProfile, "DOTNET_ENVIRONMENT", "Development");
+        AssertEnvironmentVariable(httpsProfile, "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL", "https://localhost:21030");
+        AssertEnvironmentVariable(httpsProfile, "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL", "https://localhost:22057");
+    }
+
     private static void AssertLaunchProfile(
         JsonElement profile,
         string expectedApplicationUrl,
-        string expectedLaunchUrl)
+        string? expectedLaunchUrl = null)
     {
         var applicationUrl = profile.GetProperty("applicationUrl").GetString()
             ?? throw new InvalidOperationException("The launch profile applicationUrl must be present.");
@@ -50,10 +66,39 @@ public sealed class LaunchSettingsPolicyTests
                 static address => Assert.False(address.EndsWith(":0", StringComparison.Ordinal)));
         }
 
+        if (expectedLaunchUrl is null)
+        {
+            return;
+        }
+
         var launchUrl = profile.GetProperty("launchUrl").GetString()
             ?? throw new InvalidOperationException("The launch profile launchUrl must be present.");
 
         Assert.Equal(expectedLaunchUrl, launchUrl);
+    }
+
+    private static JsonElement ReadProfiles(DirectoryInfo root, string sampleProjectName, string missingFileMessage)
+    {
+        var launchSettingsPath = Path.Combine(
+            root.FullName,
+            "samples",
+            sampleProjectName,
+            "Properties",
+            "launchSettings.json");
+
+        Assert.True(File.Exists(launchSettingsPath), missingFileMessage);
+
+        using var document = JsonDocument.Parse(File.ReadAllText(launchSettingsPath));
+        return document.RootElement.GetProperty("profiles").Clone();
+    }
+
+    private static void AssertEnvironmentVariable(JsonElement profile, string name, string expectedValue)
+    {
+        var environmentVariables = profile.GetProperty("environmentVariables");
+        var value = environmentVariables.GetProperty(name).GetString()
+            ?? throw new InvalidOperationException($"The launch profile environment variable '{name}' must be present.");
+
+        Assert.Equal(expectedValue, value);
     }
 
     private static DirectoryInfo FindRepositoryRoot()
