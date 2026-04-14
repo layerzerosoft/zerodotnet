@@ -32,6 +32,11 @@ public sealed class DependencyPolicyTests
         "NATS.Net",
     ];
 
+    private static readonly string[] SqlPackages =
+    [
+        "Microsoft.Data.SqlClient",
+    ];
+
     private static readonly string[] RuntimeAssemblyScanningPatterns =
     [
         "AppDomain.CurrentDomain.GetAssemblies",
@@ -66,6 +71,23 @@ public sealed class DependencyPolicyTests
             .Where(file => !IsIgnoredPath(root, file))
             .Where(file => ReferencesBrokerPackage(file))
             .Where(file => !IsBrokerPackageAllowed(file, root))
+            .Select(file => Path.GetRelativePath(root.FullName, file))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Sql_client_packages_are_limited_to_migration_adapters_tests_and_eng_hosts()
+    {
+        var root = FindRepositoryRoot();
+
+        var violations = Directory
+            .EnumerateFiles(root.FullName, "*.csproj", SearchOption.AllDirectories)
+            .Where(file => !IsIgnoredPath(root, file))
+            .Where(file => ReferencesRestrictedPackage(file, SqlPackages))
+            .Where(file => !IsSqlPackageAllowed(file, root))
             .Select(file => Path.GetRelativePath(root.FullName, file))
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -227,6 +249,11 @@ public sealed class DependencyPolicyTests
 
     private static bool ReferencesBrokerPackage(string file)
     {
+        return ReferencesRestrictedPackage(file, BrokerPackages);
+    }
+
+    private static bool ReferencesRestrictedPackage(string file, string[] packages)
+    {
         var document = XDocument.Load(file);
 
         return document
@@ -235,9 +262,9 @@ public sealed class DependencyPolicyTests
             .Select(element => element.Attribute("Include")?.Value)
             .Where(static packageId => !string.IsNullOrWhiteSpace(packageId))
             .Cast<string>()
-            .Any(packageId => BrokerPackages.Any(brokerPackage =>
-                packageId.Equals(brokerPackage, StringComparison.OrdinalIgnoreCase)
-                || packageId.StartsWith($"{brokerPackage}.", StringComparison.OrdinalIgnoreCase)));
+            .Any(packageId => packages.Any(package =>
+                packageId.Equals(package, StringComparison.OrdinalIgnoreCase)
+                || packageId.StartsWith($"{package}.", StringComparison.OrdinalIgnoreCase)));
     }
 
     private static bool IsBrokerPackageAllowed(string file, DirectoryInfo root)
@@ -247,6 +274,15 @@ public sealed class DependencyPolicyTests
         return relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Messaging.", StringComparison.Ordinal)
             || relativePath.StartsWith($"samples{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || relativePath.StartsWith($"tests{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+    }
+
+    private static bool IsSqlPackageAllowed(string file, DirectoryInfo root)
+    {
+        var relativePath = Path.GetRelativePath(root.FullName, file);
+
+        return relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Migrations.SqlServer", StringComparison.Ordinal)
+            || relativePath.StartsWith($"tests{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || relativePath.StartsWith($"eng{Path.DirectorySeparatorChar}LayerZero.Migrations.Runner", StringComparison.Ordinal);
     }
 
     private static IEnumerable<string> EnumerateNamingPolicyFiles(DirectoryInfo root)

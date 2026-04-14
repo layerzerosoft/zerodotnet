@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="LayerZero.Migrations.Tests" />
+    <InternalsVisibleTo Include="LayerZero.Migrations.SqlServer" />
+    <InternalsVisibleTo Include="LayerZero.Migrations.SqlServer.IntegrationTests" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <ProjectReference Include="../LayerZero.Core/LayerZero.Core.csproj" />
+  </ItemGroup>
+</Project>
