@@ -1,6 +1,22 @@
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
-public sealed class RabbitMqFulfillmentEndToEndTests(RabbitMqFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<RabbitMqFulfillmentFixture>
+[Trait("Category", "LocalFast")]
+public sealed class RabbitMqFulfillmentEndToEndTests(RabbitMqFulfillmentHarnessFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<RabbitMqFulfillmentHarnessFixture>
+{
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
+    protected override FulfillmentHarness Harness => fixture.Harness;
+
+    [Fact]
+    public async Task Startup_completes_and_openapi_is_reachable()
+    {
+        var response = await Harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+}
+
+[Trait("Category", "MatrixOnly")]
+public sealed class AzureServiceBusFulfillmentEndToEndTests(AzureServiceBusFulfillmentFixture fixture) : PerTestFulfillmentEndToEndTestBase, IClassFixture<AzureServiceBusFulfillmentFixture>
 {
     public new static bool SkipWhenCloudEnvironmentUnavailable => false;
 
@@ -12,31 +28,13 @@ public sealed class RabbitMqFulfillmentEndToEndTests(RabbitMqFulfillmentFixture 
     [Fact]
     public async Task Startup_completes_and_openapi_is_reachable()
     {
-        await using var harness = await CreateHarnessAsync();
-        var response = await harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+        var response = await Harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
     }
 }
 
-public sealed class AzureServiceBusFulfillmentEndToEndTests(AzureServiceBusFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<AzureServiceBusFulfillmentFixture>
-{
-    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
-
-    protected override Task<FulfillmentHarness> CreateHarnessAsync()
-    {
-        return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task Startup_completes_and_openapi_is_reachable()
-    {
-        await using var harness = await CreateHarnessAsync();
-        var response = await harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
-        response.EnsureSuccessStatusCode();
-    }
-}
-
-public sealed class CloudAzureServiceBusFulfillmentEndToEndTests(CloudAzureServiceBusFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<CloudAzureServiceBusFulfillmentFixture>
+[Trait("Category", "CloudOptional")]
+public sealed class CloudAzureServiceBusFulfillmentEndToEndTests(CloudAzureServiceBusFulfillmentFixture fixture) : PerTestFulfillmentEndToEndTestBase, IClassFixture<CloudAzureServiceBusFulfillmentFixture>
 {
     public new static bool SkipWhenCloudEnvironmentUnavailable =>
         string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING"));
@@ -47,50 +45,32 @@ public sealed class CloudAzureServiceBusFulfillmentEndToEndTests(CloudAzureServi
     }
 }
 
-public sealed class KafkaFulfillmentEndToEndTests : FulfillmentEndToEndTestBase, IAsyncLifetime
+[Trait("Category", "MatrixOnly")]
+public sealed class KafkaFulfillmentEndToEndTests(KafkaFulfillmentHarnessFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<KafkaFulfillmentHarnessFixture>
 {
     public new static bool SkipWhenCloudEnvironmentUnavailable => false;
 
-    private readonly KafkaFulfillmentFixture fixture = new();
-
-    protected override Task<FulfillmentHarness> CreateHarnessAsync()
-    {
-        return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
-    }
-
-    public async ValueTask InitializeAsync()
-    {
-        await fixture.InitializeAsync().ConfigureAwait(false);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await fixture.DisposeAsync().ConfigureAwait(false);
-    }
+    protected override FulfillmentHarness Harness => fixture.Harness;
 
     [Fact]
     public async Task Startup_completes_and_openapi_is_reachable()
     {
-        await using var harness = await CreateHarnessAsync();
-        var response = await harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+        var response = await Harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
     }
 }
 
-public sealed class NatsFulfillmentEndToEndTests(NatsFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<NatsFulfillmentFixture>
+[Trait("Category", "MatrixOnly")]
+public sealed class NatsFulfillmentEndToEndTests(NatsFulfillmentHarnessFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<NatsFulfillmentHarnessFixture>
 {
     public new static bool SkipWhenCloudEnvironmentUnavailable => false;
 
-    protected override Task<FulfillmentHarness> CreateHarnessAsync()
-    {
-        return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
-    }
+    protected override FulfillmentHarness Harness => fixture.Harness;
 
     [Fact]
     public async Task Startup_completes_and_openapi_is_reachable()
     {
-        await using var harness = await CreateHarnessAsync();
-        var response = await harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+        var response = await Harness.Client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
     }
 }

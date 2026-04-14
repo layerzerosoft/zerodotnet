@@ -7,16 +7,14 @@ public abstract class FulfillmentEndToEndTestBase
 {
     public static bool SkipWhenCloudEnvironmentUnavailable => false;
 
-    protected abstract Task<FulfillmentHarness> CreateHarnessAsync();
+    protected abstract FulfillmentHarness Harness { get; }
 
     [OptionalCloudEnvironmentFact]
     public async Task Happy_path_completes_the_order()
     {
-        await using var harness = await CreateHarnessAsync();
-
-        var orderId = await harness.PlaceOrderAsync(new OrderScenario(), cancellationToken: TestContext.Current.CancellationToken);
-        var order = await harness.WaitForOrderAsync(
-            orderId,
+        var run = await Harness.PlaceOrderAsync(new OrderScenario(), cancellationToken: TestContext.Current.CancellationToken);
+        var order = await Harness.WaitForOrderAsync(
+            run,
             static current => current.Status == OrderStatuses.Completed,
             TimeSpan.FromSeconds(45),
             TestContext.Current.CancellationToken);
@@ -29,14 +27,12 @@ public abstract class FulfillmentEndToEndTestBase
     [OptionalCloudEnvironmentFact]
     public async Task Inventory_rejection_stops_the_workflow()
     {
-        await using var harness = await CreateHarnessAsync();
-
-        var orderId = await harness.PlaceOrderAsync(
+        var run = await Harness.PlaceOrderAsync(
             new OrderScenario(ForceInventoryFailure: true),
             cancellationToken: TestContext.Current.CancellationToken);
 
-        var order = await harness.WaitForOrderAsync(
-            orderId,
+        var order = await Harness.WaitForOrderAsync(
+            run,
             static current => current.Status == OrderStatuses.InventoryRejected,
             TimeSpan.FromSeconds(30),
             TestContext.Current.CancellationToken);
@@ -49,19 +45,17 @@ public abstract class FulfillmentEndToEndTestBase
     [OptionalCloudEnvironmentFact]
     public async Task Payment_timeout_retries_and_then_completes()
     {
-        await using var harness = await CreateHarnessAsync();
-
-        var orderId = await harness.PlaceOrderAsync(
+        var run = await Harness.PlaceOrderAsync(
             new OrderScenario(ForcePaymentTimeoutOnce: true),
             cancellationToken: TestContext.Current.CancellationToken);
 
-        var order = await harness.WaitForOrderAsync(
-            orderId,
+        var order = await Harness.WaitForOrderAsync(
+            run,
             static current => current.Status == OrderStatuses.Completed,
             TimeSpan.FromSeconds(45),
             TestContext.Current.CancellationToken);
-        var timeline = await harness.WaitForTimelineAsync(
-            orderId,
+        var timeline = await Harness.WaitForTimelineAsync(
+            run,
             static current => current.Count(entry => entry.Step == "payment.authorization") >= 2,
             TimeSpan.FromSeconds(45),
             TestContext.Current.CancellationToken);
@@ -73,19 +67,18 @@ public abstract class FulfillmentEndToEndTestBase
     [OptionalCloudEnvironmentFact]
     public async Task Projection_poison_messages_are_dead_lettered()
     {
-        await using var harness = await CreateHarnessAsync();
-
-        var orderId = await harness.PlaceOrderAsync(
+        var run = await Harness.PlaceOrderAsync(
             new OrderScenario(ForceProjectionPoisonMessage: true),
             cancellationToken: TestContext.Current.CancellationToken);
 
-        _ = await harness.WaitForOrderAsync(
-            orderId,
+        _ = await Harness.WaitForOrderAsync(
+            run,
             static current => current.Status == OrderStatuses.Completed,
             TimeSpan.FromSeconds(45),
             TestContext.Current.CancellationToken);
 
-        var deadLetters = await harness.WaitForDeadLettersAsync(
+        var deadLetters = await Harness.WaitForDeadLettersAsync(
+            run,
             static records => records.Any(record => record.HandlerIdentity.Contains("OrderPlacedAnalyticsProjection", StringComparison.Ordinal)),
             TimeSpan.FromSeconds(45),
             TestContext.Current.CancellationToken);
@@ -96,14 +89,12 @@ public abstract class FulfillmentEndToEndTestBase
     [OptionalCloudEnvironmentFact]
     public async Task Duplicate_shipment_requests_are_suppressed()
     {
-        await using var harness = await CreateHarnessAsync();
-
-        var orderId = await harness.PlaceOrderAsync(
+        var run = await Harness.PlaceOrderAsync(
             new OrderScenario(ForceDuplicateShipment: true),
             cancellationToken: TestContext.Current.CancellationToken);
 
-        var timeline = await harness.WaitForTimelineAsync(
-            orderId,
+        var timeline = await Harness.WaitForTimelineAsync(
+            run,
             static current => current.Any(entry => entry.Step == "shipment.duplicate.suppressed"),
             TimeSpan.FromSeconds(45),
             TestContext.Current.CancellationToken);
@@ -115,15 +106,13 @@ public abstract class FulfillmentEndToEndTestBase
     [OptionalCloudEnvironmentFact]
     public async Task Cancel_during_processing_prevents_completion()
     {
-        await using var harness = await CreateHarnessAsync();
-
-        var orderId = await harness.PlaceOrderAsync(
+        var run = await Harness.PlaceOrderAsync(
             new OrderScenario(ForcePaymentTimeoutOnce: true),
             cancellationToken: TestContext.Current.CancellationToken);
-        await harness.CancelOrderAsync(orderId, "Customer changed their mind.", TestContext.Current.CancellationToken);
+        await Harness.CancelOrderAsync(run.OrderId, "Customer changed their mind.", TestContext.Current.CancellationToken);
 
-        var order = await harness.WaitForOrderAsync(
-            orderId,
+        var order = await Harness.WaitForOrderAsync(
+            run,
             static current => current.Status == OrderStatuses.Cancelled,
             TimeSpan.FromSeconds(45),
             TestContext.Current.CancellationToken);
@@ -134,20 +123,46 @@ public abstract class FulfillmentEndToEndTestBase
     [OptionalCloudEnvironmentFact]
     public async Task Http_trace_ids_flow_into_async_message_timeline_entries()
     {
-        await using var harness = await CreateHarnessAsync();
-
         const string traceParent = "00-11111111111111111111111111111111-2222222222222222-01";
-        var orderId = await harness.PlaceOrderAsync(
+        var run = await Harness.PlaceOrderAsync(
             new OrderScenario(),
             traceParent,
             TestContext.Current.CancellationToken);
 
-        var timeline = await harness.WaitForTimelineAsync(
-            orderId,
+        var timeline = await Harness.WaitForTimelineAsync(
+            run,
             static current => current.Any(entry => !string.IsNullOrWhiteSpace(entry.TraceParent)),
             TimeSpan.FromSeconds(45),
             TestContext.Current.CancellationToken);
 
-        Assert.Contains(timeline.Where(entry => !string.IsNullOrWhiteSpace(entry.TraceParent)), entry => entry.TraceParent!.Contains("11111111111111111111111111111111", StringComparison.Ordinal));
+        Assert.Contains(
+            timeline.Where(entry => !string.IsNullOrWhiteSpace(entry.TraceParent)),
+            entry => run.MatchesTraceParent(entry.TraceParent));
+    }
+}
+
+public abstract class PerTestFulfillmentEndToEndTestBase : FulfillmentEndToEndTestBase, IAsyncLifetime
+{
+    private FulfillmentHarness? harness;
+
+    protected override FulfillmentHarness Harness => harness
+        ?? throw new InvalidOperationException("The fulfillment harness has not been initialized.");
+
+    protected abstract Task<FulfillmentHarness> CreateHarnessAsync();
+
+    public virtual async ValueTask InitializeAsync()
+    {
+        harness = await CreateHarnessAsync().ConfigureAwait(false);
+    }
+
+    public virtual async ValueTask DisposeAsync()
+    {
+        if (harness is null)
+        {
+            return;
+        }
+
+        await harness.DisposeAsync().ConfigureAwait(false);
+        harness = null;
     }
 }

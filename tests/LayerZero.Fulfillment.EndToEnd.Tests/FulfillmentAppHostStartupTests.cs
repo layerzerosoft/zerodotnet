@@ -6,6 +6,7 @@ using Aspire.Hosting.Testing;
 
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
+[Trait("Category", "MatrixOnly")]
 public sealed class FulfillmentAppHostStartupTests
 {
     private static readonly string[] BrokerResources =

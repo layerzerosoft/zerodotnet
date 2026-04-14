@@ -140,6 +140,15 @@ Coverage includes:
 - restart and redelivery behavior
 - the fulfillment workflow matrix across every supported broker profile
 
+Supported fulfillment E2E commands:
+
+- fast local inner loop:
+  `dotnet test tests/LayerZero.Fulfillment.EndToEnd.Tests/LayerZero.Fulfillment.EndToEnd.Tests.csproj --no-build --filter "Category=LocalFast"`
+- full local fulfillment matrix:
+  `dotnet test tests/LayerZero.Fulfillment.EndToEnd.Tests/LayerZero.Fulfillment.EndToEnd.Tests.csproj --no-build --filter "Category!=CloudOptional"`
+- cloud Azure Service Bus parity:
+  `dotnet test LayerZero.slnx --no-build --filter "Category=CloudOptional"`
+
 Broker-specific setup notes live here:
 
 - [RabbitMQ](rabbitmq.md)

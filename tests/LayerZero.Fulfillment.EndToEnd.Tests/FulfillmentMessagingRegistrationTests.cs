@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
+[Trait("Category", "LocalFast")]
 public sealed class FulfillmentMessagingRegistrationTests
 {
     [Fact]

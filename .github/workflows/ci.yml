@@ -44,7 +44,7 @@ jobs:
         run: dotnet build $SOLUTION_FILE --no-restore
 
       - name: Test
-        run: dotnet test $SOLUTION_FILE --no-build --filter "FullyQualifiedName!~CloudAzureServiceBus" --logger trx --results-directory ./artifacts/test-results
+        run: dotnet test $SOLUTION_FILE --no-build --filter "Category!=CloudOptional" --logger trx --results-directory ./artifacts/test-results
 
       - name: Pack
         run: dotnet pack $SOLUTION_FILE --no-build --output ./artifacts/packages

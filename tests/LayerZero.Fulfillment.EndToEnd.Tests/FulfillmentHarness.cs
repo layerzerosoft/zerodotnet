@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using LayerZero.Fulfillment.Contracts.Orders;
 using LayerZero.Fulfillment.Processing;
 using LayerZero.Fulfillment.Projections;
@@ -6,24 +7,65 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
+public sealed class FulfillmentOrderRun
+{
+    public FulfillmentOrderRun(Guid orderId, string traceParent)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(traceParent);
+
+        OrderId = orderId;
+        TraceParent = traceParent;
+        TraceId = ExtractTraceId(traceParent);
+    }
+
+    public Guid OrderId { get; }
+
+    public string TraceParent { get; }
+
+    public string TraceId { get; }
+
+    public bool MatchesTraceParent(string? traceParent)
+    {
+        var candidateTraceId = TryExtractTraceId(traceParent);
+        return candidateTraceId is not null
+            && string.Equals(TraceId, candidateTraceId, StringComparison.Ordinal);
+    }
+
+    private static string ExtractTraceId(string traceParent)
+    {
+        return TryExtractTraceId(traceParent)
+            ?? throw new ArgumentException("Trace parent must be a valid W3C traceparent value.", nameof(traceParent));
+    }
+
+    private static string? TryExtractTraceId(string? traceParent)
+    {
+        if (string.IsNullOrWhiteSpace(traceParent))
+        {
+            return null;
+        }
+
+        var segments = traceParent.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return segments.Length == 4 && segments[1].Length == 32
+            ? segments[1]
+            : null;
+    }
+}
+
 public sealed class FulfillmentHarness : IAsyncDisposable
 {
     private readonly string databasePath;
-    private readonly Dictionary<string, string?> settings;
     private readonly IHost processingHost;
     private readonly IHost projectionHost;
     private readonly FulfillmentApiFactory factory;
 
     private FulfillmentHarness(
         string databasePath,
-        Dictionary<string, string?> settings,
         IHost processingHost,
         IHost projectionHost,
         FulfillmentApiFactory factory,
         HttpClient client)
     {
         this.databasePath = databasePath;
-        this.settings = settings;
         this.processingHost = processingHost;
         this.projectionHost = projectionHost;
         this.factory = factory;
@@ -55,7 +97,7 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         var factory = new FulfillmentApiFactory(settings, databasePath);
         var client = factory.CreateClient();
 
-        return new FulfillmentHarness(databasePath, settings, processingHost, projectionHost, factory, client);
+        return new FulfillmentHarness(databasePath, processingHost, projectionHost, factory, client);
     }
 
     public async ValueTask DisposeAsync()
@@ -73,8 +115,12 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         }
     }
 
-    public async Task<Guid> PlaceOrderAsync(OrderScenario scenario, string? traceParent = null, CancellationToken cancellationToken = default)
+    public async Task<FulfillmentOrderRun> PlaceOrderAsync(OrderScenario scenario, string? traceParent = null, CancellationToken cancellationToken = default)
     {
+        var effectiveTraceParent = string.IsNullOrWhiteSpace(traceParent)
+            ? CreateTraceParent()
+            : traceParent;
+
         var request = new PlaceOrderApi.Request(
             "customer@example.com",
             [new OrderItem("LZ-ASYNC", 1)],
@@ -86,17 +132,14 @@ public sealed class FulfillmentHarness : IAsyncDisposable
             Content = JsonContent.Create(request),
         };
 
-        if (!string.IsNullOrWhiteSpace(traceParent))
-        {
-            message.Headers.TryAddWithoutValidation("traceparent", traceParent);
-        }
+        message.Headers.TryAddWithoutValidation("traceparent", effectiveTraceParent);
 
         var response = await Client.SendAsync(message, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         var accepted = await response.Content.ReadFromJsonAsync<PlaceOrderApi.Accepted>(cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Order placement response was empty.");
-        return accepted.OrderId;
+        return new FulfillmentOrderRun(accepted.OrderId, effectiveTraceParent);
     }
 
     public async Task CancelOrderAsync(Guid orderId, string reason, CancellationToken cancellationToken = default)
@@ -108,13 +151,13 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<OrderDetails> WaitForOrderAsync(Guid orderId, Func<OrderDetails, bool> predicate, TimeSpan timeout, CancellationToken cancellationToken = default)
+    public async Task<OrderDetails> WaitForOrderAsync(FulfillmentOrderRun run, Func<OrderDetails, bool> predicate, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
         while (DateTimeOffset.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var order = await Client.GetFromJsonAsync<OrderDetails>($"/orders/{orderId}", cancellationToken).ConfigureAwait(false);
+            var order = await Client.GetFromJsonAsync<OrderDetails>($"/orders/{run.OrderId}", cancellationToken).ConfigureAwait(false);
             if (order is not null && predicate(order))
             {
                 return order;
@@ -123,16 +166,16 @@ public sealed class FulfillmentHarness : IAsyncDisposable
             await Task.Delay(TimeSpan.FromMilliseconds(150), cancellationToken).ConfigureAwait(false);
         }
 
-        throw new TimeoutException($"Timed out waiting for order '{orderId}' to reach the expected state.");
+        throw new TimeoutException($"Timed out waiting for order '{run.OrderId}' to reach the expected state.");
     }
 
-    public async Task<IReadOnlyList<OrderTimelineEntry>> WaitForTimelineAsync(Guid orderId, Func<IReadOnlyList<OrderTimelineEntry>, bool> predicate, TimeSpan timeout, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<OrderTimelineEntry>> WaitForTimelineAsync(FulfillmentOrderRun run, Func<IReadOnlyList<OrderTimelineEntry>, bool> predicate, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
         while (DateTimeOffset.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var timeline = await Client.GetFromJsonAsync<IReadOnlyList<OrderTimelineEntry>>($"/orders/{orderId}/timeline", cancellationToken).ConfigureAwait(false) ?? [];
+            var timeline = await Client.GetFromJsonAsync<IReadOnlyList<OrderTimelineEntry>>($"/orders/{run.OrderId}/timeline", cancellationToken).ConfigureAwait(false) ?? [];
             if (predicate(timeline))
             {
                 return timeline;
@@ -141,25 +184,33 @@ public sealed class FulfillmentHarness : IAsyncDisposable
             await Task.Delay(TimeSpan.FromMilliseconds(150), cancellationToken).ConfigureAwait(false);
         }
 
-        throw new TimeoutException($"Timed out waiting for timeline updates for order '{orderId}'.");
+        throw new TimeoutException($"Timed out waiting for timeline updates for order '{run.OrderId}'.");
     }
 
-    public async Task<IReadOnlyList<DeadLetterRecord>> WaitForDeadLettersAsync(Func<IReadOnlyList<DeadLetterRecord>, bool> predicate, TimeSpan timeout, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DeadLetterRecord>> WaitForDeadLettersAsync(FulfillmentOrderRun run, Func<IReadOnlyList<DeadLetterRecord>, bool> predicate, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
         while (DateTimeOffset.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var records = await Client.GetFromJsonAsync<IReadOnlyList<DeadLetterRecord>>(OrderRoutes.DeadLetters, cancellationToken).ConfigureAwait(false) ?? [];
-            if (predicate(records))
+            var matchingRecords = records.Where(record => run.MatchesTraceParent(record.TraceParent)).ToArray();
+            if (predicate(matchingRecords))
             {
-                return records;
+                return matchingRecords;
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(150), cancellationToken).ConfigureAwait(false);
         }
 
-        throw new TimeoutException("Timed out waiting for dead-letter records.");
+        throw new TimeoutException($"Timed out waiting for dead-letter records for order '{run.OrderId}'.");
+    }
+
+    private static string CreateTraceParent()
+    {
+        var traceId = ActivityTraceId.CreateRandom();
+        var spanId = ActivitySpanId.CreateRandom();
+        return $"00-{traceId}-{spanId}-01";
     }
 
     private static IHost CreateWorkerHost(

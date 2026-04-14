@@ -107,6 +107,15 @@ Real-broker verification is part of the repo now. `dotnet test` covers:
 - RabbitMQ, Azure Service Bus emulator, Kafka, and NATS adapter integration tests
 - the fulfillment end-to-end matrix across every local broker profile
 
+The supported fulfillment E2E lanes are:
+
+- fast local inner loop:
+  `dotnet test tests/LayerZero.Fulfillment.EndToEnd.Tests/LayerZero.Fulfillment.EndToEnd.Tests.csproj --no-build --filter "Category=LocalFast"`
+- full local fulfillment matrix:
+  `dotnet test tests/LayerZero.Fulfillment.EndToEnd.Tests/LayerZero.Fulfillment.EndToEnd.Tests.csproj --no-build --filter "Category!=CloudOptional"`
+- cloud Azure Service Bus parity:
+  `dotnet test LayerZero.slnx --no-build --filter "Category=CloudOptional"`
+
 The fulfillment sample family exercises those defaults with order placement,
 inventory, payment, shipment, retries, dead-lettering, duplicate-delivery
 protection, and correlation-aware timelines.
@@ -161,6 +170,8 @@ dotnet format analyzers LayerZero.slnx --diagnostics IDE0005
 dotnet restore
 dotnet build --no-restore
 dotnet test --no-build
+dotnet test tests/LayerZero.Fulfillment.EndToEnd.Tests/LayerZero.Fulfillment.EndToEnd.Tests.csproj --no-build --filter "Category=LocalFast"
+dotnet test tests/LayerZero.Fulfillment.EndToEnd.Tests/LayerZero.Fulfillment.EndToEnd.Tests.csproj --no-build --filter "Category!=CloudOptional"
 dotnet pack --no-build
 ```
 
