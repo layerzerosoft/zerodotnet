@@ -4,6 +4,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" />
+    <PackageReference Include="Aspire.Hosting.Testing" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Testcontainers" />
@@ -16,6 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.AppHost/LayerZero.Fulfillment.AppHost.csproj">
+      <Aliases>FulfillmentAppHost</Aliases>
+    </ProjectReference>
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />

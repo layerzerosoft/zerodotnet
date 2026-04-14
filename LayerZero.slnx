@@ -8,6 +8,7 @@
     <Project Path="samples/LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Client/LayerZero.Fulfillment.Client.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.KafkaReadiness/LayerZero.Fulfillment.KafkaReadiness.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Projections/LayerZero.Fulfillment.Projections.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />

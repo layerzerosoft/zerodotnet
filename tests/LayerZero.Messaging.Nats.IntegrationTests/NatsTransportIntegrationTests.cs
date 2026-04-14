@@ -7,6 +7,8 @@ namespace LayerZero.Messaging.Nats.IntegrationTests;
 
 public sealed class NatsTransportIntegrationTests(NatsFixture fixture) : MessageTransportIntegrationTestBase, IClassFixture<NatsFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected override string BrokerName => "nats";
 
     protected override IHost CreateHost(string applicationName, IntegrationState? state = null)

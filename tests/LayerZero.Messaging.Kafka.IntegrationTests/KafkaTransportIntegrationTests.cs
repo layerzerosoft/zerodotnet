@@ -7,6 +7,8 @@ namespace LayerZero.Messaging.Kafka.IntegrationTests;
 
 public sealed class KafkaTransportIntegrationTests(KafkaFixture fixture) : MessageTransportIntegrationTestBase, IClassFixture<KafkaFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected override string BrokerName => "kafka";
 
     protected override IHost CreateHost(string applicationName, IntegrationState? state = null)

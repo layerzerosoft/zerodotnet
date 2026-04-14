@@ -7,13 +7,15 @@ namespace LayerZero.Messaging.IntegrationTesting;
 
 public abstract class MessageTransportIntegrationTestBase
 {
+    public static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected virtual string BusName => "primary";
 
     protected abstract string BrokerName { get; }
 
     protected abstract IHost CreateHost(string applicationName, IntegrationState? state = null);
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Commands_publish_events_and_propagate_trace_metadata()
     {
         using var host = CreateHost(CreateApplicationName());
@@ -50,7 +52,7 @@ public abstract class MessageTransportIntegrationTestBase
         });
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Retryable_failures_complete_before_the_retry_budget_is_exhausted()
     {
         using var host = CreateHost(CreateApplicationName());
@@ -75,7 +77,7 @@ public abstract class MessageTransportIntegrationTestBase
         Assert.Contains(state.Settlements, settlement => settlement.MessageName == MessageNames.For<RetryCommand>() && settlement.Action == MessageProcessingAction.Complete);
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Terminal_failures_are_dead_lettered_after_the_retry_budget_is_exhausted()
     {
         using var host = CreateHost(CreateApplicationName());
@@ -100,7 +102,7 @@ public abstract class MessageTransportIntegrationTestBase
         Assert.True(state.Count("command.poison") >= 2);
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Duplicate_delivery_executes_idempotent_handlers_only_once()
     {
         using var host = CreateHost(CreateApplicationName());
@@ -143,7 +145,7 @@ public abstract class MessageTransportIntegrationTestBase
         Assert.Equal(1, state.Count($"idempotent-side-effect:{orderId:N}"));
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Topology_validation_requires_explicit_provisioning()
     {
         using var host = CreateHost(CreateApplicationName());
@@ -157,7 +159,7 @@ public abstract class MessageTransportIntegrationTestBase
         await IntegrationTestHost.ValidateAsync(host, TestContext.Current.CancellationToken).ConfigureAwait(false);
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Restarting_the_consumer_redelivers_unsettled_messages()
     {
         var applicationName = CreateApplicationName();

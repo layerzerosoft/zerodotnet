@@ -2,12 +2,13 @@ using LayerZero.Messaging.IntegrationTesting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Testcontainers.ServiceBus;
-using Xunit.Sdk;
 
 namespace LayerZero.Messaging.AzureServiceBus.IntegrationTests;
 
 public sealed class AzureServiceBusTransportIntegrationTests(ServiceBusFixture fixture) : MessageTransportIntegrationTestBase, IClassFixture<ServiceBusFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected override string BrokerName => "servicebus";
 
     protected override IHost CreateHost(string applicationName, IntegrationState? state = null)
@@ -51,6 +52,9 @@ public sealed class ServiceBusFixture : TestcontainerFixtureBase<ServiceBusConta
 
 public sealed class CloudAzureServiceBusTransportIntegrationTests(CloudServiceBusFixture fixture) : MessageTransportIntegrationTestBase, IClassFixture<CloudServiceBusFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable =>
+        string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING"));
+
     protected override string BrokerName => "servicebus-cloud";
 
     protected override IHost CreateHost(string applicationName, IntegrationState? state = null)
@@ -87,11 +91,6 @@ public sealed class CloudServiceBusFixture : IAsyncLifetime
     public ValueTask InitializeAsync()
     {
         ConnectionString = Environment.GetEnvironmentVariable("LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING") ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(ConnectionString))
-        {
-            throw SkipException.ForSkip("Set LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING to run Azure Service Bus cloud parity tests.");
-        }
-
         AdministrationConnectionString = Environment.GetEnvironmentVariable("LAYERZERO_AZURE_SERVICE_BUS_CLOUD_ADMIN_CONNECTION_STRING")
             ?? ConnectionString;
         return ValueTask.CompletedTask;

@@ -32,6 +32,10 @@ Run the full multi-broker sample:
 dotnet run --project samples/LayerZero.Fulfillment.AppHost
 ```
 
+For VS Code, use the checked-in `Aspire: Fulfillment AppHost` configuration
+with the Microsoft Aspire extension and C# Dev Kit. That is the supported
+distributed-app debug path for the sample.
+
 The AppHost dashboard uses stable development URLs:
 
 - HTTPS: `https://localhost:17134`
@@ -63,7 +67,8 @@ projections:
 
 The broker end-to-end tests validate the workflows and transports, but they do
 not launch the AppHost. Treat the AppHost launch profile as the supported local
-startup contract for IDE and `dotnet run` flows.
+startup contract for `dotnet run`, and treat the checked-in Aspire VS Code
+debug configuration as the supported editor launch path.
 
 If the AppHost HTTPS profile fails because the local development certificate is
 missing, trust the standard .NET dev certificate:
@@ -71,6 +76,20 @@ missing, trust the standard .NET dev certificate:
 ```bash
 dotnet dev-certs https --trust
 ```
+
+Launching the AppHost without a launch profile is not supported. Aspire AppHost
+startup requires the dashboard and resource-service settings supplied by the
+checked-in launch profile or by an equivalent debugger configuration.
+
+In VS Code, the editor Run or Debug button on an arbitrary `.cs` file launches
+that file's associated project, not the AppHost. Use
+`Aspire: Fulfillment AppHost` when you want to debug the fulfillment
+orchestration host.
+
+The supported VS Code debugger type for the AppHost is `aspire`, not `dotnet`.
+Debugger-only user-unhandled exception stops are not the same thing as real
+resource failures. Use the Aspire dashboard resource state and resource logs to
+judge whether a fulfillment resource actually failed.
 
 Run a single host manually:
 

@@ -45,6 +45,40 @@ public sealed class LaunchSettingsPolicyTests
         AssertEnvironmentVariable(httpsProfile, "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL", "https://localhost:22057");
     }
 
+    [Fact]
+    public void Fulfillment_apphost_vscode_debug_configuration_uses_official_aspire_launch_type()
+    {
+        var root = FindRepositoryRoot();
+        var configurations = ReadVisualStudioCodeLaunchConfigurations(
+            root,
+            "The workspace VS Code launch configuration must exist for deterministic AppHost debugging.");
+
+        var appHostConfiguration = FindConfigurationByName(configurations, "Aspire: Fulfillment AppHost");
+
+        AssertConfigurationProperty(appHostConfiguration, "type", "aspire");
+        AssertConfigurationProperty(appHostConfiguration, "request", "launch");
+        AssertConfigurationProperty(
+            appHostConfiguration,
+            "program",
+            "${workspaceFolder}/samples/LayerZero.Fulfillment.AppHost/LayerZero.Fulfillment.AppHost.csproj");
+
+        var debuggers = appHostConfiguration.GetProperty("debuggers");
+        var projectDebugger = debuggers.GetProperty("project");
+        Assert.False(projectDebugger.GetProperty("justMyCode").GetBoolean());
+    }
+
+    [Fact]
+    public void Workspace_recommends_supported_vscode_extensions_for_aspire_debugging()
+    {
+        var root = FindRepositoryRoot();
+        var recommendations = ReadVisualStudioCodeExtensionRecommendations(
+            root,
+            "The workspace must recommend the supported VS Code extensions for Aspire AppHost debugging.");
+
+        Assert.Contains("microsoft-aspire.aspire-vscode", recommendations);
+        Assert.Contains("ms-dotnettools.csdevkit", recommendations);
+    }
+
     private static void AssertLaunchProfile(
         JsonElement profile,
         string expectedApplicationUrl,
@@ -92,11 +126,56 @@ public sealed class LaunchSettingsPolicyTests
         return document.RootElement.GetProperty("profiles").Clone();
     }
 
+    private static JsonElement ReadVisualStudioCodeLaunchConfigurations(DirectoryInfo root, string missingFileMessage)
+    {
+        var launchJsonPath = Path.Combine(root.FullName, ".vscode", "launch.json");
+        Assert.True(File.Exists(launchJsonPath), missingFileMessage);
+
+        using var document = JsonDocument.Parse(File.ReadAllText(launchJsonPath));
+        return document.RootElement.GetProperty("configurations").Clone();
+    }
+
+    private static string[] ReadVisualStudioCodeExtensionRecommendations(DirectoryInfo root, string missingFileMessage)
+    {
+        var extensionsJsonPath = Path.Combine(root.FullName, ".vscode", "extensions.json");
+        Assert.True(File.Exists(extensionsJsonPath), missingFileMessage);
+
+        using var document = JsonDocument.Parse(File.ReadAllText(extensionsJsonPath));
+        return document.RootElement
+            .GetProperty("recommendations")
+            .EnumerateArray()
+            .Select(static value => value.GetString())
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .ToArray();
+    }
+
+    private static JsonElement FindConfigurationByName(JsonElement configurations, string name)
+    {
+        foreach (var configuration in configurations.EnumerateArray())
+        {
+            if (string.Equals(configuration.GetProperty("name").GetString(), name, StringComparison.Ordinal))
+            {
+                return configuration.Clone();
+            }
+        }
+
+        throw new InvalidOperationException($"Could not find VS Code launch configuration '{name}'.");
+    }
+
     private static void AssertEnvironmentVariable(JsonElement profile, string name, string expectedValue)
     {
         var environmentVariables = profile.GetProperty("environmentVariables");
         var value = environmentVariables.GetProperty(name).GetString()
             ?? throw new InvalidOperationException($"The launch profile environment variable '{name}' must be present.");
+
+        Assert.Equal(expectedValue, value);
+    }
+
+    private static void AssertConfigurationProperty(JsonElement configuration, string name, string expectedValue)
+    {
+        var value = configuration.GetProperty(name).GetString()
+            ?? throw new InvalidOperationException($"The VS Code launch configuration property '{name}' must be present.");
 
         Assert.Equal(expectedValue, value);
     }

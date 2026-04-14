@@ -3,7 +3,6 @@ using Testcontainers.Kafka;
 using Testcontainers.Nats;
 using Testcontainers.RabbitMq;
 using Testcontainers.ServiceBus;
-using Xunit.Sdk;
 
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
@@ -145,11 +144,6 @@ public sealed class CloudAzureServiceBusFulfillmentFixture : IFulfillmentBrokerF
     public ValueTask InitializeAsync()
     {
         connectionString = Environment.GetEnvironmentVariable("LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING") ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw SkipException.ForSkip("Set LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING to run Azure Service Bus cloud fulfillment parity tests.");
-        }
-
         administrationConnectionString = Environment.GetEnvironmentVariable("LAYERZERO_AZURE_SERVICE_BUS_CLOUD_ADMIN_CONNECTION_STRING")
             ?? connectionString;
         return ValueTask.CompletedTask;

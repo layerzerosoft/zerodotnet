@@ -41,7 +41,10 @@ public static class KafkaServiceCollectionExtensions
         builder.Services.AddSingleton(new MessageBusRegistration(name, typeof(KafkaMessageBusTransport)));
 
         builder.Services.AddKeyedSingleton<KafkaClientProvider>(name, static (services, key) =>
-            new KafkaClientProvider((string)key!, services.GetRequiredService<IOptionsMonitor<KafkaBusOptions>>()));
+            new KafkaClientProvider(
+                (string)key!,
+                services.GetRequiredService<IOptionsMonitor<KafkaBusOptions>>(),
+                services.GetRequiredService<Microsoft.Extensions.Logging.ILogger<KafkaClientProvider>>()));
 
         builder.Services.AddKeyedSingleton<IMessageBusTransport>(name, static (services, key) =>
             new KafkaMessageBusTransport(

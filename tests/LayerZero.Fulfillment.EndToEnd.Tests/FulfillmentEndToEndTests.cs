@@ -2,6 +2,8 @@ namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
 public sealed class RabbitMqFulfillmentEndToEndTests(RabbitMqFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<RabbitMqFulfillmentFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected override Task<FulfillmentHarness> CreateHarnessAsync()
     {
         return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
@@ -18,6 +20,8 @@ public sealed class RabbitMqFulfillmentEndToEndTests(RabbitMqFulfillmentFixture 
 
 public sealed class AzureServiceBusFulfillmentEndToEndTests(AzureServiceBusFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<AzureServiceBusFulfillmentFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected override Task<FulfillmentHarness> CreateHarnessAsync()
     {
         return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
@@ -34,6 +38,9 @@ public sealed class AzureServiceBusFulfillmentEndToEndTests(AzureServiceBusFulfi
 
 public sealed class CloudAzureServiceBusFulfillmentEndToEndTests(CloudAzureServiceBusFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<CloudAzureServiceBusFulfillmentFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable =>
+        string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING"));
+
     protected override Task<FulfillmentHarness> CreateHarnessAsync()
     {
         return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);
@@ -42,6 +49,8 @@ public sealed class CloudAzureServiceBusFulfillmentEndToEndTests(CloudAzureServi
 
 public sealed class KafkaFulfillmentEndToEndTests : FulfillmentEndToEndTestBase, IAsyncLifetime
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     private readonly KafkaFulfillmentFixture fixture = new();
 
     protected override Task<FulfillmentHarness> CreateHarnessAsync()
@@ -70,6 +79,8 @@ public sealed class KafkaFulfillmentEndToEndTests : FulfillmentEndToEndTestBase,
 
 public sealed class NatsFulfillmentEndToEndTests(NatsFulfillmentFixture fixture) : FulfillmentEndToEndTestBase, IClassFixture<NatsFulfillmentFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected override Task<FulfillmentHarness> CreateHarnessAsync()
     {
         return FulfillmentHarness.CreateAsync(fixture, TestContext.Current.CancellationToken);

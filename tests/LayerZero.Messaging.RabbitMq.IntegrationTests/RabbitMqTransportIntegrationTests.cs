@@ -7,6 +7,8 @@ namespace LayerZero.Messaging.RabbitMq.IntegrationTests;
 
 public sealed class RabbitMqTransportIntegrationTests(RabbitMqFixture fixture) : MessageTransportIntegrationTestBase, IClassFixture<RabbitMqFixture>
 {
+    public new static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected override string BrokerName => "rabbitmq";
 
     [Fact]

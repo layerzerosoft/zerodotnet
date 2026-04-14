@@ -1,12 +1,15 @@
 using LayerZero.Fulfillment.Contracts.Orders;
+using LayerZero.Messaging.IntegrationTesting;
 
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
 public abstract class FulfillmentEndToEndTestBase
 {
+    public static bool SkipWhenCloudEnvironmentUnavailable => false;
+
     protected abstract Task<FulfillmentHarness> CreateHarnessAsync();
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Happy_path_completes_the_order()
     {
         await using var harness = await CreateHarnessAsync();
@@ -23,7 +26,7 @@ public abstract class FulfillmentEndToEndTestBase
         Assert.NotNull(order.TrackingNumber);
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Inventory_rejection_stops_the_workflow()
     {
         await using var harness = await CreateHarnessAsync();
@@ -43,7 +46,7 @@ public abstract class FulfillmentEndToEndTestBase
         Assert.Null(order.TrackingNumber);
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Payment_timeout_retries_and_then_completes()
     {
         await using var harness = await CreateHarnessAsync();
@@ -67,7 +70,7 @@ public abstract class FulfillmentEndToEndTestBase
         Assert.True(timeline.Count(entry => entry.Step == "payment.authorization") >= 2);
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Projection_poison_messages_are_dead_lettered()
     {
         await using var harness = await CreateHarnessAsync();
@@ -90,7 +93,7 @@ public abstract class FulfillmentEndToEndTestBase
         Assert.Contains(deadLetters, record => record.HandlerIdentity.Contains("OrderPlacedAnalyticsProjection", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Duplicate_shipment_requests_are_suppressed()
     {
         await using var harness = await CreateHarnessAsync();
@@ -109,7 +112,7 @@ public abstract class FulfillmentEndToEndTestBase
         Assert.Equal(1, timeline.Count(entry => entry.Step == "shipment.duplicate.suppressed"));
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Cancel_during_processing_prevents_completion()
     {
         await using var harness = await CreateHarnessAsync();
@@ -128,7 +131,7 @@ public abstract class FulfillmentEndToEndTestBase
         Assert.Equal(OrderStatuses.Cancelled, order.Status);
     }
 
-    [Fact]
+    [OptionalCloudEnvironmentFact]
     public async Task Http_trace_ids_flow_into_async_message_timeline_entries()
     {
         await using var harness = await CreateHarnessAsync();
