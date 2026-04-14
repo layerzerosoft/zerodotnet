@@ -1,3 +1,5 @@
+using LayerZero.Data;
+
 namespace LayerZero.Migrations;
 
 /// <summary>

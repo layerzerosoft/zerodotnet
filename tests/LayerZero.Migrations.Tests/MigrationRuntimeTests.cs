@@ -1,3 +1,4 @@
+using LayerZero.Data;
 using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,6 @@ public sealed class MigrationRuntimeTests
                     "20260414120000",
                     "Create accounts",
                     typeof(CreateAccountsMigration),
-                    MigrationTransactionMode.Transactional,
                     static () => new CreateAccountsMigration()),
             ],
             seeds:
@@ -62,8 +62,8 @@ public sealed class MigrationRuntimeTests
             new TestRegistry(
                 migrations:
                 [
-                    new MigrationDescriptor("20260414120000", "Create accounts", typeof(CreateAccountsMigration), MigrationTransactionMode.Transactional, static () => new CreateAccountsMigration()),
-                    new MigrationDescriptor("20260414130000", "Create ledger", typeof(CreateLedgerMigration), MigrationTransactionMode.Transactional, static () => new CreateLedgerMigration()),
+                    new MigrationDescriptor("20260414120000", "Create accounts", typeof(CreateAccountsMigration), static () => new CreateAccountsMigration()),
+                    new MigrationDescriptor("20260414130000", "Create ledger", typeof(CreateLedgerMigration), static () => new CreateLedgerMigration()),
                 ],
                 seeds: []));
 
@@ -114,7 +114,7 @@ public sealed class MigrationRuntimeTests
             new TestRegistry(
                 migrations:
                 [
-                    new MigrationDescriptor("20260414120000", "Create accounts", typeof(CreateAccountsMigration), MigrationTransactionMode.Transactional, static () => new CreateAccountsMigration()),
+                    new MigrationDescriptor("20260414120000", "Create accounts", typeof(CreateAccountsMigration), static () => new CreateAccountsMigration()),
                 ],
                 seeds: []));
 
@@ -124,7 +124,26 @@ public sealed class MigrationRuntimeTests
         Assert.Contains("baseline", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static MigrationRuntime CreateRuntime(FakeMigrationDatabaseAdapter adapter, IMigrationRegistry registry)
+    [Fact]
+    public void Typed_entity_maps_can_drive_migration_operations()
+    {
+        var compiler = new MigrationModelCompiler();
+        var catalog = new TestRegistry(
+            migrations:
+            [
+                new MigrationDescriptor("20260414140000", "Create customers", typeof(CreateCustomersFromMapMigration), static () => new CreateCustomersFromMapMigration()),
+            ],
+            seeds: []);
+
+        var model = compiler.Compile(catalog);
+
+        var createTable = Assert.IsType<CreateTableOperation>(Assert.Single(model.Migrations[0].Operations));
+        Assert.Equal("customers", createTable.Table.Name);
+        Assert.Contains(createTable.Columns, column => column.Name == "email" && column.Type.Equals(ColumnType.String(256)));
+        Assert.Contains("id", createTable.PrimaryKeyColumns);
+    }
+
+    private static MigrationRuntime CreateRuntime(FakeMigrationDatabaseAdapter adapter, IMigrationCatalog registry)
     {
         return new MigrationRuntime(
             registry,
@@ -135,7 +154,7 @@ public sealed class MigrationRuntimeTests
 
     private sealed class TestRegistry(
         IReadOnlyList<MigrationDescriptor> migrations,
-        IReadOnlyList<SeedDescriptor> seeds) : IMigrationRegistry
+        IReadOnlyList<SeedDescriptor> seeds) : IMigrationCatalog
     {
         public IReadOnlyList<MigrationDescriptor> Migrations { get; } = migrations;
 
@@ -192,11 +211,6 @@ public sealed class MigrationRuntimeTests
 
     private sealed class CreateAccountsMigration : Migration
     {
-        public CreateAccountsMigration()
-            : base("20260414120000", "Create accounts")
-        {
-        }
-
         public override void Build(MigrationBuilder builder)
         {
             builder.CreateTable("accounts", table =>
@@ -210,11 +224,6 @@ public sealed class MigrationRuntimeTests
 
     private sealed class CreateLedgerMigration : Migration
     {
-        public CreateLedgerMigration()
-            : base("20260414130000", "Create ledger")
-        {
-        }
-
         public override void Build(MigrationBuilder builder)
         {
             builder.CreateTable("ledger", table =>
@@ -228,11 +237,6 @@ public sealed class MigrationRuntimeTests
 
     private sealed class BaselineRolesSeed : Seed
     {
-        public BaselineRolesSeed()
-            : base("20260414121000", "Baseline roles")
-        {
-        }
-
         public override void Build(SeedBuilder builder)
         {
             builder.InsertData("roles", rows =>
@@ -244,17 +248,32 @@ public sealed class MigrationRuntimeTests
 
     private sealed class DeveloperRolesSeed : Seed
     {
-        public DeveloperRolesSeed()
-            : base("20260414122000", "Developer roles", "dev")
-        {
-        }
-
         public override void Build(SeedBuilder builder)
         {
             builder.InsertData("roles", rows =>
             {
                 rows.Row(row => row.Set("id", 2).Set("name", "developer"));
             });
+        }
+    }
+
+    private sealed class CustomerMap : EntityMap<Customer>
+    {
+        protected override void Configure(EntityMapBuilder<Customer> builder)
+        {
+            builder.ToTable("customers");
+            builder.Property(customer => customer.Id).IsKeyPart();
+            builder.Property(customer => customer.Email).HasStringType(256).IsRequired();
+        }
+    }
+
+    private sealed record Customer(Guid Id, string Email);
+
+    private sealed class CreateCustomersFromMapMigration : Migration
+    {
+        public override void Build(MigrationBuilder builder)
+        {
+            builder.CreateTable(new CustomerMap().Table);
         }
     }
 }

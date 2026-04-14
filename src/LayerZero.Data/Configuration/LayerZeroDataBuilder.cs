@@ -1,13 +1,13 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace LayerZero.Migrations.Configuration;
+namespace LayerZero.Data.Configuration;
 
 /// <summary>
-/// Builds LayerZero migration services.
+/// Builds LayerZero data services.
 /// </summary>
-public sealed class MigrationsBuilder
+public sealed class LayerZeroDataBuilder
 {
-    internal MigrationsBuilder(IServiceCollection services)
+    internal LayerZeroDataBuilder(IServiceCollection services)
     {
         Services = services;
     }
@@ -18,11 +18,11 @@ public sealed class MigrationsBuilder
     public IServiceCollection Services { get; }
 
     /// <summary>
-    /// Configures the migrations options.
+    /// Applies additional data configuration.
     /// </summary>
-    /// <param name="configure">The options delegate.</param>
+    /// <param name="configure">The configuration delegate.</param>
     /// <returns>The current builder.</returns>
-    public MigrationsBuilder Configure(Action<MigrationsOptions> configure)
+    public LayerZeroDataBuilder Configure(Action<LayerZeroDataOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
         Services.PostConfigure(configure);

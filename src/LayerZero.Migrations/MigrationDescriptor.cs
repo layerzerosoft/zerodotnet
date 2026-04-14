@@ -13,13 +13,11 @@ public sealed class MigrationDescriptor
     /// <param name="id">The sortable UTC timestamp id.</param>
     /// <param name="name">The human-readable migration name.</param>
     /// <param name="migrationType">The migration CLR type.</param>
-    /// <param name="transactionMode">The per-migration transaction mode.</param>
     /// <param name="factory">The migration factory.</param>
     public MigrationDescriptor(
         string id,
         string name,
         Type migrationType,
-        MigrationTransactionMode transactionMode,
         Func<Migration> factory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
@@ -30,7 +28,6 @@ public sealed class MigrationDescriptor
         Id = id;
         Name = name;
         MigrationType = migrationType;
-        TransactionMode = transactionMode;
         this.factory = factory;
     }
 
@@ -48,11 +45,6 @@ public sealed class MigrationDescriptor
     /// Gets the migration CLR type.
     /// </summary>
     public Type MigrationType { get; }
-
-    /// <summary>
-    /// Gets the per-migration transaction mode.
-    /// </summary>
-    public MigrationTransactionMode TransactionMode { get; }
 
     /// <summary>
     /// Creates a migration instance.

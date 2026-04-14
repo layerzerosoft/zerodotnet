@@ -1,9 +1,9 @@
 namespace LayerZero.Migrations;
 
 /// <summary>
-/// Exposes source-generated migration and seed descriptors.
+/// Exposes the discovered migration and seed artifacts.
 /// </summary>
-public interface IMigrationRegistry
+public interface IMigrationCatalog
 {
     /// <summary>
     /// Gets the discovered migrations.

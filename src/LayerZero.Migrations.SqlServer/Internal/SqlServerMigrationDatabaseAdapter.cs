@@ -1,6 +1,8 @@
 using System.Data;
 using System.Globalization;
 using System.Text;
+using LayerZero.Data;
+using LayerZero.Data.SqlServer.Configuration;
 using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
 using LayerZero.Migrations.SqlServer.Configuration;
@@ -9,8 +11,13 @@ using Microsoft.Extensions.Options;
 
 namespace LayerZero.Migrations.SqlServer.Internal;
 
-internal sealed class SqlServerMigrationDatabaseAdapter(IOptions<SqlServerMigrationsOptions> optionsAccessor) : IMigrationDatabaseAdapter
+internal sealed class SqlServerMigrationDatabaseAdapter(
+    IDatabaseConnectionFactory connectionFactory,
+    IOptions<SqlServerDataOptions> dataOptionsAccessor,
+    IOptions<SqlServerMigrationsOptions> optionsAccessor) : IMigrationDatabaseAdapter
 {
+    private readonly IDatabaseConnectionFactory connectionFactory = connectionFactory;
+    private readonly SqlServerDataOptions dataOptions = dataOptionsAccessor.Value;
     private readonly SqlServerMigrationsOptions options = optionsAccessor.Value;
 
     public async ValueTask<MigrationDatabaseSnapshot> ReadStateAsync(MigrationsOptions options, CancellationToken cancellationToken)
@@ -151,9 +158,8 @@ internal sealed class SqlServerMigrationDatabaseAdapter(IOptions<SqlServerMigrat
 
     private async ValueTask<SqlConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
-        var connection = new SqlConnection(options.ConnectionString);
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        return connection;
+        var connection = await connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return (SqlConnection)connection;
     }
 
     private async ValueTask<bool> HistoryTableExistsAsync(
@@ -610,7 +616,7 @@ internal sealed class SqlServerMigrationDatabaseAdapter(IOptions<SqlServerMigrat
 
     private string FormatObjectId(QualifiedTableName table) => $"{QuoteIdentifier(ResolveSchema(table.Schema))}.{QuoteIdentifier(table.Name)}";
 
-    private string ResolveSchema(string? schema) => string.IsNullOrWhiteSpace(schema) ? options.DefaultSchema : schema;
+    private string ResolveSchema(string? schema) => string.IsNullOrWhiteSpace(schema) ? dataOptions.DefaultSchema : schema;
 
     private static string QuoteIdentifier(string identifier)
     {

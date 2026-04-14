@@ -5,5 +5,12 @@
     <InternalsVisibleTo Include="LayerZero.Migrations.SqlServer.IntegrationTests" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <ProjectReference Include="../LayerZero.Core/LayerZero.Core.csproj" />
+    <ProjectReference Include="../LayerZero.Data/LayerZero.Data.csproj" />
+    <ProjectReference Include="../LayerZero.Migrations.Analyzers/LayerZero.Migrations.Analyzers.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../LayerZero.Migrations.Analyzers/bin/$(Configuration)/netstandard2.0/LayerZero.Migrations.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="../LayerZero.Migrations.Analyzers/bin/$(Configuration)/netstandard2.0/LayerZero.Migrations.Analyzers.pdb" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 </Project>

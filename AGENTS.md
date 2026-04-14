@@ -17,7 +17,9 @@ clear package boundaries, and boringly reliable builds.
 - Public product name: LayerZero.
 - Public packages: `LayerZero.Core`, `LayerZero.Validation`,
   `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
-  `LayerZero.Messaging`, `LayerZero.Messaging.RabbitMq`,
+  `LayerZero.Data`, `LayerZero.Data.SqlServer`, `LayerZero.Migrations`,
+  `LayerZero.Migrations.SqlServer`, `LayerZero.Messaging`,
+  `LayerZero.Messaging.RabbitMq`,
   `LayerZero.Messaging.AzureServiceBus`, `LayerZero.Messaging.Kafka`,
   `LayerZero.Messaging.Nats`, `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.
@@ -27,6 +29,10 @@ clear package boundaries, and boringly reliable builds.
 ## Engineering Rules
 
 - Keep the foundation dependency-light.
+- Treat all feature packages apart from the true foundations as optional and
+  standalone by default. Do not add cross-package dependencies just because two
+  features look related; add them only when the implementation truly layers on
+  the lower package.
 - Do not add MassTransit, MediatR/Mediator, FluentValidation, FluentAssertions,
   Shouldly, AwesomeAssertions, Swashbuckle, NSwag, Microsoft.Kiota, EF Core,
   broker SDKs, or transport frameworks without an explicit architecture
@@ -36,6 +42,9 @@ clear package boundaries, and boringly reliable builds.
 - Source generation is the default slice discovery model for performance,
   AOT, and trimming posture. Do not introduce runtime reflection assembly
   scanning as the default path.
+- Feature-specific source generation must ship with the feature package that
+  owns the behavior. Do not turn `LayerZero.Generators` into a catch-all home
+  for unrelated generators.
 - HTTP slices are static modules discovered by `public static void MapEndpoint`.
   Do not use interface-based HTTP slice markers or partial HTTP slice modules.
 - HTTP slices must preserve native Minimal API control. Developers should still
@@ -55,10 +64,16 @@ clear package boundaries, and boringly reliable builds.
 - Keep public APIs AOT-aware and trimming-aware. Avoid reflection unless there
   is a strong documented reason.
 - Prefer small composable abstractions over framework-sized magic.
+- Public registration and tooling must prefer one clear developer path over
+  layered ceremony. Avoid public setups that require multiple unrelated DI
+  calls when one coherent registration flow can own the feature.
 - Add tests with behavior-level names and failure messages that help agents act.
 - Keep package boundaries clean: core has no ASP.NET Core dependency, broker
   SDKs live only in dedicated transport adapter packages, samples, and
   adapter-focused tests.
+- `LayerZero.Data` is the shared relational/data foundation. Provider packages
+  such as `LayerZero.Data.SqlServer` build upward from it. Migrations build on
+  the data foundation rather than owning provider setup themselves.
 - Keep HTTP contracts and HTTP clients secondary to native Minimal API
   authoring. Do not introduce LayerZero-specific server DSLs, client-generation
   attributes, or alternate endpoint models just to improve clients.
@@ -109,6 +124,13 @@ Messaging is now ports first, adapters second. Keep broker-specific behavior in
 `LayerZero.Messaging.*` packages and keep transport-neutral contracts in
 `LayerZero.Core` and `LayerZero.Messaging`. Do not stub broad packages just to
 look complete; add new packages when their contracts are clear enough to test.
+
+Data and migrations follow the same layering rules. `LayerZero.Data` is the
+foundation, provider-specific behavior lives in `LayerZero.Data.*`,
+provider-neutral migrations live in `LayerZero.Migrations`, and migration
+provider behavior lives in `LayerZero.Migrations.*`. `LayerZero.Generators`
+must stay focused on its owned feature set and must not grow migrations/data
+generation responsibilities.
 
 The dashboard still starts with middleware and stable JSON endpoints, then a
 packaged React static app.

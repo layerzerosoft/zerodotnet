@@ -18,6 +18,8 @@
     <Project Path="src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
     <Project Path="src/LayerZero.Client/LayerZero.Client.csproj" />
     <Project Path="src/LayerZero.Core/LayerZero.Core.csproj" />
+    <Project Path="src/LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj" />
+    <Project Path="src/LayerZero.Data/LayerZero.Data.csproj" />
     <Project Path="src/LayerZero.Generators/LayerZero.Generators.csproj" />
     <Project Path="src/LayerZero.Http/LayerZero.Http.csproj" />
     <Project Path="src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
@@ -25,6 +27,7 @@
     <Project Path="src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
     <Project Path="src/LayerZero.Messaging.Nats/LayerZero.Messaging.Nats.csproj" />
     <Project Path="src/LayerZero.Messaging.RabbitMq/LayerZero.Messaging.RabbitMq.csproj" />
+    <Project Path="src/LayerZero.Migrations.Analyzers/LayerZero.Migrations.Analyzers.csproj" />
     <Project Path="src/LayerZero.Migrations.SqlServer/LayerZero.Migrations.SqlServer.csproj" />
     <Project Path="src/LayerZero.Migrations/LayerZero.Migrations.csproj" />
     <Project Path="src/LayerZero.Testing/LayerZero.Testing.csproj" />
@@ -46,6 +49,7 @@
     <Project Path="tests/LayerZero.Messaging.Nats.IntegrationTests/LayerZero.Messaging.Nats.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.RabbitMq.IntegrationTests/LayerZero.Messaging.RabbitMq.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.Tests/LayerZero.Messaging.Tests.csproj" />
+    <Project Path="tests/LayerZero.Migrations.Analyzers.Tests/LayerZero.Migrations.Analyzers.Tests.csproj" />
     <Project Path="tests/LayerZero.Migrations.SqlServer.IntegrationTests/LayerZero.Migrations.SqlServer.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Migrations.Tests/LayerZero.Migrations.Tests.csproj" />
     <Project Path="tests/LayerZero.Testcontainers.Cleanup.Tests/LayerZero.Testcontainers.Cleanup.Tests.csproj" />

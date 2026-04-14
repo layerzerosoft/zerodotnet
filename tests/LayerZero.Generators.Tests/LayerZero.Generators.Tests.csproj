@@ -16,7 +16,6 @@
     <ProjectReference Include="../../src/LayerZero.Core/LayerZero.Core.csproj" />
     <ProjectReference Include="../../src/LayerZero.Generators/LayerZero.Generators.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
-    <ProjectReference Include="../../src/LayerZero.Migrations/LayerZero.Migrations.csproj" />
     <ProjectReference Include="../../src/LayerZero.Validation/LayerZero.Validation.csproj" />
   </ItemGroup>
 </Project>

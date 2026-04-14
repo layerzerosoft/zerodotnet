@@ -2,6 +2,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="LayerZero.Migrations.SqlServer.IntegrationTests" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <ProjectReference Include="../LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj" />
     <ProjectReference Include="../LayerZero.Migrations/LayerZero.Migrations.csproj" />
   </ItemGroup>
 </Project>

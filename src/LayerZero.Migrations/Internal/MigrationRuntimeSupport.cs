@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using LayerZero.Core;
+using LayerZero.Data;
 using LayerZero.Migrations.Configuration;
 using Microsoft.Extensions.Options;
 
@@ -147,7 +148,7 @@ internal sealed class MigrationModelCompiler
     private static readonly Regex TimestampIdPattern = new("^[0-9]{14}$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex ProfilePattern = new("^[a-z][a-z0-9-]*$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-    public CompiledMigrationModel Compile(IMigrationRegistry registry)
+    public CompiledMigrationModel Compile(IMigrationCatalog registry)
     {
         ArgumentNullException.ThrowIfNull(registry);
 
@@ -191,8 +192,8 @@ internal sealed class MigrationModelCompiler
     private static CompiledArtifact CompileMigration(MigrationDescriptor descriptor)
     {
         ValidateId(descriptor.Id, "migration");
-        var builder = new MigrationBuilder();
         var migration = descriptor.CreateInstance();
+        var builder = new MigrationBuilder();
         migration.Build(builder);
         var operations = builder.Build().ToArray();
         ValidateOperations(operations, descriptor.Id);
@@ -201,9 +202,9 @@ internal sealed class MigrationModelCompiler
             descriptor.Id,
             descriptor.Name,
             string.Empty,
-            descriptor.TransactionMode,
+            migration.TransactionMode,
             operations,
-            ComputeChecksum(MigrationArtifactKind.Migration, descriptor.Id, descriptor.Name, string.Empty, descriptor.TransactionMode, operations));
+            ComputeChecksum(MigrationArtifactKind.Migration, descriptor.Id, descriptor.Name, string.Empty, migration.TransactionMode, operations));
     }
 
     private static CompiledArtifact CompileSeed(SeedDescriptor descriptor)
@@ -483,12 +484,12 @@ internal sealed class MigrationModelCompiler
 }
 
 internal sealed class MigrationRuntime(
-    IMigrationRegistry registry,
+    IMigrationCatalog registry,
     IMigrationDatabaseAdapter adapter,
     MigrationModelCompiler compiler,
     IOptions<MigrationsOptions> optionsAccessor) : IMigrationRuntime
 {
-    private readonly IMigrationRegistry registry = registry;
+    private readonly IMigrationCatalog registry = registry;
     private readonly IMigrationDatabaseAdapter adapter = adapter;
     private readonly MigrationModelCompiler compiler = compiler;
     private readonly MigrationsOptions options = optionsAccessor.Value;

@@ -1,3 +1,5 @@
+using LayerZero.Data;
+
 namespace LayerZero.Migrations;
 
 /// <summary>
@@ -44,6 +46,19 @@ public sealed class SeedBuilder
     }
 
     /// <summary>
+    /// Inserts typed rows into a mapped table.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="configure">The typed row set configuration delegate.</param>
+    /// <returns>The current builder.</returns>
+    public SeedBuilder InsertData<TEntity>(EntityTable<TEntity> table, Action<EntityRowSetBuilder<TEntity>> configure)
+    {
+        inner.InsertData(table, configure);
+        return this;
+    }
+
+    /// <summary>
     /// Updates one row.
     /// </summary>
     /// <param name="tableName">The table name.</param>
@@ -71,6 +86,23 @@ public sealed class SeedBuilder
     }
 
     /// <summary>
+    /// Updates one typed row.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="key">The typed key predicate configuration.</param>
+    /// <param name="values">The typed updated values configuration.</param>
+    /// <returns>The current builder.</returns>
+    public SeedBuilder UpdateData<TEntity>(
+        EntityTable<TEntity> table,
+        Action<EntityRowBuilder<TEntity>> key,
+        Action<EntityRowBuilder<TEntity>> values)
+    {
+        inner.UpdateData(table, key, values);
+        return this;
+    }
+
+    /// <summary>
     /// Deletes one row.
     /// </summary>
     /// <param name="tableName">The table name.</param>
@@ -92,6 +124,19 @@ public sealed class SeedBuilder
     public SeedBuilder DeleteData(string? schema, string tableName, Action<DataRowBuilder> key)
     {
         inner.DeleteData(schema, tableName, key);
+        return this;
+    }
+
+    /// <summary>
+    /// Deletes one typed row.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="key">The typed key predicate configuration.</param>
+    /// <returns>The current builder.</returns>
+    public SeedBuilder DeleteData<TEntity>(EntityTable<TEntity> table, Action<EntityRowBuilder<TEntity>> key)
+    {
+        inner.DeleteData(table, key);
         return this;
     }
 
@@ -123,6 +168,23 @@ public sealed class SeedBuilder
     }
 
     /// <summary>
+    /// Upserts one typed row.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="keyColumns">The typed key columns.</param>
+    /// <param name="values">The typed row values configuration.</param>
+    /// <returns>The current builder.</returns>
+    public SeedBuilder UpsertData<TEntity>(
+        EntityTable<TEntity> table,
+        IEnumerable<EntityColumn<TEntity>> keyColumns,
+        Action<EntityRowBuilder<TEntity>> values)
+    {
+        inner.UpsertData(table, keyColumns, values);
+        return this;
+    }
+
+    /// <summary>
     /// Synchronizes a table.
     /// </summary>
     /// <param name="tableName">The table name.</param>
@@ -146,6 +208,23 @@ public sealed class SeedBuilder
     public SeedBuilder SyncData(string? schema, string tableName, IEnumerable<string> keyColumns, Action<DataRowSetBuilder> configure)
     {
         inner.SyncData(schema, tableName, keyColumns, configure);
+        return this;
+    }
+
+    /// <summary>
+    /// Synchronizes a mapped table with typed rows.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="keyColumns">The typed key columns.</param>
+    /// <param name="configure">The typed row set configuration delegate.</param>
+    /// <returns>The current builder.</returns>
+    public SeedBuilder SyncData<TEntity>(
+        EntityTable<TEntity> table,
+        IEnumerable<EntityColumn<TEntity>> keyColumns,
+        Action<EntityRowSetBuilder<TEntity>> configure)
+    {
+        inner.SyncData(table, keyColumns, configure);
         return this;
     }
 

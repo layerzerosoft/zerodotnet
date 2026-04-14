@@ -1,7 +1,9 @@
+using LayerZero.Data.Configuration;
 using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace LayerZero.Migrations;
 
@@ -11,18 +13,18 @@ namespace LayerZero.Migrations;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds the LayerZero migrations runtime.
+    /// Enables LayerZero migrations for the active data provider.
     /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="configure">Optional migrations configuration.</param>
-    /// <returns>A migrations builder.</returns>
-    public static MigrationsBuilder AddLayerZeroMigrations(
-        this IServiceCollection services,
+    /// <param name="builder">The data builder.</param>
+    /// <param name="configure">The optional migrations configuration.</param>
+    /// <returns>The current data builder.</returns>
+    public static LayerZeroDataBuilder UseMigrations(
+        this LayerZeroDataBuilder builder,
         Action<MigrationsOptions>? configure = null)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(builder);
 
-        services.AddOptions<MigrationsOptions>()
+        builder.Services.AddOptions<MigrationsOptions>()
             .Validate(static options => !string.IsNullOrWhiteSpace(options.HistoryTableSchema),
                 "The migration history schema must not be empty.")
             .Validate(static options => !string.IsNullOrWhiteSpace(options.HistoryTableName),
@@ -33,14 +35,26 @@ public static class ServiceCollectionExtensions
                 "The migration executor name must not be empty.")
             .ValidateOnStart();
 
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IConfigureOptions<MigrationsOptions>, MigrationsOptionsSetup>());
+
         if (configure is not null)
         {
-            services.PostConfigure(configure);
+            builder.Services.PostConfigure(configure);
         }
 
-        services.TryAddSingleton<MigrationModelCompiler>();
-        services.TryAddSingleton<IMigrationRuntime, MigrationRuntime>();
+        MigrationProviderRegistry.Apply(builder.Services);
 
-        return new MigrationsBuilder(services);
+        builder.Services.TryAddSingleton<MigrationModelCompiler>();
+        builder.Services.TryAddSingleton<IMigrationCatalog>(static _ => MigrationCatalogLoader.LoadFromEntryAssembly());
+        builder.Services.TryAddSingleton<IMigrationDatabaseAdapterResolver, MigrationDatabaseAdapterResolver>();
+        builder.Services.TryAddSingleton<IMigrationRuntime>(static serviceProvider =>
+            new MigrationRuntime(
+                serviceProvider.GetRequiredService<IMigrationCatalog>(),
+                serviceProvider.GetRequiredService<IMigrationDatabaseAdapterResolver>().Resolve(),
+                serviceProvider.GetRequiredService<MigrationModelCompiler>(),
+                serviceProvider.GetRequiredService<IOptions<MigrationsOptions>>()));
+
+        return builder;
     }
 }

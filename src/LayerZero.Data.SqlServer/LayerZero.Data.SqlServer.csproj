@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <ProjectReference Include="../LayerZero.Data/LayerZero.Data.csproj" />
+  </ItemGroup>
+</Project>

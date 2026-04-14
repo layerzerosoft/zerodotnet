@@ -9,6 +9,8 @@ before teams reach for heavy frameworks.
 - Core result and error primitives.
 - Sync and async vertical-slice handler contracts.
 - Command and event message contracts in `LayerZero.Core`.
+- Provider-agnostic data foundation in `LayerZero.Data`.
+- First-party SQL Server data provider in `LayerZero.Data.SqlServer`.
 - Transport-neutral async messaging runtime in `LayerZero.Messaging`.
 - First-party RabbitMQ, Azure Service Bus, Kafka, and NATS JetStream adapters.
 - Transport-neutral relational migrations in `LayerZero.Migrations`.
@@ -17,7 +19,7 @@ before teams reach for heavy frameworks.
 - Self-mapping Minimal API endpoint slices.
 - Source-generated `AddSlices()` and `MapSlices()` as the default discovery path.
 - Source-generated `AddMessages()` and compile-time message manifests.
-- Source-generated `AddMigrations()` and compile-time migration registries.
+- Migration-owned analyzer/build assets and compile-time migration catalogs.
 - Request validation through LayerZero validators and endpoint-filter factories.
 - ProblemDetails responses with machine-readable `layerzero.errors` metadata.
 - First-party testing assertions.
@@ -118,24 +120,31 @@ in `docs/messaging/async-messaging.md`.
 ## Relational Migrations
 
 Relational migrations follow the same posture as the rest of LayerZero: ports
-first, adapters second, source generation by default, and no runtime assembly
-scanning.
+first, adapters second, data-foundation first, compile-time discovery by
+default, and no runtime assembly scanning as the default path.
 
+- `LayerZero.Data` owns provider-agnostic connection/configuration primitives
+  and typed relational entity mapping.
+- `LayerZero.Data.SqlServer` owns SQL Server provider registration and SQL
+  Server-specific data services.
 - `LayerZero.Migrations` owns the provider-neutral runtime surface:
   `Migration`, `Seed`, `MigrationBuilder`, `SeedBuilder`, `IMigrationRuntime`,
-  validation, scripting, baselining, and journaled artifact planning.
-- `LayerZero.Generators` now emits `AddMigrations()` and a compile-time
-  `IMigrationRegistry` alongside the existing slice and messaging outputs.
+  app-hosted commands, validation, scripting, baselining, and journaled
+  artifact planning.
+- Migration discovery ships with `LayerZero.Migrations` through its own
+  analyzer/build assets. It does not live in `LayerZero.Generators` and does
+  not require a public generated DI call.
 - Seeds are first-class citizens. `baseline` is the built-in safe profile and
   additional profiles such as `dev`, `demo`, and `test` stay opt-in.
 - Migrations are forward-only. Recovery happens through new migrations rather
   than required down paths.
-- Runtime execution is explicit. The primary deploy path is a dedicated runner,
-  not surprise app-start schema mutation.
+- Runtime execution is explicit. The primary deploy path is host-integrated
+  commands that reuse normal app configuration, with the reference runner kept
+  as a sample rather than the public center of gravity.
 - `LayerZero.Migrations.SqlServer` owns SQL Server SQL generation, history
   storage, `sp_getapplock` coordination, and adapter-specific execution.
-- Provider-specific behavior must stay in dedicated adapter packages, just like
-  messaging transports do.
+- Provider-specific behavior must stay in dedicated data or migration adapter
+  packages, just like messaging transports do.
 
 The current SQL Server foundation is documented in
 `docs/migrations/relational-migrations.md`.

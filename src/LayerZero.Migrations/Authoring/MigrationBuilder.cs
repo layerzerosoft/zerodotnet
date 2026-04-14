@@ -1,3 +1,5 @@
+using LayerZero.Data;
+
 namespace LayerZero.Migrations;
 
 /// <summary>
@@ -49,6 +51,22 @@ public sealed class MigrationBuilder
     }
 
     /// <summary>
+    /// Creates a mapped table.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder CreateTable<TEntity>(EntityTable<TEntity> table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        operations.Add(new CreateTableOperation(
+            table.Name,
+            table.Columns.Select(static column => column.Definition).ToArray(),
+            table.PrimaryKeyColumns.Select(static column => column.Name).ToArray()));
+        return this;
+    }
+
+    /// <summary>
     /// Drops a table in the default schema.
     /// </summary>
     /// <param name="tableName">The table name.</param>
@@ -65,6 +83,19 @@ public sealed class MigrationBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
         operations.Add(new DropTableOperation(new QualifiedTableName(schema, tableName)));
+        return this;
+    }
+
+    /// <summary>
+    /// Drops a mapped table.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder DropTable<TEntity>(EntityTable<TEntity> table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        operations.Add(new DropTableOperation(table.Name));
         return this;
     }
 
@@ -95,6 +126,21 @@ public sealed class MigrationBuilder
         var column = new ColumnBuilder(columnName);
         configure(column);
         operations.Add(new AddColumnOperation(new QualifiedTableName(schema, tableName), column.Build()));
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a mapped column.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="column">The mapped column.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder AddColumn<TEntity>(EntityTable<TEntity> table, EntityColumn<TEntity> column)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(column);
+        operations.Add(new AddColumnOperation(table.Name, column.Definition));
         return this;
     }
 
@@ -142,6 +188,25 @@ public sealed class MigrationBuilder
     }
 
     /// <summary>
+    /// Creates a mapped index.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="index">The mapped index.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder CreateIndex<TEntity>(EntityTable<TEntity> table, EntityIndex<TEntity> index)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(index);
+        operations.Add(new CreateIndexOperation(
+            table.Name,
+            index.Name,
+            index.Columns.Select(static column => column.Name).ToArray(),
+            index.IsUnique));
+        return this;
+    }
+
+    /// <summary>
     /// Drops an index in the default schema.
     /// </summary>
     /// <param name="tableName">The table name.</param>
@@ -162,6 +227,21 @@ public sealed class MigrationBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
         ArgumentException.ThrowIfNullOrWhiteSpace(indexName);
         operations.Add(new DropIndexOperation(new QualifiedTableName(schema, tableName), indexName));
+        return this;
+    }
+
+    /// <summary>
+    /// Drops a mapped index.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="index">The mapped index.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder DropIndex<TEntity>(EntityTable<TEntity> table, EntityIndex<TEntity> index)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(index);
+        operations.Add(new DropIndexOperation(table.Name, index.Name));
         return this;
     }
 
@@ -189,6 +269,24 @@ public sealed class MigrationBuilder
         var rows = new DataRowSetBuilder();
         configure(rows);
         operations.Add(new InsertDataOperation(new QualifiedTableName(schema, tableName), rows.Build()));
+        return this;
+    }
+
+    /// <summary>
+    /// Inserts typed rows into a mapped table.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="configure">The typed row set configuration delegate.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder InsertData<TEntity>(EntityTable<TEntity> table, Action<EntityRowSetBuilder<TEntity>> configure)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        var rows = new EntityRowSetBuilder<TEntity>();
+        configure(rows);
+        operations.Add(new InsertDataOperation(table.Name, rows.Build()));
         return this;
     }
 
@@ -228,6 +326,27 @@ public sealed class MigrationBuilder
     }
 
     /// <summary>
+    /// Updates one typed row in a mapped table.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="key">The typed key predicate configuration.</param>
+    /// <param name="values">The typed updated values configuration.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder UpdateData<TEntity>(
+        EntityTable<TEntity> table,
+        Action<EntityRowBuilder<TEntity>> key,
+        Action<EntityRowBuilder<TEntity>> values)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        operations.Add(new UpdateDataOperation(
+            table.Name,
+            CreateTypedRow(key),
+            CreateTypedRow(values)));
+        return this;
+    }
+
+    /// <summary>
     /// Deletes one row in the default schema.
     /// </summary>
     /// <param name="tableName">The table name.</param>
@@ -249,6 +368,20 @@ public sealed class MigrationBuilder
         operations.Add(new DeleteDataOperation(
             new QualifiedTableName(schema, tableName),
             ColumnValueSet.Create(key)));
+        return this;
+    }
+
+    /// <summary>
+    /// Deletes one typed row in a mapped table.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="key">The typed key predicate configuration.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder DeleteData<TEntity>(EntityTable<TEntity> table, Action<EntityRowBuilder<TEntity>> key)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        operations.Add(new DeleteDataOperation(table.Name, CreateTypedRow(key)));
         return this;
     }
 
@@ -285,6 +418,28 @@ public sealed class MigrationBuilder
             new QualifiedTableName(schema, tableName),
             keyColumns.Where(static value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
             ColumnValueSet.Create(values)));
+        return this;
+    }
+
+    /// <summary>
+    /// Upserts one typed row in a mapped table.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="keyColumns">The key columns.</param>
+    /// <param name="values">The typed row values configuration.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder UpsertData<TEntity>(
+        EntityTable<TEntity> table,
+        IEnumerable<EntityColumn<TEntity>> keyColumns,
+        Action<EntityRowBuilder<TEntity>> values)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(keyColumns);
+        operations.Add(new UpsertDataOperation(
+            table.Name,
+            keyColumns.Select(static column => column.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            CreateTypedRow(values)));
         return this;
     }
 
@@ -329,6 +484,32 @@ public sealed class MigrationBuilder
     }
 
     /// <summary>
+    /// Synchronizes a mapped table with typed rows.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    /// <param name="table">The mapped table.</param>
+    /// <param name="keyColumns">The key columns.</param>
+    /// <param name="configure">The typed row set configuration delegate.</param>
+    /// <returns>The current builder.</returns>
+    public MigrationBuilder SyncData<TEntity>(
+        EntityTable<TEntity> table,
+        IEnumerable<EntityColumn<TEntity>> keyColumns,
+        Action<EntityRowSetBuilder<TEntity>> configure)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(keyColumns);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        var rows = new EntityRowSetBuilder<TEntity>();
+        configure(rows);
+        operations.Add(new SyncDataOperation(
+            table.Name,
+            keyColumns.Select(static column => column.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            rows.Build()));
+        return this;
+    }
+
+    /// <summary>
     /// Adds a raw SQL operation.
     /// </summary>
     /// <param name="sql">The raw SQL text.</param>
@@ -338,6 +519,14 @@ public sealed class MigrationBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         operations.Add(new SqlOperation(sql));
         return this;
+    }
+
+    private static ColumnValueSet CreateTypedRow<TEntity>(Action<EntityRowBuilder<TEntity>> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new EntityRowBuilder<TEntity>();
+        configure(builder);
+        return builder.Build();
     }
 
     internal IReadOnlyList<RelationalOperation> Build() => operations.AsReadOnly();

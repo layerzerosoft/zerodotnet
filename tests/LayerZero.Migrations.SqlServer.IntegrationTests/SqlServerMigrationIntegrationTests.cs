@@ -1,3 +1,6 @@
+using System.Data.Common;
+using LayerZero.Data;
+using LayerZero.Data.SqlServer.Configuration;
 using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
 using LayerZero.Migrations.SqlServer.Configuration;
@@ -98,9 +101,13 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
     public void Generate_script_does_not_wrap_non_transactional_migrations_in_transactions()
     {
         var adapter = new SqlServerMigrationDatabaseAdapter(
-            Options.Create(new SqlServerMigrationsOptions
+            new TestDatabaseConnectionFactory("Server=.;Database=tempdb;User ID=sa;Password=Test12345!"),
+            Options.Create(new SqlServerDataOptions
             {
                 ConnectionString = "Server=.;Database=tempdb;User ID=sa;Password=Test12345!",
+            }),
+            Options.Create(new SqlServerMigrationsOptions
+            {
             }));
         var model = new MigrationModelCompiler().Compile(CreateDelayedRegistry());
 
@@ -117,14 +124,18 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
         Assert.DoesNotContain("begin transaction;", script, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static MigrationRuntime CreateRuntime(string connectionString, IMigrationRegistry registry)
+    private static MigrationRuntime CreateRuntime(string connectionString, IMigrationCatalog registry)
     {
         return new MigrationRuntime(
             registry,
             new SqlServerMigrationDatabaseAdapter(
-                Options.Create(new SqlServerMigrationsOptions
+                new TestDatabaseConnectionFactory(connectionString),
+                Options.Create(new SqlServerDataOptions
                 {
                     ConnectionString = connectionString,
+                }),
+                Options.Create(new SqlServerMigrationsOptions
+                {
                     LockTimeout = TimeSpan.FromSeconds(30),
                 })),
             new MigrationModelCompiler(),
@@ -134,12 +145,12 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
             }));
     }
 
-    private static IMigrationRegistry CreateReferenceDataRegistry()
+    private static IMigrationCatalog CreateReferenceDataRegistry()
     {
         return new DescriptorRegistry(
             migrations:
             [
-                new MigrationDescriptor("20260414120000", "Create roles table", typeof(CreateRolesTableMigration), MigrationTransactionMode.Transactional, static () => new CreateRolesTableMigration()),
+                new MigrationDescriptor("20260414120000", "Create roles table", typeof(CreateRolesTableMigration), static () => new CreateRolesTableMigration()),
             ],
             seeds:
             [
@@ -148,7 +159,7 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
             ]);
     }
 
-    private static IMigrationRegistry CreateLedgerRegistry(bool withAdditionalColumn)
+    private static IMigrationCatalog CreateLedgerRegistry(bool withAdditionalColumn)
     {
         return new DescriptorRegistry(
             migrations:
@@ -157,13 +168,12 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
                     "20260414123000",
                     "Create ledger table",
                     typeof(CreateLedgerMigration),
-                    MigrationTransactionMode.Transactional,
                     () => new CreateLedgerMigration(withAdditionalColumn)),
             ],
             seeds: []);
     }
 
-    private static IMigrationRegistry CreateDelayedRegistry()
+    private static IMigrationCatalog CreateDelayedRegistry()
     {
         return new DescriptorRegistry(
             migrations:
@@ -172,7 +182,6 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
                     "20260414124000",
                     "Create delayed artifact table",
                     typeof(CreateDelayedArtifactMigration),
-                    MigrationTransactionMode.NonTransactional,
                     static () => new CreateDelayedArtifactMigration()),
             ],
             seeds: []);
@@ -199,57 +208,58 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
 
     private sealed class DescriptorRegistry(
         IReadOnlyList<MigrationDescriptor> migrations,
-        IReadOnlyList<SeedDescriptor> seeds) : IMigrationRegistry
+        IReadOnlyList<SeedDescriptor> seeds) : IMigrationCatalog
     {
         public IReadOnlyList<MigrationDescriptor> Migrations { get; } = migrations;
 
         public IReadOnlyList<SeedDescriptor> Seeds { get; } = seeds;
     }
 
+    private sealed class RoleMap : EntityMap<Role>
+    {
+        protected override void Configure(EntityMapBuilder<Role> builder)
+        {
+            builder.ToTable("roles");
+            builder.Property(role => role.Id).IsKeyPart();
+            builder.Property(role => role.Name).HasStringType(128).IsRequired();
+            builder.HasIndex("IX_roles_name", isUnique: true, role => role.Name);
+        }
+    }
+
+    private sealed record Role(int Id, string Name);
+
     private sealed class CreateRolesTableMigration : Migration
     {
-        public CreateRolesTableMigration()
-            : base("20260414120000", "Create roles table")
-        {
-        }
-
         public override void Build(MigrationBuilder builder)
         {
-            builder.CreateTable("roles", table =>
-            {
-                table.Column("id").AsInt32().NotNull();
-                table.Column("name").AsString(128).NotNull();
-                table.PrimaryKey("id");
-            });
+            var map = new RoleMap().Table;
+            builder.CreateTable(map);
+            builder.CreateIndex(map, map.Indexes[0]);
         }
     }
 
     private sealed class BaselineRolesSeed : Seed
     {
-        public BaselineRolesSeed()
-            : base("20260414121000", "Baseline roles")
-        {
-        }
-
         public override void Build(SeedBuilder builder)
         {
-            builder.InsertData("roles", rows =>
+            var table = new RoleMap().Table;
+            builder.InsertData(table, rows =>
             {
-                rows.Row(row => row.Set("id", 1).Set("name", "admin"));
+                rows.Row(row => row
+                    .Set((EntityColumn<Role, int>)table.PrimaryKeyColumns[0], 1)
+                    .Set((EntityColumn<Role, string>)table.Columns.Single(column => column.Name == "name"), "admin"));
             });
         }
     }
 
     private sealed class DeveloperRolesSeed : Seed
     {
-        public DeveloperRolesSeed()
-            : base("20260414122000", "Developer roles", "dev")
-        {
-        }
-
         public override void Build(SeedBuilder builder)
         {
-            builder.UpsertData("roles", ["id"], row => row.Set("id", 2).Set("name", "developer"));
+            var table = new RoleMap().Table;
+            var idColumn = (EntityColumn<Role, int>)table.PrimaryKeyColumns[0];
+            var nameColumn = (EntityColumn<Role, string>)table.Columns.Single(column => column.Name == "name");
+            builder.UpsertData(table, [idColumn], row => row.Set(idColumn, 2).Set(nameColumn, "developer"));
         }
     }
 
@@ -263,7 +273,6 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
         }
 
         public CreateLedgerMigration(bool withAdditionalColumn)
-            : base("20260414123000", "Create ledger table")
         {
             this.withAdditionalColumn = withAdditionalColumn;
         }
@@ -286,10 +295,7 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
 
     private sealed class CreateDelayedArtifactMigration : Migration
     {
-        public CreateDelayedArtifactMigration()
-            : base("20260414124000", "Create delayed artifact table", MigrationTransactionMode.NonTransactional)
-        {
-        }
+        public override MigrationTransactionMode TransactionMode => MigrationTransactionMode.NonTransactional;
 
         public override void Build(MigrationBuilder builder)
         {
@@ -303,6 +309,18 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
                 if not exists (select 1 from [dbo].[delayed_artifacts] where [id] = 1)
                     insert into [dbo].[delayed_artifacts]([id]) values (1);
                 """);
+        }
+    }
+
+    private sealed class TestDatabaseConnectionFactory(string connectionString) : IDatabaseConnectionFactory
+    {
+        public string ProviderName => "sqlserver";
+
+        public async ValueTask<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
+        {
+            var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+            return connection;
         }
     }
 }

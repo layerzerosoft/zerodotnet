@@ -96,6 +96,51 @@ public sealed class DependencyPolicyTests
     }
 
     [Fact]
+    public void Migrations_generation_does_not_live_in_LayerZero_Generators()
+    {
+        var root = FindRepositoryRoot();
+        var generatorPath = Path.Combine(root.FullName, "src", "LayerZero.Generators");
+        var forbiddenPatterns = new[]
+        {
+            "AddMigrations(",
+            "MigrationCatalogAttribute",
+            "IMigrationCatalog",
+            "MigrationDescriptor",
+            "SeedDescriptor",
+            "LayerZero.Migrations",
+        };
+
+        var violations = Directory
+            .EnumerateFiles(generatorPath, "*.cs", SearchOption.AllDirectories)
+            .Where(file => !IsIgnoredPath(root, file))
+            .SelectMany(file => GetForbiddenContentViolations(root, file, forbiddenPatterns))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Data_and_migrations_packages_keep_dependency_direction_clean()
+    {
+        var root = FindRepositoryRoot();
+        var violations = new List<string>();
+
+        AssertProjectDoesNotReference(root, "src/LayerZero.Generators/LayerZero.Generators.csproj", violations,
+            "LayerZero.Data", "LayerZero.Data.SqlServer", "LayerZero.Migrations", "LayerZero.Migrations.SqlServer");
+        AssertProjectDoesNotReference(root, "src/LayerZero.Data/LayerZero.Data.csproj", violations,
+            "LayerZero.Generators", "LayerZero.Migrations", "LayerZero.Migrations.SqlServer");
+        AssertProjectDoesNotReference(root, "src/LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj", violations,
+            "LayerZero.Generators", "LayerZero.Migrations", "LayerZero.Migrations.SqlServer");
+        AssertProjectDoesNotReference(root, "src/LayerZero.Migrations/LayerZero.Migrations.csproj", violations,
+            "LayerZero.Generators", "LayerZero.Migrations.SqlServer");
+        AssertProjectDoesNotReference(root, "src/LayerZero.Migrations.SqlServer/LayerZero.Migrations.SqlServer.csproj", violations,
+            "LayerZero.Generators");
+
+        Assert.Empty(violations.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public void Project_package_references_use_central_versions()
     {
         var root = FindRepositoryRoot();
@@ -280,7 +325,8 @@ public sealed class DependencyPolicyTests
     {
         var relativePath = Path.GetRelativePath(root.FullName, file);
 
-        return relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Migrations.SqlServer", StringComparison.Ordinal)
+        return relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Data.SqlServer", StringComparison.Ordinal)
+            || relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Migrations.SqlServer", StringComparison.Ordinal)
             || relativePath.StartsWith($"tests{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || relativePath.StartsWith($"eng{Path.DirectorySeparatorChar}LayerZero.Migrations.Runner", StringComparison.Ordinal);
     }
@@ -400,9 +446,58 @@ public sealed class DependencyPolicyTests
 
         foreach (var pattern in RuntimeAssemblyScanningPatterns)
         {
+            if (relativePath.Equals(
+                    $"src{Path.DirectorySeparatorChar}LayerZero.Migrations{Path.DirectorySeparatorChar}Internal{Path.DirectorySeparatorChar}MigrationProviderRegistry.cs",
+                    StringComparison.Ordinal)
+                && pattern.Equals("Assembly.Load", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             if (content.Contains(pattern, StringComparison.Ordinal))
             {
                 yield return $"{relativePath}: runtime assembly scanning pattern '{pattern}'";
+            }
+        }
+    }
+
+    private static IEnumerable<string> GetForbiddenContentViolations(DirectoryInfo root, string file, IReadOnlyList<string> forbiddenPatterns)
+    {
+        var relativePath = Path.GetRelativePath(root.FullName, file);
+        var content = File.ReadAllText(file);
+
+        foreach (var pattern in forbiddenPatterns)
+        {
+            if (content.Contains(pattern, StringComparison.Ordinal))
+            {
+                yield return $"{relativePath}: forbidden content '{pattern}'";
+            }
+        }
+    }
+
+    private static void AssertProjectDoesNotReference(
+        DirectoryInfo root,
+        string relativeProjectPath,
+        ICollection<string> violations,
+        params string[] forbiddenProjectNames)
+    {
+        var file = Path.Combine(root.FullName, relativeProjectPath);
+        var document = XDocument.Load(file);
+
+        foreach (var projectReference in document.Descendants().Where(element => element.Name.LocalName == "ProjectReference"))
+        {
+            var include = projectReference.Attribute("Include")?.Value;
+            if (string.IsNullOrWhiteSpace(include))
+            {
+                continue;
+            }
+
+            foreach (var forbiddenProjectName in forbiddenProjectNames)
+            {
+                if (include.Contains(forbiddenProjectName, StringComparison.Ordinal))
+                {
+                    violations.Add($"{relativeProjectPath}: forbidden project reference '{forbiddenProjectName}'");
+                }
             }
         }
     }

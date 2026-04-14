@@ -11,6 +11,9 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/LayerZero.Core/LayerZero.Core.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Data/LayerZero.Data.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj" />
     <ProjectReference Include="../../src/LayerZero.Migrations/LayerZero.Migrations.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Migrations.SqlServer/LayerZero.Migrations.SqlServer.csproj" />
   </ItemGroup>
 </Project>
