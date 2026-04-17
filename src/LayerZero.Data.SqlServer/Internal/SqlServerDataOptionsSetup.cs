@@ -6,17 +6,17 @@ using Microsoft.Extensions.Options;
 namespace LayerZero.Data.SqlServer.Internal;
 
 internal sealed class SqlServerDataOptionsSetup(
-    IConfiguration configuration,
-    IOptions<LayerZeroDataOptions> dataOptionsAccessor) :
+    IOptions<LayerZeroDataOptions> dataOptionsAccessor,
+    IConfiguration? configuration = null) :
     IConfigureOptions<SqlServerDataOptions>,
     IPostConfigureOptions<SqlServerDataOptions>
 {
-    private readonly IConfiguration configuration = configuration;
+    private readonly IConfiguration? configuration = configuration;
     private readonly LayerZeroDataOptions dataOptions = dataOptionsAccessor.Value;
 
     public void Configure(SqlServerDataOptions options)
     {
-        configuration.GetSection("LayerZero:Data:SqlServer").Bind(options);
+        configuration?.GetSection("LayerZero:Data:SqlServer").Bind(options);
     }
 
     public void PostConfigure(string? name, SqlServerDataOptions options)
@@ -29,7 +29,7 @@ internal sealed class SqlServerDataOptionsSetup(
 
         if (string.IsNullOrWhiteSpace(options.ConnectionString))
         {
-            options.ConnectionString = configuration.GetConnectionString(connectionStringName);
+            options.ConnectionString = configuration?.GetConnectionString(connectionStringName);
         }
     }
 }

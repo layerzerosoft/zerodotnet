@@ -1,5 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <InternalsVisibleTo Include="LayerZero.Data.SqlServer" />
+    <InternalsVisibleTo Include="LayerZero.Data.Tests" />
+    <InternalsVisibleTo Include="LayerZero.Data.SqlServer.IntegrationTests" />
+    <InternalsVisibleTo Include="LayerZero.Data.Analyzers.Tests" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <ProjectReference Include="../LayerZero.Data.Analyzers/LayerZero.Data.Analyzers.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../LayerZero.Data.Analyzers/bin/$(Configuration)/netstandard2.0/LayerZero.Data.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="../LayerZero.Data.Analyzers/bin/$(Configuration)/netstandard2.0/LayerZero.Data.Analyzers.pdb" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 </Project>

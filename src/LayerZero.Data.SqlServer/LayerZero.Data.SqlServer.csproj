@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <InternalsVisibleTo Include="LayerZero.Data.SqlServer.IntegrationTests" />
+    <InternalsVisibleTo Include="LayerZero.Data.Tests" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <ProjectReference Include="../LayerZero.Data/LayerZero.Data.csproj" />
   </ItemGroup>

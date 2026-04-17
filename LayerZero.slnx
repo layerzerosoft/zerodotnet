@@ -21,6 +21,7 @@
     <Project Path="src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
     <Project Path="src/LayerZero.Client/LayerZero.Client.csproj" />
     <Project Path="src/LayerZero.Core/LayerZero.Core.csproj" />
+    <Project Path="src/LayerZero.Data.Analyzers/LayerZero.Data.Analyzers.csproj" />
     <Project Path="src/LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj" />
     <Project Path="src/LayerZero.Data/LayerZero.Data.csproj" />
     <Project Path="src/LayerZero.Generators/LayerZero.Generators.csproj" />
@@ -42,6 +43,9 @@
     <Project Path="tests/LayerZero.Client.Integration.Tests/LayerZero.Client.Integration.Tests.csproj" />
     <Project Path="tests/LayerZero.Client.Tests/LayerZero.Client.Tests.csproj" />
     <Project Path="tests/LayerZero.Core.Tests/LayerZero.Core.Tests.csproj" />
+    <Project Path="tests/LayerZero.Data.Analyzers.Tests/LayerZero.Data.Analyzers.Tests.csproj" />
+    <Project Path="tests/LayerZero.Data.SqlServer.IntegrationTests/LayerZero.Data.SqlServer.IntegrationTests.csproj" />
+    <Project Path="tests/LayerZero.Data.Tests/LayerZero.Data.Tests.csproj" />
     <Project Path="tests/LayerZero.Fulfillment.EndToEnd.Tests/LayerZero.Fulfillment.EndToEnd.Tests.csproj" />
     <Project Path="tests/LayerZero.Generators.Tests/LayerZero.Generators.Tests.csproj" />
     <Project Path="tests/LayerZero.Http.Tests/LayerZero.Http.Tests.csproj" />

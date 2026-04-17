@@ -1,13 +1,118 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using LayerZero.Data.Internal;
 
 namespace LayerZero.Data;
 
 /// <summary>
+/// Provides non-generic access to one entity map.
+/// </summary>
+public interface IEntityMap
+{
+    /// <summary>
+    /// Gets the mapped entity CLR type.
+    /// </summary>
+    Type EntityType { get; }
+
+    /// <summary>
+    /// Gets the mapped entity table.
+    /// </summary>
+    IEntityTable Table { get; }
+}
+
+/// <summary>
+/// Provides non-generic access to one entity table.
+/// </summary>
+public interface IEntityTable
+{
+    /// <summary>
+    /// Gets the mapped entity CLR type.
+    /// </summary>
+    Type EntityType { get; }
+
+    /// <summary>
+    /// Gets the relational table name.
+    /// </summary>
+    QualifiedTableName Name { get; }
+
+    /// <summary>
+    /// Gets the mapped columns.
+    /// </summary>
+    IReadOnlyList<IEntityColumn> Columns { get; }
+
+    /// <summary>
+    /// Gets the mapped primary key columns.
+    /// </summary>
+    IReadOnlyList<IEntityColumn> PrimaryKeyColumns { get; }
+
+    /// <summary>
+    /// Gets the mapped indexes.
+    /// </summary>
+    IReadOnlyList<IEntityIndex> Indexes { get; }
+}
+
+/// <summary>
+/// Provides non-generic access to one mapped column.
+/// </summary>
+public interface IEntityColumn
+{
+    /// <summary>
+    /// Gets the CLR property name.
+    /// </summary>
+    string PropertyName { get; }
+
+    /// <summary>
+    /// Gets the CLR property.
+    /// </summary>
+    PropertyInfo Property { get; }
+
+    /// <summary>
+    /// Gets the CLR property type.
+    /// </summary>
+    Type ClrType { get; }
+
+    /// <summary>
+    /// Gets the relational column name.
+    /// </summary>
+    string Name { get; }
+
+    /// <summary>
+    /// Gets the column definition.
+    /// </summary>
+    ColumnDefinition Definition { get; }
+
+    /// <summary>
+    /// Gets the optional value converter.
+    /// </summary>
+    IDataValueConverter? Converter { get; }
+}
+
+/// <summary>
+/// Provides non-generic access to one mapped index.
+/// </summary>
+public interface IEntityIndex
+{
+    /// <summary>
+    /// Gets the index name.
+    /// </summary>
+    string Name { get; }
+
+    /// <summary>
+    /// Gets the indexed columns.
+    /// </summary>
+    IReadOnlyList<IEntityColumn> Columns { get; }
+
+    /// <summary>
+    /// Gets whether the index is unique.
+    /// </summary>
+    bool IsUnique { get; }
+}
+
+/// <summary>
 /// Defines one typed relational entity map.
 /// </summary>
 /// <typeparam name="TEntity">The mapped entity type.</typeparam>
-public abstract class EntityMap<TEntity>
+public abstract class EntityMap<TEntity> : IEntityMap
 {
     private EntityTable<TEntity>? table;
 
@@ -22,6 +127,10 @@ public abstract class EntityMap<TEntity>
     /// <param name="builder">The entity map builder.</param>
     protected abstract void Configure(EntityMapBuilder<TEntity> builder);
 
+    Type IEntityMap.EntityType => typeof(TEntity);
+
+    IEntityTable IEntityMap.Table => Table;
+
     private EntityTable<TEntity> BuildTable()
     {
         var builder = new EntityMapBuilder<TEntity>();
@@ -34,7 +143,7 @@ public abstract class EntityMap<TEntity>
 /// Represents one mapped relational table.
 /// </summary>
 /// <typeparam name="TEntity">The mapped entity type.</typeparam>
-public sealed class EntityTable<TEntity>
+public sealed class EntityTable<TEntity> : IEntityTable
 {
     internal EntityTable(
         QualifiedTableName name,
@@ -67,25 +176,54 @@ public sealed class EntityTable<TEntity>
     /// Gets the mapped indexes.
     /// </summary>
     public IReadOnlyList<EntityIndex<TEntity>> Indexes { get; }
+
+    Type IEntityTable.EntityType => typeof(TEntity);
+
+    IReadOnlyList<IEntityColumn> IEntityTable.Columns => Columns;
+
+    IReadOnlyList<IEntityColumn> IEntityTable.PrimaryKeyColumns => PrimaryKeyColumns;
+
+    IReadOnlyList<IEntityIndex> IEntityTable.Indexes => Indexes;
 }
 
 /// <summary>
 /// Represents one mapped relational column.
 /// </summary>
 /// <typeparam name="TEntity">The mapped entity type.</typeparam>
-public abstract class EntityColumn<TEntity>
+public abstract class EntityColumn<TEntity> : IEntityColumn
 {
-    internal EntityColumn(string propertyName, string name, ColumnDefinition definition)
+    private readonly Func<TEntity, object?> getter;
+
+    internal EntityColumn(
+        PropertyInfo property,
+        string propertyName,
+        string name,
+        ColumnDefinition definition,
+        IDataValueConverter? converter,
+        Func<TEntity, object?> getter)
     {
+        Property = property;
         PropertyName = propertyName;
         Name = name;
         Definition = definition;
+        Converter = converter;
+        this.getter = getter;
     }
 
     /// <summary>
     /// Gets the CLR property name.
     /// </summary>
     public string PropertyName { get; }
+
+    /// <summary>
+    /// Gets the CLR property.
+    /// </summary>
+    public PropertyInfo Property { get; }
+
+    /// <summary>
+    /// Gets the CLR property type.
+    /// </summary>
+    public Type ClrType => Property.PropertyType;
 
     /// <summary>
     /// Gets the relational column name.
@@ -96,6 +234,61 @@ public abstract class EntityColumn<TEntity>
     /// Gets the column definition.
     /// </summary>
     public ColumnDefinition Definition { get; }
+
+    /// <summary>
+    /// Gets the optional value converter.
+    /// </summary>
+    public IDataValueConverter? Converter { get; }
+
+    internal object? GetClrValue(TEntity entity) => getter(entity);
+
+    internal object? GetProviderValue(TEntity entity)
+    {
+        var clrValue = getter(entity);
+        return ConvertToProviderValue(clrValue);
+    }
+
+    internal object? ConvertToProviderValue(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (Converter is not null)
+        {
+            return Converter.ConvertToProvider(value);
+        }
+
+        var targetType = Nullable.GetUnderlyingType(Property.PropertyType) ?? Property.PropertyType;
+        if (targetType.IsEnum)
+        {
+            return Convert.ChangeType(value, Enum.GetUnderlyingType(targetType));
+        }
+
+        return value;
+    }
+
+    internal object? ConvertFromProviderValue(object? value)
+    {
+        if (value is null || value is DBNull)
+        {
+            return null;
+        }
+
+        if (Converter is not null)
+        {
+            return Converter.ConvertFromProvider(value);
+        }
+
+        var targetType = Nullable.GetUnderlyingType(Property.PropertyType) ?? Property.PropertyType;
+        if (targetType.IsEnum)
+        {
+            return Enum.ToObject(targetType, value);
+        }
+
+        return value;
+    }
 }
 
 /// <summary>
@@ -105,8 +298,14 @@ public abstract class EntityColumn<TEntity>
 /// <typeparam name="TProperty">The mapped property type.</typeparam>
 public sealed class EntityColumn<TEntity, TProperty> : EntityColumn<TEntity>
 {
-    internal EntityColumn(string propertyName, string name, ColumnDefinition definition)
-        : base(propertyName, name, definition)
+    internal EntityColumn(
+        PropertyInfo property,
+        string propertyName,
+        string name,
+        ColumnDefinition definition,
+        IDataValueConverter? converter,
+        Func<TEntity, object?> getter)
+        : base(property, propertyName, name, definition, converter, getter)
     {
     }
 }
@@ -115,7 +314,7 @@ public sealed class EntityColumn<TEntity, TProperty> : EntityColumn<TEntity>
 /// Represents one mapped relational index.
 /// </summary>
 /// <typeparam name="TEntity">The mapped entity type.</typeparam>
-public sealed class EntityIndex<TEntity>
+public sealed class EntityIndex<TEntity> : IEntityIndex
 {
     internal EntityIndex(string name, IReadOnlyList<EntityColumn<TEntity>> columns, bool isUnique)
     {
@@ -138,6 +337,8 @@ public sealed class EntityIndex<TEntity>
     /// Gets whether the index is unique.
     /// </summary>
     public bool IsUnique { get; }
+
+    IReadOnlyList<IEntityColumn> IEntityIndex.Columns => Columns;
 }
 
 /// <summary>
@@ -186,9 +387,10 @@ public sealed class EntityMapBuilder<TEntity>
         ArgumentNullException.ThrowIfNull(property);
 
         var propertyName = ExpressionHelpers.GetPropertyName(property);
+        var propertyInfo = ExpressionHelpers.GetProperty(property);
         if (!columns.TryGetValue(propertyName, out var existing))
         {
-            var builder = new EntityPropertyBuilder<TEntity, TProperty>(propertyName, columnName ?? ExpressionHelpers.ToSnakeLikeName(propertyName));
+            var builder = new EntityPropertyBuilder<TEntity, TProperty>(propertyInfo, propertyName, columnName ?? ExpressionHelpers.ToSnakeLikeName(propertyName));
             columns[propertyName] = builder;
             return builder;
         }
@@ -275,14 +477,19 @@ public sealed class EntityMapBuilder<TEntity>
 /// <typeparam name="TProperty">The mapped property type.</typeparam>
 public sealed class EntityPropertyBuilder<TEntity, TProperty> : IEntityColumnBuilder<TEntity>
 {
+    private readonly PropertyInfo property;
+    private readonly Func<TEntity, object?> getter;
     private string columnName;
     private ColumnType type;
     private bool isNullable;
     private bool isIdentity;
     private object? defaultValue;
+    private IDataValueConverter? converter;
 
-    internal EntityPropertyBuilder(string propertyName, string columnName)
+    internal EntityPropertyBuilder(PropertyInfo property, string propertyName, string columnName)
     {
+        this.property = property;
+        getter = CreateGetter(property);
         PropertyName = propertyName;
         this.columnName = columnName;
         type = InferColumnType(typeof(TProperty));
@@ -389,6 +596,30 @@ public sealed class EntityPropertyBuilder<TEntity, TProperty> : IEntityColumnBui
     }
 
     /// <summary>
+    /// Uses one custom value converter.
+    /// </summary>
+    /// <typeparam name="TProvider">The provider CLR type.</typeparam>
+    /// <param name="valueConverter">The value converter.</param>
+    /// <returns>The current builder.</returns>
+    public EntityPropertyBuilder<TEntity, TProperty> HasConverter<TProvider>(DataValueConverter<TProperty, TProvider> valueConverter)
+    {
+        ArgumentNullException.ThrowIfNull(valueConverter);
+        converter = valueConverter;
+        return this;
+    }
+
+    /// <summary>
+    /// Uses JSON string conversion for the property.
+    /// </summary>
+    /// <returns>The current builder.</returns>
+    public EntityPropertyBuilder<TEntity, TProperty> HasJsonConversion()
+    {
+        converter = DataValueConverters.Json<TProperty>();
+        type = ColumnType.String();
+        return this;
+    }
+
+    /// <summary>
     /// Marks the property as part of the primary key.
     /// </summary>
     /// <returns>The current builder.</returns>
@@ -404,9 +635,12 @@ public sealed class EntityPropertyBuilder<TEntity, TProperty> : IEntityColumnBui
     internal EntityColumn<TEntity, TProperty> Build()
     {
         return new EntityColumn<TEntity, TProperty>(
+            property,
             PropertyName,
             columnName,
-            new ColumnDefinition(columnName, type, isNullable, isIdentity, defaultValue));
+            new ColumnDefinition(columnName, type, isNullable, isIdentity, defaultValue),
+            converter,
+            getter);
     }
 
     private static ColumnType InferColumnType(Type type)
@@ -458,5 +692,13 @@ public sealed class EntityPropertyBuilder<TEntity, TProperty> : IEntityColumnBui
     private static bool IsNullableType(Type type)
     {
         return !type.IsValueType || Nullable.GetUnderlyingType(type) is not null;
+    }
+
+    private static Func<TEntity, object?> CreateGetter(PropertyInfo property)
+    {
+        var entity = Expression.Parameter(typeof(TEntity), "entity");
+        var propertyAccess = Expression.Property(entity, property);
+        var convert = Expression.Convert(propertyAccess, typeof(object));
+        return Expression.Lambda<Func<TEntity, object?>>(convert, entity).Compile();
     }
 }

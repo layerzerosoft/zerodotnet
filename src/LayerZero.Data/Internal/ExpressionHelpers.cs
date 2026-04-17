@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace LayerZero.Data.Internal;
 
@@ -20,6 +21,24 @@ internal static class ExpressionHelpers
         }
 
         return member.Member.Name;
+    }
+
+    public static PropertyInfo GetProperty(LambdaExpression expression)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+
+        var body = expression.Body switch
+        {
+            UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary => unary.Operand,
+            _ => expression.Body,
+        };
+
+        if (body is not MemberExpression member || member.Member is not PropertyInfo property)
+        {
+            throw new InvalidOperationException("Only simple property expressions are supported.");
+        }
+
+        return property;
     }
 
     public static string ToSnakeLikeName(string name)

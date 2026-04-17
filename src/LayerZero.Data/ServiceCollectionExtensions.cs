@@ -1,5 +1,8 @@
 using LayerZero.Data.Configuration;
+using LayerZero.Data.Internal.Execution;
 using LayerZero.Data.Internal;
+using LayerZero.Data.Internal.Materialization;
+using LayerZero.Data.Internal.Registration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -36,6 +39,14 @@ public static class ServiceCollectionExtensions
         }
 
         services.TryAddSingleton<LayerZeroDataBuilderAccessor>();
+        services.TryAddSingleton<IEntityMapRegistry, EntityMapRegistry>();
+        services.TryAddScoped<DataScopeManager>();
+        services.TryAddSingleton<DataCommandCache>();
+        services.TryAddSingleton<IDataMaterializerSource, DataMaterializerSource>();
+        services.TryAddScoped<DataContext>();
+        services.TryAddScoped<IDataContext>(static serviceProvider => serviceProvider.GetRequiredService<DataContext>());
+        services.TryAddScoped<IDataSqlContext>(static serviceProvider => serviceProvider.GetRequiredService<DataContext>());
+        services.TryAddScoped<IDataDispatcher, DataDispatcher>();
         return new LayerZeroDataBuilder(services);
     }
 }

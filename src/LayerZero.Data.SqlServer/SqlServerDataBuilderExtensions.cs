@@ -1,5 +1,7 @@
 using LayerZero.Data.Configuration;
+using LayerZero.Data.Internal.Sql;
 using LayerZero.Data.SqlServer.Configuration;
+using LayerZero.Data.SqlServer.Internal.Execution;
 using LayerZero.Data.SqlServer.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -38,6 +40,7 @@ public static class SqlServerDataBuilderExtensions
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IPostConfigureOptions<SqlServerDataOptions>, SqlServerDataOptionsSetup>());
         builder.Services.TryAddSingleton<IDatabaseConnectionFactory, SqlServerDatabaseConnectionFactory>();
+        builder.Services.TryAddSingleton<IDataSqlDialect, SqlServerDataSqlDialect>();
         builder.Services.PostConfigure<LayerZeroDataOptions>(static options =>
         {
             options.ProviderName = SqlServerDataProvider.ProviderName;
