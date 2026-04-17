@@ -237,6 +237,17 @@ dotnet run --project samples/LayerZero.Fulfillment.Kafka.AppHost
 dotnet run --project samples/LayerZero.Fulfillment.Nats.AppHost
 ```
 
+Each AppHost exposes a stable proxy URL pair for the API:
+
+- RabbitMQ: `http://localhost:5381` and `https://localhost:7381`
+- Azure Service Bus emulator: `http://localhost:5382` and `https://localhost:7382`
+- Kafka: `http://localhost:5383` and `https://localhost:7383`
+- NATS JetStream: `http://localhost:5384` and `https://localhost:7384`
+
+These are the public AppHost proxy URLs. The underlying API process typically
+binds a different allocated loopback port and Aspire routes traffic through the
+proxy, so differing internal listener ports in API logs are expected.
+
 For the API alone:
 
 ```bash

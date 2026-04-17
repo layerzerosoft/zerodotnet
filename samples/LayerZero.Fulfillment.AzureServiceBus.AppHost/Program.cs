@@ -1,8 +1,5 @@
-using Aspire.Hosting.ApplicationModel;
-using Aspire.Hosting.Azure;
-
 const string AzureServiceBusEmulatorImageTag = "2.0.0";
-const int AzureServiceBusAdministrationTargetPort = 5300;
+const int AzureServiceBusAdministrationContainerPort = 5300;
 
 var builder = DistributedApplication.CreateBuilder(args);
 var fulfillmentDataDirectory = Path.Combine(builder.AppHostDirectory, "data");
@@ -15,7 +12,7 @@ var serviceBus = builder.AddAzureServiceBus("servicebus")
     .RunAsEmulator(static emulator => emulator.WithImageTag(AzureServiceBusEmulatorImageTag))
     .WithEndpoint("administration", static endpoint =>
     {
-        endpoint.TargetPort = AzureServiceBusAdministrationTargetPort;
+        endpoint.TargetPort = AzureServiceBusAdministrationContainerPort;
         endpoint.UriScheme = "sb";
     });
 var administrationEndpoint = serviceBus.Resource.GetEndpoint("administration");
@@ -51,19 +48,14 @@ builder.AddProject<Projects.LayerZero_Fulfillment_Projections>("fulfillment-proj
         serviceBus,
         administrationEndpoint));
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Api>(
-        "fulfillment-api",
-        static options =>
-        {
-            options.ExcludeLaunchProfile = true;
-            options.ExcludeKestrelEndpoints = true;
-        })
+builder.AddProject<Projects.LayerZero_Fulfillment_Api>("fulfillment-api", launchProfileName: null)
     .WithReference(serviceBus)
     .WithEnvironment("Messaging__Broker", "AzureServiceBus")
     .WithEnvironment("ConnectionStrings__Fulfillment", databaseConnectionString)
-    .WithHttpEndpoint(port: 5382, name: "http", env: "HTTP_PORTS")
-    .WithHttpsEndpoint(port: 7382, name: "https", env: "HTTPS_PORTS")
-    .WithExternalHttpEndpoints()
+    .WithHttpEndpoint(port: 5382, name: "http")
+    .WithHttpsEndpoint(port: 7382, name: "https")
+    .WithUrlForEndpoint("http", static _ => new() { Url = "/openapi/v1.json", DisplayText = "OpenAPI (HTTP)" })
+    .WithUrlForEndpoint("https", static _ => new() { Url = "/openapi/v1.json", DisplayText = "OpenAPI (HTTPS)" })
     .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap)
     .WithEnvironment(context => ConfigureAzureServiceBusAdministrationConnectionString(

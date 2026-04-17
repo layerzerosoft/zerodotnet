@@ -263,6 +263,10 @@ Each broker AppHost exposes one API endpoint pair:
 - Kafka: `http://localhost:5383` and `https://localhost:7383`
 - NATS JetStream: `http://localhost:5384` and `https://localhost:7384`
 
+Those are the stable AppHost proxy URLs. Under normal Aspire behavior the
+underlying API process listens on a different allocated loopback port, so API
+resource logs can show a different internal port without indicating a problem.
+
 Local orchestration prerequisites:
 
 - Docker Desktop, Podman, or another OCI-compatible container runtime
@@ -319,6 +323,10 @@ The broker-specific AppHosts are:
 AppHost startup stays covered by checked-in launch profiles, checked-in Aspire
 VS Code debug configurations, and launch-settings policy tests.
 
+The AppHost dashboard also adds direct OpenAPI links for the fulfillment API so
+you can open `/openapi/v1.json` from the resource card without manually editing
+the base URL.
+
 Each broker AppHost shares one SQLite database file across bootstrap, API,
 processing, and projections under its own `data/` directory.
 
@@ -341,6 +349,10 @@ Launching the AppHost without a launch profile is not a supported local-dev
 path. Official Aspire AppHost startup depends on the checked-in launch profile
 or an equivalent debugger configuration that supplies the dashboard and resource
 service endpoints.
+
+When switching between broker AppHosts, start from a clean local session. Stale
+standalone `LayerZero.Fulfillment.*` processes can make port and log
+observations look contradictory even when the active AppHost is healthy.
 
 In VS Code, the editor Run or Debug button on an arbitrary open `.cs` file
 launches the project associated with that file. It does not automatically

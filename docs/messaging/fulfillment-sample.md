@@ -65,6 +65,10 @@ Each broker AppHost exposes its API on stable AppHost-managed URLs:
 - Kafka: `http://localhost:5383` and `https://localhost:7383`
 - NATS JetStream: `http://localhost:5384` and `https://localhost:7384`
 
+Those are the stable AppHost proxy URLs. Under Aspire's default proxy model the
+API process itself usually binds a different allocated loopback port, so
+resource logs can legitimately show a different internal port.
+
 Each AppHost provisions its own topology through `LayerZero.Fulfillment.Bootstrap`
 before the API, processing worker, and projections worker start. Each AppHost
 also shares one SQLite database file across bootstrap, API, processing, and
@@ -74,6 +78,9 @@ projections:
 - `samples/LayerZero.Fulfillment.AzureServiceBus.AppHost/data/fulfillment.db`
 - `samples/LayerZero.Fulfillment.Kafka.AppHost/data/fulfillment.db`
 - `samples/LayerZero.Fulfillment.Nats.AppHost/data/fulfillment.db`
+
+The dashboard adds direct OpenAPI deep-links for the HTTP and HTTPS API
+endpoints so `/openapi/v1.json` is one click away from the resource card.
 
 The broker end-to-end tests validate the workflows and transports, and the
 broker-specific AppHost startup tests validate Aspire orchestration. Treat the
@@ -91,6 +98,10 @@ dotnet dev-certs https --trust
 Launching the AppHost without a launch profile is not supported. Aspire AppHost
 startup requires the dashboard and resource-service settings supplied by the
 checked-in launch profile or by an equivalent debugger configuration.
+
+When switching brokers, start from a clean local session. Stale standalone
+`LayerZero.Fulfillment.*` processes can make public proxy URLs, internal ports,
+and resource logs disagree in confusing ways.
 
 In VS Code, the editor Run or Debug button on an arbitrary `.cs` file launches
 that file's associated project, not the AppHost. Use
@@ -222,6 +233,7 @@ normal runtime mode for the sample.
 ## Troubleshooting
 
 - If API startup fails with topology validation errors, run the bootstrap host first or use the AppHost profile that does it for you.
+- If the AppHost API resource card shows `localhost:538x` or `localhost:738x` but the API logs mention a different port, that is the expected Aspire proxy model rather than a misconfiguration by itself.
 - If local tests fail before a broker starts, confirm the Docker daemon is running.
 - If you notice two RabbitMQ containers during a full local test run, that is usually expected because transport integration tests and fulfillment end-to-end tests keep their broker fixtures isolated per project.
 - If broker containers or `testcontainers-ryuk` sidecars remain after the run completes, that is stale-session leakage rather than normal behavior. List and remove stale repo-owned sessions with:
