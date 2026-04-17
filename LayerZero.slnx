@@ -5,13 +5,16 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
-    <Project Path="samples/LayerZero.Fulfillment.AppHost/LayerZero.Fulfillment.AppHost.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.AzureServiceBus.AppHost/LayerZero.Fulfillment.AzureServiceBus.AppHost.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Client/LayerZero.Fulfillment.Client.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Kafka.AppHost/LayerZero.Fulfillment.Kafka.AppHost.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.KafkaReadiness/LayerZero.Fulfillment.KafkaReadiness.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.Nats.AppHost/LayerZero.Fulfillment.Nats.AppHost.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Projections/LayerZero.Fulfillment.Projections.csproj" />
+    <Project Path="samples/LayerZero.Fulfillment.RabbitMq.AppHost/LayerZero.Fulfillment.RabbitMq.AppHost.csproj" />
     <Project Path="samples/LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />
   </Folder>
   <Folder Name="/src/">

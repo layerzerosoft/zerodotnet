@@ -169,7 +169,7 @@ Projects:
 - `LayerZero.Fulfillment.Projections`: event fan-out, notifications, analytics, audit
 - `LayerZero.Fulfillment.Bootstrap`: explicit topology provisioning
 - `LayerZero.Fulfillment.Client`: explicit typed client
-- `LayerZero.Fulfillment.AppHost`: Aspire orchestration for local multi-broker runs
+- broker-specific AppHosts for RabbitMQ, Azure Service Bus, Kafka, and NATS
 
 Workflow focus:
 
@@ -228,10 +228,13 @@ Cloud parity for Azure Service Bus sessions is handled separately through the
 - `LAYERZERO_AZURE_SERVICE_BUS_CLOUD_CONNECTION_STRING`
 - `LAYERZERO_AZURE_SERVICE_BUS_CLOUD_ADMIN_CONNECTION_STRING`
 
-For the sample AppHost:
+For the broker-specific sample AppHosts:
 
 ```bash
-dotnet run --project samples/LayerZero.Fulfillment.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.RabbitMq.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.AzureServiceBus.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.Kafka.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.Nats.AppHost
 ```
 
 For the API alone:

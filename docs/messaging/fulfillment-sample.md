@@ -11,13 +11,13 @@ the reference workflow for LayerZero messaging.
 - `LayerZero.Fulfillment.Projections`: read-model, analytics, audit, and notification handlers
 - `LayerZero.Fulfillment.Bootstrap`: explicit topology provisioning for local and test runs
 - `LayerZero.Fulfillment.Client`: explicit typed client for the API surface
-- `LayerZero.Fulfillment.AppHost`: Aspire orchestration that runs one fulfillment stack per broker
+- broker-specific AppHosts that each run one fulfillment stack
 
 ## Prerequisites
 
 - .NET 10 SDK
 - Docker Desktop, Podman, or another OCI-compatible runtime
-- enough free local ports for RabbitMQ, Azure Service Bus emulator, Kafka, and NATS JetStream
+- enough free local ports for the selected broker AppHost and its API endpoints
 
 The API launch profiles are fixed:
 
@@ -26,49 +26,60 @@ The API launch profiles are fixed:
 
 ## Local Runs
 
-Run the full multi-broker sample:
+Run a broker-specific AppHost:
 
 ```bash
-dotnet run --project samples/LayerZero.Fulfillment.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.RabbitMq.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.AzureServiceBus.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.Kafka.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.Nats.AppHost
 ```
 
-For VS Code, use the checked-in `Aspire: Fulfillment AppHost` configuration
-with the Microsoft Aspire extension and C# Dev Kit. That is the supported
-distributed-app debug path for the sample.
+For VS Code, use the checked-in broker-specific Aspire configurations with the
+Microsoft Aspire extension and C# Dev Kit. That is the supported distributed-app
+debug path for the sample:
 
-The AppHost dashboard uses stable development URLs:
+- `Aspire: Fulfillment RabbitMQ AppHost`
+- `Aspire: Fulfillment Azure Service Bus AppHost`
+- `Aspire: Fulfillment Kafka AppHost`
+- `Aspire: Fulfillment NATS AppHost`
 
-- HTTPS: `https://localhost:17134`
-- HTTP: `http://localhost:15170`
+Each broker AppHost dashboard uses stable development URLs:
 
-This starts one profile for each broker:
+- RabbitMQ: `https://localhost:17134` and `http://localhost:15170`
+- Azure Service Bus emulator: `https://localhost:17135` and `http://localhost:15171`
+- Kafka: `https://localhost:17136` and `http://localhost:15172`
+- NATS JetStream: `https://localhost:17137` and `http://localhost:15173`
+
+Choose the AppHost that matches the broker you want to exercise:
 
 - RabbitMQ
 - Azure Service Bus emulator
 - Kafka
 - NATS JetStream
 
-Each broker profile exposes its API on stable AppHost-managed URLs:
+Each broker AppHost exposes its API on stable AppHost-managed URLs:
 
 - RabbitMQ: `http://localhost:5381` and `https://localhost:7381`
 - Azure Service Bus emulator: `http://localhost:5382` and `https://localhost:7382`
 - Kafka: `http://localhost:5383` and `https://localhost:7383`
 - NATS JetStream: `http://localhost:5384` and `https://localhost:7384`
 
-Each profile provisions its own topology through `LayerZero.Fulfillment.Bootstrap`
-before the API, processing worker, and projections worker start. Each profile
+Each AppHost provisions its own topology through `LayerZero.Fulfillment.Bootstrap`
+before the API, processing worker, and projections worker start. Each AppHost
 also shares one SQLite database file across bootstrap, API, processing, and
 projections:
 
-- `samples/LayerZero.Fulfillment.AppHost/data/fulfillment-rabbitmq.db`
-- `samples/LayerZero.Fulfillment.AppHost/data/fulfillment-azureservicebus.db`
-- `samples/LayerZero.Fulfillment.AppHost/data/fulfillment-kafka.db`
-- `samples/LayerZero.Fulfillment.AppHost/data/fulfillment-nats.db`
+- `samples/LayerZero.Fulfillment.RabbitMq.AppHost/data/fulfillment.db`
+- `samples/LayerZero.Fulfillment.AzureServiceBus.AppHost/data/fulfillment.db`
+- `samples/LayerZero.Fulfillment.Kafka.AppHost/data/fulfillment.db`
+- `samples/LayerZero.Fulfillment.Nats.AppHost/data/fulfillment.db`
 
-The broker end-to-end tests validate the workflows and transports, but they do
-not launch the AppHost. Treat the AppHost launch profile as the supported local
-startup contract for `dotnet run`, and treat the checked-in Aspire VS Code
-debug configuration as the supported editor launch path.
+The broker end-to-end tests validate the workflows and transports, and the
+broker-specific AppHost startup tests validate Aspire orchestration. Treat the
+checked-in AppHost launch profiles as the supported `dotnet run` startup
+contract, and treat the checked-in Aspire VS Code debug configurations as the
+supported editor launch path.
 
 If the AppHost HTTPS profile fails because the local development certificate is
 missing, trust the standard .NET dev certificate:
@@ -83,8 +94,8 @@ checked-in launch profile or by an equivalent debugger configuration.
 
 In VS Code, the editor Run or Debug button on an arbitrary `.cs` file launches
 that file's associated project, not the AppHost. Use
-`Aspire: Fulfillment AppHost` when you want to debug the fulfillment
-orchestration host.
+the matching `Aspire: Fulfillment ... AppHost` configuration when you want to
+debug the fulfillment orchestration host.
 
 The supported VS Code debugger type for the AppHost is `aspire`, not `dotnet`.
 Debugger-only user-unhandled exception stops are not the same thing as real

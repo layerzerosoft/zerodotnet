@@ -2,10 +2,43 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Aspire: Fulfillment AppHost",
+      "name": "Aspire: Fulfillment RabbitMQ AppHost",
       "type": "aspire",
       "request": "launch",
-      "program": "${workspaceFolder}/samples/LayerZero.Fulfillment.AppHost/LayerZero.Fulfillment.AppHost.csproj",
+      "program": "${workspaceFolder}/samples/LayerZero.Fulfillment.RabbitMq.AppHost/LayerZero.Fulfillment.RabbitMq.AppHost.csproj",
+      "debuggers": {
+        "project": {
+          "justMyCode": false
+        }
+      }
+    },
+    {
+      "name": "Aspire: Fulfillment Azure Service Bus AppHost",
+      "type": "aspire",
+      "request": "launch",
+      "program": "${workspaceFolder}/samples/LayerZero.Fulfillment.AzureServiceBus.AppHost/LayerZero.Fulfillment.AzureServiceBus.AppHost.csproj",
+      "debuggers": {
+        "project": {
+          "justMyCode": false
+        }
+      }
+    },
+    {
+      "name": "Aspire: Fulfillment Kafka AppHost",
+      "type": "aspire",
+      "request": "launch",
+      "program": "${workspaceFolder}/samples/LayerZero.Fulfillment.Kafka.AppHost/LayerZero.Fulfillment.Kafka.AppHost.csproj",
+      "debuggers": {
+        "project": {
+          "justMyCode": false
+        }
+      }
+    },
+    {
+      "name": "Aspire: Fulfillment NATS AppHost",
+      "type": "aspire",
+      "request": "launch",
+      "program": "${workspaceFolder}/samples/LayerZero.Fulfillment.Nats.AppHost/LayerZero.Fulfillment.Nats.AppHost.csproj",
       "debuggers": {
         "project": {
           "justMyCode": false

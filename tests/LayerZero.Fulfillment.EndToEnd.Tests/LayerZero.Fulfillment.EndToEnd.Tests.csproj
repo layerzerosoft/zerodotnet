@@ -18,8 +18,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../samples/LayerZero.Fulfillment.AppHost/LayerZero.Fulfillment.AppHost.csproj">
-      <Aliases>FulfillmentAppHost</Aliases>
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.RabbitMq.AppHost/LayerZero.Fulfillment.RabbitMq.AppHost.csproj">
+      <Aliases>FulfillmentRabbitMqAppHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.AzureServiceBus.AppHost/LayerZero.Fulfillment.AzureServiceBus.AppHost.csproj">
+      <Aliases>FulfillmentAzureServiceBusAppHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Kafka.AppHost/LayerZero.Fulfillment.Kafka.AppHost.csproj">
+      <Aliases>FulfillmentKafkaAppHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Nats.AppHost/LayerZero.Fulfillment.Nats.AppHost.csproj">
+      <Aliases>FulfillmentNatsAppHost</Aliases>
     </ProjectReference>
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />

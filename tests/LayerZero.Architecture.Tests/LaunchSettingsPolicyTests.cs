@@ -25,46 +25,60 @@ public sealed class LaunchSettingsPolicyTests
     }
 
     [Fact]
-    public void Fulfillment_apphost_sample_uses_stable_supported_launch_profile_urls()
+    public void Fulfillment_rabbitmq_apphost_sample_uses_stable_supported_launch_profile_urls()
     {
-        var root = FindRepositoryRoot();
-        var profiles = ReadProfiles(
-            root,
-            "LayerZero.Fulfillment.AppHost",
-            "The fulfillment AppHost launch settings must exist.");
-
-        var httpsProfile = profiles.GetProperty("https");
-
-        AssertLaunchProfile(
-            httpsProfile,
-            expectedApplicationUrl: "https://localhost:17134;http://localhost:15170");
-
-        AssertEnvironmentVariable(httpsProfile, "ASPNETCORE_ENVIRONMENT", "Development");
-        AssertEnvironmentVariable(httpsProfile, "DOTNET_ENVIRONMENT", "Development");
-        AssertEnvironmentVariable(httpsProfile, "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL", "https://localhost:21030");
-        AssertEnvironmentVariable(httpsProfile, "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL", "https://localhost:22057");
+        AssertAppHostLaunchProfile(
+            "LayerZero.Fulfillment.RabbitMq.AppHost",
+            "https://localhost:17134;http://localhost:15170",
+            "https://localhost:21030",
+            "https://localhost:22057");
     }
 
     [Fact]
-    public void Fulfillment_apphost_vscode_debug_configuration_uses_official_aspire_launch_type()
+    public void Fulfillment_azure_service_bus_apphost_sample_uses_stable_supported_launch_profile_urls()
     {
-        var root = FindRepositoryRoot();
-        var configurations = ReadVisualStudioCodeLaunchConfigurations(
-            root,
-            "The workspace VS Code launch configuration must exist for deterministic AppHost debugging.");
+        AssertAppHostLaunchProfile(
+            "LayerZero.Fulfillment.AzureServiceBus.AppHost",
+            "https://localhost:17135;http://localhost:15171",
+            "https://localhost:21031",
+            "https://localhost:22058");
+    }
 
-        var appHostConfiguration = FindConfigurationByName(configurations, "Aspire: Fulfillment AppHost");
+    [Fact]
+    public void Fulfillment_kafka_apphost_sample_uses_stable_supported_launch_profile_urls()
+    {
+        AssertAppHostLaunchProfile(
+            "LayerZero.Fulfillment.Kafka.AppHost",
+            "https://localhost:17136;http://localhost:15172",
+            "https://localhost:21032",
+            "https://localhost:22059");
+    }
 
-        AssertConfigurationProperty(appHostConfiguration, "type", "aspire");
-        AssertConfigurationProperty(appHostConfiguration, "request", "launch");
-        AssertConfigurationProperty(
-            appHostConfiguration,
-            "program",
-            "${workspaceFolder}/samples/LayerZero.Fulfillment.AppHost/LayerZero.Fulfillment.AppHost.csproj");
+    [Fact]
+    public void Fulfillment_nats_apphost_sample_uses_stable_supported_launch_profile_urls()
+    {
+        AssertAppHostLaunchProfile(
+            "LayerZero.Fulfillment.Nats.AppHost",
+            "https://localhost:17137;http://localhost:15173",
+            "https://localhost:21033",
+            "https://localhost:22060");
+    }
 
-        var debuggers = appHostConfiguration.GetProperty("debuggers");
-        var projectDebugger = debuggers.GetProperty("project");
-        Assert.False(projectDebugger.GetProperty("justMyCode").GetBoolean());
+    [Fact]
+    public void Fulfillment_apphost_vscode_debug_configurations_use_official_aspire_launch_type()
+    {
+        AssertAppHostDebugConfiguration(
+            "Aspire: Fulfillment RabbitMQ AppHost",
+            "${workspaceFolder}/samples/LayerZero.Fulfillment.RabbitMq.AppHost/LayerZero.Fulfillment.RabbitMq.AppHost.csproj");
+        AssertAppHostDebugConfiguration(
+            "Aspire: Fulfillment Azure Service Bus AppHost",
+            "${workspaceFolder}/samples/LayerZero.Fulfillment.AzureServiceBus.AppHost/LayerZero.Fulfillment.AzureServiceBus.AppHost.csproj");
+        AssertAppHostDebugConfiguration(
+            "Aspire: Fulfillment Kafka AppHost",
+            "${workspaceFolder}/samples/LayerZero.Fulfillment.Kafka.AppHost/LayerZero.Fulfillment.Kafka.AppHost.csproj");
+        AssertAppHostDebugConfiguration(
+            "Aspire: Fulfillment NATS AppHost",
+            "${workspaceFolder}/samples/LayerZero.Fulfillment.Nats.AppHost/LayerZero.Fulfillment.Nats.AppHost.csproj");
     }
 
     [Fact]
@@ -109,6 +123,48 @@ public sealed class LaunchSettingsPolicyTests
             ?? throw new InvalidOperationException("The launch profile launchUrl must be present.");
 
         Assert.Equal(expectedLaunchUrl, launchUrl);
+    }
+
+    private static void AssertAppHostLaunchProfile(
+        string sampleProjectName,
+        string expectedApplicationUrl,
+        string expectedOtlpEndpoint,
+        string expectedResourceServiceEndpoint)
+    {
+        var root = FindRepositoryRoot();
+        var profiles = ReadProfiles(
+            root,
+            sampleProjectName,
+            $"The {sampleProjectName} launch settings must exist.");
+
+        var httpsProfile = profiles.GetProperty("https");
+
+        AssertLaunchProfile(
+            httpsProfile,
+            expectedApplicationUrl: expectedApplicationUrl);
+
+        AssertEnvironmentVariable(httpsProfile, "ASPNETCORE_ENVIRONMENT", "Development");
+        AssertEnvironmentVariable(httpsProfile, "DOTNET_ENVIRONMENT", "Development");
+        AssertEnvironmentVariable(httpsProfile, "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL", expectedOtlpEndpoint);
+        AssertEnvironmentVariable(httpsProfile, "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL", expectedResourceServiceEndpoint);
+    }
+
+    private static void AssertAppHostDebugConfiguration(string name, string expectedProgram)
+    {
+        var root = FindRepositoryRoot();
+        var configurations = ReadVisualStudioCodeLaunchConfigurations(
+            root,
+            "The workspace VS Code launch configuration must exist for deterministic AppHost debugging.");
+
+        var appHostConfiguration = FindConfigurationByName(configurations, name);
+
+        AssertConfigurationProperty(appHostConfiguration, "type", "aspire");
+        AssertConfigurationProperty(appHostConfiguration, "request", "launch");
+        AssertConfigurationProperty(appHostConfiguration, "program", expectedProgram);
+
+        var debuggers = appHostConfiguration.GetProperty("debuggers");
+        var projectDebugger = debuggers.GetProperty("project");
+        Assert.False(projectDebugger.GetProperty("justMyCode").GetBoolean());
     }
 
     private static JsonElement ReadProfiles(DirectoryInfo root, string sampleProjectName, string missingFileMessage)

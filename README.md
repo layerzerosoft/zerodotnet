@@ -234,19 +234,29 @@ dotnet pack --no-build
 Run the sample:
 
 ```bash
-dotnet run --project samples/LayerZero.Fulfillment.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.RabbitMq.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.AzureServiceBus.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.Kafka.AppHost
+dotnet run --project samples/LayerZero.Fulfillment.Nats.AppHost
 ```
 
-For VS Code, use the checked-in `Aspire: Fulfillment AppHost` configuration
-with the Microsoft Aspire extension and C# Dev Kit. That is the supported
-distributed-app debug path for this sample.
+For VS Code, use the checked-in broker-specific Aspire configurations with the
+Microsoft Aspire extension and C# Dev Kit. That is the supported distributed-app
+debug path for this sample:
 
-The AppHost dashboard uses stable development URLs:
+- `Aspire: Fulfillment RabbitMQ AppHost`
+- `Aspire: Fulfillment Azure Service Bus AppHost`
+- `Aspire: Fulfillment Kafka AppHost`
+- `Aspire: Fulfillment NATS AppHost`
 
-- HTTPS: `https://localhost:17134`
-- HTTP: `http://localhost:15170`
+Each AppHost dashboard uses stable development URLs:
 
-The AppHost also exposes one API endpoint pair per broker profile:
+- RabbitMQ: `https://localhost:17134` and `http://localhost:15170`
+- Azure Service Bus emulator: `https://localhost:17135` and `http://localhost:15171`
+- Kafka: `https://localhost:17136` and `http://localhost:15172`
+- NATS JetStream: `https://localhost:17137` and `http://localhost:15173`
+
+Each broker AppHost exposes one API endpoint pair:
 
 - RabbitMQ: `http://localhost:5381` and `https://localhost:7381`
 - Azure Service Bus emulator: `http://localhost:5382` and `https://localhost:7382`
@@ -257,7 +267,7 @@ Local orchestration prerequisites:
 
 - Docker Desktop, Podman, or another OCI-compatible container runtime
 - .NET 10 SDK
-- enough free ports for RabbitMQ, Azure Service Bus emulator, Kafka, and NATS
+- enough free ports for the selected broker AppHost and its API endpoints
 
 `dotnet test --no-build` expects a live local Docker daemon because the broker
 integration suites run against real containers and the Azure Service Bus
@@ -292,21 +302,25 @@ cleanup stays explicit; CI uses the same tool with a zero-minute threshold in
 its final `always()` cleanup step.
 
 The flagship sample family lives under `samples/LayerZero.Fulfillment.*`.
-`LayerZero.Fulfillment.AppHost` runs broker profiles side by side, provisions
-local topology through `LayerZero.Fulfillment.Bootstrap`, and starts:
+Each broker-specific AppHost provisions local topology through
+`LayerZero.Fulfillment.Bootstrap` and starts:
 
 - `LayerZero.Fulfillment.Api`
 - `LayerZero.Fulfillment.Processing`
 - `LayerZero.Fulfillment.Projections`
 
-The broker end-to-end suites validate the workflows and transports, but they do
-not launch the AppHost. AppHost startup stays covered by its checked-in launch
-profile, checked-in Aspire VS Code debug configuration, and launch-settings
-policy tests.
+The broker-specific AppHosts are:
 
-Each AppHost broker profile shares one SQLite database file across bootstrap,
-API, processing, and projections under
-`samples/LayerZero.Fulfillment.AppHost/data/`.
+- `samples/LayerZero.Fulfillment.RabbitMq.AppHost`
+- `samples/LayerZero.Fulfillment.AzureServiceBus.AppHost`
+- `samples/LayerZero.Fulfillment.Kafka.AppHost`
+- `samples/LayerZero.Fulfillment.Nats.AppHost`
+
+AppHost startup stays covered by checked-in launch profiles, checked-in Aspire
+VS Code debug configurations, and launch-settings policy tests.
+
+Each broker AppHost shares one SQLite database file across bootstrap, API,
+processing, and projections under its own `data/` directory.
 
 The API sample launch profiles use stable dev URLs:
 
@@ -330,8 +344,8 @@ service endpoints.
 
 In VS Code, the editor Run or Debug button on an arbitrary open `.cs` file
 launches the project associated with that file. It does not automatically
-launch the AppHost unless the selected debug configuration is
-`Aspire: Fulfillment AppHost`.
+launch the AppHost unless the selected debug configuration is one of the
+broker-specific `Aspire: Fulfillment ... AppHost` entries.
 
 The supported VS Code AppHost debugger type is `aspire`, not `dotnet`. If VS
 Code stops on a user-unhandled framework exception while debugging the

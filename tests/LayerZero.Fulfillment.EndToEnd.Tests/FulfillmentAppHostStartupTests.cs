@@ -1,4 +1,7 @@
-extern alias FulfillmentAppHost;
+extern alias FulfillmentAzureServiceBusAppHost;
+extern alias FulfillmentKafkaAppHost;
+extern alias FulfillmentNatsAppHost;
+extern alias FulfillmentRabbitMqAppHost;
 
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
@@ -9,54 +12,6 @@ namespace LayerZero.Fulfillment.EndToEnd.Tests;
 [Trait("Category", "MatrixOnly")]
 public sealed class FulfillmentAppHostStartupTests
 {
-    private static readonly string[] BrokerResources =
-    [
-        "rabbitmq",
-        "sbemulatorns",
-        "kafka",
-        "nats",
-    ];
-
-    private static readonly string[] ReadinessResources =
-    [
-        "fulfillment-kafka-readiness",
-    ];
-
-    private static readonly string[] BootstrapResources =
-    [
-        "fulfillment-bootstrap-rabbitmq",
-        "fulfillment-bootstrap-azureservicebus",
-        "fulfillment-bootstrap-kafka",
-        "fulfillment-bootstrap-nats",
-    ];
-
-    private static readonly string[] ApiResources =
-    [
-        "fulfillment-api-rabbitmq",
-        "fulfillment-api-azureservicebus",
-        "fulfillment-api-kafka",
-        "fulfillment-api-nats",
-    ];
-
-    private static readonly string[] LongRunningResources =
-    [
-        "fulfillment-processing-rabbitmq",
-        "fulfillment-projections-rabbitmq",
-        "fulfillment-api-rabbitmq",
-        "fulfillment-processing-azureservicebus",
-        "fulfillment-projections-azureservicebus",
-        "fulfillment-api-azureservicebus",
-        "fulfillment-processing-kafka",
-        "fulfillment-projections-kafka",
-        "fulfillment-api-kafka",
-        "fulfillment-processing-nats",
-        "fulfillment-projections-nats",
-        "fulfillment-api-nats",
-    ];
-
-    private static readonly string[] OneShotResources = [.. ReadinessResources, .. BootstrapResources];
-    private static readonly string[] FulfillmentResources = [.. OneShotResources, .. LongRunningResources];
-
     private static readonly HashSet<string> StartupFailureStates = new(StringComparer.Ordinal)
     {
         KnownResourceStates.FailedToStart,
@@ -75,10 +30,54 @@ public sealed class FulfillmentAppHostStartupTests
     ];
 
     [Fact]
-    public async Task App_host_starts_fulfillment_resources_without_runtime_failures()
+    public Task Rabbitmq_app_host_starts_fulfillment_resources_without_runtime_failures()
+    {
+        return AssertAppHostStartsAsync<FulfillmentRabbitMqAppHost::Projects.LayerZero_Fulfillment_RabbitMq_AppHost>(
+            brokerResources: ["rabbitmq"],
+            oneShotResources: ["fulfillment-bootstrap"],
+            longRunningResources: ["fulfillment-processing", "fulfillment-projections", "fulfillment-api"],
+            apiResources: ["fulfillment-api"]);
+    }
+
+    [Fact]
+    public Task Azure_service_bus_app_host_starts_fulfillment_resources_without_runtime_failures()
+    {
+        return AssertAppHostStartsAsync<FulfillmentAzureServiceBusAppHost::Projects.LayerZero_Fulfillment_AzureServiceBus_AppHost>(
+            brokerResources: ["servicebus"],
+            oneShotResources: ["fulfillment-bootstrap"],
+            longRunningResources: ["fulfillment-processing", "fulfillment-projections", "fulfillment-api"],
+            apiResources: ["fulfillment-api"]);
+    }
+
+    [Fact]
+    public Task Kafka_app_host_starts_fulfillment_resources_without_runtime_failures()
+    {
+        return AssertAppHostStartsAsync<FulfillmentKafkaAppHost::Projects.LayerZero_Fulfillment_Kafka_AppHost>(
+            brokerResources: ["kafka"],
+            oneShotResources: ["fulfillment-kafka-readiness", "fulfillment-bootstrap"],
+            longRunningResources: ["fulfillment-processing", "fulfillment-projections", "fulfillment-api"],
+            apiResources: ["fulfillment-api"]);
+    }
+
+    [Fact]
+    public Task Nats_app_host_starts_fulfillment_resources_without_runtime_failures()
+    {
+        return AssertAppHostStartsAsync<FulfillmentNatsAppHost::Projects.LayerZero_Fulfillment_Nats_AppHost>(
+            brokerResources: ["nats"],
+            oneShotResources: ["fulfillment-bootstrap"],
+            longRunningResources: ["fulfillment-processing", "fulfillment-projections", "fulfillment-api"],
+            apiResources: ["fulfillment-api"]);
+    }
+
+    private static async Task AssertAppHostStartsAsync<TAppHost>(
+        IReadOnlyList<string> brokerResources,
+        IReadOnlyList<string> oneShotResources,
+        IReadOnlyList<string> longRunningResources,
+        IReadOnlyList<string> apiResources)
+        where TAppHost : class
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var appHost = await DistributedApplicationTestingBuilder.CreateAsync<FulfillmentAppHost::Projects.LayerZero_Fulfillment_AppHost>(
+        var appHost = await DistributedApplicationTestingBuilder.CreateAsync<TAppHost>(
             [],
             static (applicationOptions, _) => applicationOptions.EnableResourceLogging = true,
             cancellationToken);
@@ -86,7 +85,7 @@ public sealed class FulfillmentAppHostStartupTests
         await using var app = await appHost.BuildAsync(cancellationToken);
         await app.StartAsync(cancellationToken);
 
-        foreach (var resourceName in BrokerResources)
+        foreach (var resourceName in brokerResources)
         {
             await app.ResourceNotifications.WaitForResourceHealthyAsync(
                 resourceName,
@@ -94,23 +93,24 @@ public sealed class FulfillmentAppHostStartupTests
                 cancellationToken);
         }
 
-        foreach (var resourceName in OneShotResources)
+        foreach (var resourceName in oneShotResources)
         {
             var resourceEvent = await WaitForSuccessfulCompletionAsync(app, resourceName, cancellationToken);
             await AssertCompletedSuccessfullyAsync(app, resourceEvent, cancellationToken);
         }
 
-        foreach (var resourceName in LongRunningResources)
+        foreach (var resourceName in longRunningResources)
         {
             var resourceEvent = await WaitForRunningAsync(app, resourceName, cancellationToken);
             await AssertResourceRunningAsync(app, resourceEvent, cancellationToken);
         }
 
-        AssertResourcesNotFailed(app, FulfillmentResources);
-        await AssertNoUnexpectedFailuresDuringStartupSoakAsync(app, FulfillmentResources, TimeSpan.FromSeconds(5), cancellationToken);
-        await AssertLongRunningResourcesRemainRunningAsync(app, LongRunningResources, cancellationToken);
-        await AssertLogsDoNotContainStartupFailuresAsync(app, FulfillmentResources, cancellationToken);
-        await AssertOpenApiReachableAsync(app, ApiResources, cancellationToken);
+        var fulfillmentResources = oneShotResources.Concat(longRunningResources).ToArray();
+        AssertResourcesNotFailed(app, fulfillmentResources);
+        await AssertNoUnexpectedFailuresDuringStartupSoakAsync(app, fulfillmentResources, longRunningResources, TimeSpan.FromSeconds(5), cancellationToken);
+        await AssertLongRunningResourcesRemainRunningAsync(app, longRunningResources, cancellationToken);
+        await AssertLogsDoNotContainStartupFailuresAsync(app, fulfillmentResources, cancellationToken);
+        await AssertOpenApiReachableAsync(app, apiResources, cancellationToken);
     }
 
     private static Task<ResourceEvent> WaitForSuccessfulCompletionAsync(
@@ -190,6 +190,7 @@ public sealed class FulfillmentAppHostStartupTests
     private static async Task AssertNoUnexpectedFailuresDuringStartupSoakAsync(
         DistributedApplication app,
         IEnumerable<string> resourceNames,
+        IEnumerable<string> longRunningResourceNames,
         TimeSpan soakDuration,
         CancellationToken cancellationToken)
     {
@@ -197,7 +198,7 @@ public sealed class FulfillmentAppHostStartupTests
         soakCancellation.CancelAfter(soakDuration);
 
         var trackedResources = new HashSet<string>(resourceNames, StringComparer.Ordinal);
-        var longRunningResources = new HashSet<string>(LongRunningResources, StringComparer.Ordinal);
+        var longRunningResources = new HashSet<string>(longRunningResourceNames, StringComparer.Ordinal);
         var failures = new List<string>();
 
         try
