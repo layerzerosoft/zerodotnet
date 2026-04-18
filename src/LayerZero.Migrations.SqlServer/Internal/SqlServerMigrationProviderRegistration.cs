@@ -1,9 +1,12 @@
 using LayerZero.Data.SqlServer;
+using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
 using LayerZero.Migrations.SqlServer.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+
+[assembly: MigrationProviderRegistrar(typeof(LayerZero.Migrations.SqlServer.Internal.SqlServerMigrationProviderRegistration))]
 
 namespace LayerZero.Migrations.SqlServer.Internal;
 
@@ -17,23 +20,22 @@ internal sealed class SqlServerMigrationDatabaseAdapterFactory : IMigrationDatab
     }
 }
 
-internal static class SqlServerMigrationProviderRegistration
+internal sealed class SqlServerMigrationProviderRegistration : IMigrationProviderRegistrar
 {
-    internal static void Register()
+    public void Register(IServiceCollection services)
     {
-        MigrationProviderRegistry.Register(SqlServerDataProvider.ProviderName, static services =>
-        {
-            services.AddOptions<SqlServerMigrationsOptions>()
-                .Validate(static options => options.CommandTimeoutSeconds is null or > 0,
-                    "The SQL Server command timeout must be positive when set.")
-                .Validate(static options => options.LockTimeout >= TimeSpan.Zero,
-                    "The SQL Server lock timeout must not be negative.")
-                .ValidateOnStart();
-            services.TryAddEnumerable(
-                ServiceDescriptor.Singleton<IConfigureOptions<SqlServerMigrationsOptions>, SqlServerMigrationsOptionsSetup>());
+        services.AddOptions<SqlServerMigrationsOptions>()
+            .Validate(static options => options.CommandTimeoutSeconds is null or > 0,
+                "The SQL Server command timeout must be positive when set.")
+            .Validate(static options => options.LockTimeout >= TimeSpan.Zero,
+                "The SQL Server lock timeout must not be negative.")
+            .ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IConfigureOptions<SqlServerMigrationsOptions>, SqlServerMigrationsOptionsSetup>());
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IPostConfigureOptions<MigrationsOptions>, SqlServerMigrationsRuntimeOptionsSetup>());
 
-            services.TryAddEnumerable(
-                ServiceDescriptor.Singleton<IMigrationDatabaseAdapterFactory, SqlServerMigrationDatabaseAdapterFactory>());
-        });
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IMigrationDatabaseAdapterFactory, SqlServerMigrationDatabaseAdapterFactory>());
     }
 }

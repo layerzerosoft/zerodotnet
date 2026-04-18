@@ -9,11 +9,15 @@ and built on the standalone `LayerZero.Data` foundation.
   mapping.
 - `LayerZero.Data.SqlServer`: SQL Server provider registration and connection
   services.
+- `LayerZero.Data.Postgres`: PostgreSQL provider registration,
+  `NpgsqlDataSource` integration, and connection services.
 - `LayerZero.Migrations`: provider-neutral migrations runtime, DSL, seed
   profiles, app-hosted commands, and internal analyzer/build assets for
   migration discovery.
 - `LayerZero.Migrations.SqlServer`: SQL Server migration execution, SQL
   rendering, history storage, and locking.
+- `LayerZero.Migrations.Postgres`: PostgreSQL migration execution, SQL
+  rendering, history storage, and advisory locking.
 
 `LayerZero.Generators` is not involved in migration discovery.
 
@@ -27,24 +31,26 @@ using LayerZero.Data.SqlServer;
 using LayerZero.Migrations;
 
 builder.Services
-    .AddLayerZeroData(options =>
+    .AddData(data =>
     {
-        options.ConnectionStringName = "Main";
-    })
-    .UseSqlServer(options =>
-    {
-        options.DefaultSchema = "dbo";
-    })
-    .UseMigrations(options =>
-    {
-        options.Executor = "orders-deploy";
+        data.UseSqlServer(options =>
+        {
+            options.ConnectionStringName = "Main";
+            options.DefaultSchema = "dbo";
+        });
+        data.UseMigrations(options =>
+        {
+            options.Executor = "orders-deploy";
+        });
     });
 ```
 
-Connection strings follow normal .NET configuration rules:
+Choose `UseSqlServer(...)` or `UsePostgres(...)` inside the same `AddData(...)`
+registration block. Connection strings follow normal .NET configuration rules:
 
 - `ConnectionStrings:Main` if `ConnectionStringName` is `Main`
-- `LayerZero:Data:SqlServer:ConnectionString` for an explicit provider setting
+- `LayerZero:Data:SqlServer:ConnectionString` or `LayerZero:Data:Postgres:ConnectionString` for an explicit provider setting
+- `LayerZero:Data:ConnectionString` for a provider-neutral runtime override
 - `--connection-string` only as a command-line override
 
 ## Authoring Conventions
@@ -193,7 +199,7 @@ integration inside the target application host.
 `ApplyAsync` refuses to take over a non-empty database without LayerZero
 history. Existing databases must be baselined intentionally first.
 
-## SQL Server Defaults
+## Provider Defaults
 
 The SQL Server adapter currently provides:
 
@@ -203,3 +209,12 @@ The SQL Server adapter currently provides:
 - `SET XACT_ABORT ON`
 - `sp_getapplock` runner serialization
 - SQL Server-safe identifier quoting and literal rendering
+
+The PostgreSQL adapter currently provides:
+
+- one schema-history table for migrations and seeds
+- transaction-per-artifact execution by default
+- per-migration non-transactional opt-out
+- advisory-lock runner serialization
+- `CREATE SCHEMA IF NOT EXISTS`
+- PostgreSQL-safe identifier quoting, `ON CONFLICT` upserts, and literal rendering

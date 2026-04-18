@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="LayerZero.Migrations.Postgres.IntegrationTests" />
+    <PackageReference Include="Npgsql" />
+    <ProjectReference Include="../LayerZero.Data.Postgres/LayerZero.Data.Postgres.csproj" />
+    <ProjectReference Include="../LayerZero.Migrations/LayerZero.Migrations.csproj" />
+  </ItemGroup>
+</Project>

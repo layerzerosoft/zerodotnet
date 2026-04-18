@@ -25,7 +25,7 @@ public sealed class DataExecutionTests
         var id = Guid.NewGuid();
         var statement = CreateSqlStatement($"select * from orders where id = {id} and total > {12.5m}");
 
-        Assert.Equal("select * from orders where id = @p0 and total > @p1", statement.CommandText);
+        Assert.Equal("select * from orders where id = __lz_param_0__ and total > __lz_param_1__", statement.CommandText);
         Assert.Equal(2, statement.Parameters.Count);
         Assert.Equal(id, statement.Parameters[0].Value);
     }

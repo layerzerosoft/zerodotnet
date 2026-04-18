@@ -12,8 +12,19 @@ public readonly record struct DataSqlStatement(
 /// <summary>
 /// Represents one SQL parameter value.
 /// </summary>
-/// <param name="Name">The parameter name.</param>
+/// <param name="Name">The SQL placeholder token or parameter name.</param>
 /// <param name="Value">The parameter value.</param>
 public readonly record struct DataSqlParameter(
     string Name,
     object? Value);
+
+internal static class DataSqlParameterToken
+{
+    private const string Prefix = "__lz_param_";
+    private const string Suffix = "__";
+
+    public static string Create(int ordinal)
+    {
+        return $"{Prefix}{ordinal}{Suffix}";
+    }
+}

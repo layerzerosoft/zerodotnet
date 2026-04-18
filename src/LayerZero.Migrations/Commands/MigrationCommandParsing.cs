@@ -170,7 +170,7 @@ internal sealed class MigrationCommandArguments
         writer.WriteLine("  <app> migrations add-seed <Name> [--profile <value>]");
         writer.WriteLine("  <app> migrations <info|validate|script|apply|baseline> [options]");
         writer.WriteLine("Options:");
-        writer.WriteLine("  --connection-string <value>     Overrides LayerZero:Data:SqlServer:ConnectionString.");
+        writer.WriteLine("  --connection-string <value>     Overrides LayerZero:Data:ConnectionString.");
         writer.WriteLine("  --profile <value>               Seed profile. Repeat for runtime commands.");
         writer.WriteLine("  --script-kind <apply|baseline>  Script mode for the 'script' command.");
         writer.WriteLine("  --include-baseline-seeds        Include baseline seeds during baseline scripting or execution.");

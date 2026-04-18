@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <InternalsVisibleTo Include="LayerZero.Migrations.Tests" />
+    <InternalsVisibleTo Include="LayerZero.Migrations.Postgres" />
+    <InternalsVisibleTo Include="LayerZero.Migrations.Postgres.IntegrationTests" />
     <InternalsVisibleTo Include="LayerZero.Migrations.SqlServer" />
     <InternalsVisibleTo Include="LayerZero.Migrations.SqlServer.IntegrationTests" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />

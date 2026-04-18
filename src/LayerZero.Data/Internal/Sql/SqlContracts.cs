@@ -12,7 +12,8 @@ internal enum DataReadMode
 }
 
 internal sealed record DataCommandParameterDescriptor(
-    string Name,
+    string Placeholder,
+    string? ParameterName,
     Type ValueType);
 
 internal sealed record CompiledDataCommandTemplate(

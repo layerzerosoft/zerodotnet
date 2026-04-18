@@ -1,22 +1,22 @@
-using LayerZero.Data.SqlServer.Configuration;
+using LayerZero.Data.Postgres.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace LayerZero.Data.SqlServer.Internal;
+namespace LayerZero.Data.Postgres.Internal;
 
-internal sealed class SqlServerDataOptionsSetup(
+internal sealed class PostgresDataOptionsSetup(
     IConfiguration? configuration = null) :
-    IConfigureOptions<SqlServerDataOptions>,
-    IPostConfigureOptions<SqlServerDataOptions>
+    IConfigureOptions<PostgresDataOptions>,
+    IPostConfigureOptions<PostgresDataOptions>
 {
     private readonly IConfiguration? configuration = configuration;
 
-    public void Configure(SqlServerDataOptions options)
+    public void Configure(PostgresDataOptions options)
     {
-        configuration?.GetSection("LayerZero:Data:SqlServer").Bind(options);
+        configuration?.GetSection("LayerZero:Data:Postgres").Bind(options);
     }
 
-    public void PostConfigure(string? name, SqlServerDataOptions options)
+    public void PostConfigure(string? name, PostgresDataOptions options)
     {
         if (string.IsNullOrWhiteSpace(options.ConnectionString))
         {

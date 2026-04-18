@@ -35,6 +35,7 @@ public sealed class DependencyPolicyTests
     private static readonly string[] SqlPackages =
     [
         "Microsoft.Data.SqlClient",
+        "Npgsql",
     ];
 
     private static readonly string[] RuntimeAssemblyScanningPatterns =
@@ -127,14 +128,18 @@ public sealed class DependencyPolicyTests
         var violations = new List<string>();
 
         AssertProjectDoesNotReference(root, "src/LayerZero.Generators/LayerZero.Generators.csproj", violations,
-            "LayerZero.Data", "LayerZero.Data.SqlServer", "LayerZero.Migrations", "LayerZero.Migrations.SqlServer");
+            "LayerZero.Data", "LayerZero.Data.SqlServer", "LayerZero.Data.Postgres", "LayerZero.Migrations", "LayerZero.Migrations.SqlServer", "LayerZero.Migrations.Postgres");
         AssertProjectDoesNotReference(root, "src/LayerZero.Data/LayerZero.Data.csproj", violations,
-            "LayerZero.Generators", "LayerZero.Migrations", "LayerZero.Migrations.SqlServer");
+            "LayerZero.Generators", "LayerZero.Migrations", "LayerZero.Migrations.SqlServer", "LayerZero.Migrations.Postgres");
         AssertProjectDoesNotReference(root, "src/LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj", violations,
             "LayerZero.Generators", "LayerZero.Migrations", "LayerZero.Migrations.SqlServer");
+        AssertProjectDoesNotReference(root, "src/LayerZero.Data.Postgres/LayerZero.Data.Postgres.csproj", violations,
+            "LayerZero.Generators", "LayerZero.Migrations", "LayerZero.Migrations.Postgres");
         AssertProjectDoesNotReference(root, "src/LayerZero.Migrations/LayerZero.Migrations.csproj", violations,
-            "LayerZero.Generators", "LayerZero.Migrations.SqlServer");
+            "LayerZero.Generators", "LayerZero.Migrations.SqlServer", "LayerZero.Migrations.Postgres");
         AssertProjectDoesNotReference(root, "src/LayerZero.Migrations.SqlServer/LayerZero.Migrations.SqlServer.csproj", violations,
+            "LayerZero.Generators");
+        AssertProjectDoesNotReference(root, "src/LayerZero.Migrations.Postgres/LayerZero.Migrations.Postgres.csproj", violations,
             "LayerZero.Generators");
 
         Assert.Empty(violations.Order(StringComparer.Ordinal));
@@ -326,7 +331,9 @@ public sealed class DependencyPolicyTests
         var relativePath = Path.GetRelativePath(root.FullName, file);
 
         return relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Data.SqlServer", StringComparison.Ordinal)
+            || relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Data.Postgres", StringComparison.Ordinal)
             || relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Migrations.SqlServer", StringComparison.Ordinal)
+            || relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Migrations.Postgres", StringComparison.Ordinal)
             || relativePath.StartsWith($"tests{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || relativePath.StartsWith($"eng{Path.DirectorySeparatorChar}LayerZero.Migrations.Runner", StringComparison.Ordinal);
     }

@@ -37,7 +37,7 @@ public static class MigrationCommandHostExtensions
 
         if (!string.IsNullOrWhiteSpace(command.ConnectionString))
         {
-            builder.Configuration["LayerZero:Data:SqlServer:ConnectionString"] = command.ConnectionString;
+            builder.Configuration["LayerZero:Data:ConnectionString"] = command.ConnectionString;
         }
 
         if (command.Command.Equals("add", StringComparison.Ordinal))

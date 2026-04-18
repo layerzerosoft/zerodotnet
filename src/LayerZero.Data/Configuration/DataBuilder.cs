@@ -7,7 +7,7 @@ namespace LayerZero.Data.Configuration;
 /// </summary>
 public sealed class DataBuilder
 {
-    private readonly HashSet<string> providers = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ProviderSelection> providers = new(StringComparer.Ordinal);
 
     internal DataBuilder(IServiceCollection services)
     {
@@ -26,10 +26,10 @@ public sealed class DataBuilder
         Services.PostConfigure(configure);
     }
 
-    internal void SelectProvider(string providerName)
+    internal void SelectProvider(string providerName, string? migrationsAssemblyName = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerName);
-        providers.Add(providerName);
+        providers[providerName] = new ProviderSelection(providerName, migrationsAssemblyName);
     }
 
     internal void ValidateProviderSelection()
@@ -45,4 +45,14 @@ public sealed class DataBuilder
             _ => new InvalidOperationException($"LayerZero data supports exactly one provider per AddData call, but {providers.Count} providers were configured."),
         };
     }
+
+    internal ProviderSelection GetSelectedProvider()
+    {
+        ValidateProviderSelection();
+        return providers.Values.Single();
+    }
+
+    internal sealed record ProviderSelection(
+        string Name,
+        string? MigrationsAssemblyName);
 }

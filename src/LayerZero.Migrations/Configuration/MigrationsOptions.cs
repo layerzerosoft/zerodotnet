@@ -8,7 +8,7 @@ public sealed class MigrationsOptions
     /// <summary>
     /// Gets or sets the schema that stores the LayerZero migration history table.
     /// </summary>
-    public string HistoryTableSchema { get; set; } = "dbo";
+    public string HistoryTableSchema { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the LayerZero migration history table name.

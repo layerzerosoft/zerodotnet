@@ -15,8 +15,9 @@ explicit, and reliable instead of turning into framework-sized magic.
 - Baseline: .NET 10 LTS, `net10.0`, C# latest.
 - Public packages: `LayerZero.Core`, `LayerZero.Validation`,
   `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
-  `LayerZero.Data`, `LayerZero.Data.SqlServer`, `LayerZero.Migrations`,
-  `LayerZero.Migrations.SqlServer`, `LayerZero.Messaging`, `LayerZero.Messaging.RabbitMq`,
+  `LayerZero.Data`, `LayerZero.Data.SqlServer`, `LayerZero.Data.Postgres`,
+  `LayerZero.Migrations`, `LayerZero.Migrations.SqlServer`,
+  `LayerZero.Migrations.Postgres`, `LayerZero.Messaging`, `LayerZero.Messaging.RabbitMq`,
   `LayerZero.Messaging.AzureServiceBus`, `LayerZero.Messaging.Kafka`,
   `LayerZero.Messaging.Nats`, `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.
@@ -36,6 +37,7 @@ explicit, and reliable instead of turning into framework-sized magic.
 - `LayerZero.Http`: source-controlled HTTP contracts shared by servers and clients.
 - `LayerZero.Data`: provider-agnostic relational/data foundation, connection abstractions, and typed entity mapping.
 - `LayerZero.Data.SqlServer`: SQL Server provider registration and SQL Server data services.
+- `LayerZero.Data.Postgres`: PostgreSQL provider registration, `NpgsqlDataSource` integration, and PostgreSQL data services.
 - `LayerZero.Messaging`: transport-neutral command/event dispatch, message envelopes, routing, idempotency hooks, and compile-time message manifests.
 - `LayerZero.Messaging.RabbitMq`: RabbitMQ transport defaults, topology validation/provisioning, hosted consumers, and health checks.
 - `LayerZero.Messaging.AzureServiceBus`: Azure Service Bus transport defaults, session-aware affinity support, topology validation/provisioning, hosted consumers, and health checks.
@@ -43,6 +45,7 @@ explicit, and reliable instead of turning into framework-sized magic.
 - `LayerZero.Messaging.Nats`: NATS JetStream transport defaults, topology validation/provisioning, hosted consumers, and health checks.
 - `LayerZero.Migrations`: provider-neutral relational migration runtime, forward-only migration DSL, typed map integration, seed profiles, validation, baselining, app-hosted commands, and internal analyzer-driven discovery.
 - `LayerZero.Migrations.SqlServer`: SQL Server migration adapter, SQL generation, schema history storage, `sp_getapplock` runner coordination, and explicit execution flows.
+- `LayerZero.Migrations.Postgres`: PostgreSQL migration adapter, SQL generation, schema history storage, advisory-lock runner coordination, and explicit execution flows.
 - `LayerZero.Testing`: fluent first-party assertions for LayerZero result and validation flows.
 - `LayerZero.Client`: `LayerZeroClient`, `ApiResponse`,
   `Result`-first failure mapping, and `IHttpClientFactory` registration for explicit typed clients.
@@ -97,14 +100,13 @@ and data-foundation-first:
 
 ```csharp
 builder.Services
-    .AddLayerZeroData(options =>
+    .AddData(data =>
     {
-        options.ConnectionStringName = "Main";
-    })
-    .UseSqlServer()
-    .UseMigrations(options =>
-    {
-        options.Executor = "orders-deploy";
+        data.UseSqlServer();
+        data.UseMigrations(options =>
+        {
+            options.Executor = "orders-deploy";
+        });
     });
 ```
 

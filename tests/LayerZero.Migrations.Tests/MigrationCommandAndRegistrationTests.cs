@@ -1,6 +1,7 @@
 using LayerZero.Data;
 using LayerZero.Data.SqlServer;
 using LayerZero.Data.SqlServer.Configuration;
+using LayerZero.Migrations.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -52,6 +53,28 @@ public sealed class MigrationCommandAndRegistrationTests
 
         Assert.Empty(catalog.Migrations);
         Assert.Empty(catalog.Seeds);
+    }
+
+    [Fact]
+    public void Use_migrations_defaults_history_schema_from_the_active_provider()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(
+        [
+            new KeyValuePair<string, string?>("ConnectionStrings:Default", "Server=(local);Database=Demo;Trusted_Connection=True;"),
+            new KeyValuePair<string, string?>("LayerZero:Data:SqlServer:DefaultSchema", "sales"),
+        ]);
+
+        builder.Services.AddData(data =>
+        {
+            data.UseSqlServer();
+            data.UseMigrations();
+        });
+
+        using var host = builder.Build();
+        var options = host.Services.GetRequiredService<IOptions<MigrationsOptions>>().Value;
+
+        Assert.Equal("sales", options.HistoryTableSchema);
     }
 
     [Fact]

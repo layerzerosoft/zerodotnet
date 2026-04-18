@@ -9,6 +9,11 @@ public sealed class DataOptions
     /// Gets or sets the shared data conventions.
     /// </summary>
     public DataConventionsOptions Conventions { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the provider-neutral connection string override.
+    /// </summary>
+    public string? ConnectionString { get; set; }
 }
 
 /// <summary>

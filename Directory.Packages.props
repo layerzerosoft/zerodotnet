@@ -27,12 +27,14 @@
     <PackageVersion Include="Microsoft.Net.Compilers.Toolset" Version="5.0.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.200" />
     <PackageVersion Include="NATS.Net" Version="2.7.3" />
+    <PackageVersion Include="Npgsql" Version="10.0.2" />
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.1" />
     <PackageVersion Include="System.Text.Json" Version="10.0.0" />
     <PackageVersion Include="Testcontainers" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.Kafka" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.MsSql" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.Nats" Version="4.11.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.RabbitMq" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.ServiceBus" Version="4.11.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />

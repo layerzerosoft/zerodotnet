@@ -16,6 +16,17 @@ internal interface IMigrationDatabaseAdapterResolver
     IMigrationDatabaseAdapter Resolve();
 }
 
+[AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+internal sealed class MigrationProviderRegistrarAttribute(Type registrarType) : Attribute
+{
+    public Type RegistrarType { get; } = registrarType;
+}
+
+internal interface IMigrationProviderRegistrar
+{
+    void Register(IServiceCollection services);
+}
+
 internal sealed class MigrationDatabaseAdapterResolver(
     IEnumerable<IMigrationDatabaseAdapterFactory> factories,
     IDatabaseConnectionFactory connectionFactory,
@@ -43,66 +54,65 @@ internal sealed class MigrationDatabaseAdapterResolver(
 
 internal static class MigrationProviderRegistry
 {
-    private static readonly Dictionary<string, Action<IServiceCollection>> Registrations = new(StringComparer.Ordinal);
-    private static readonly object Sync = new();
-    private static int knownProvidersLoaded;
-
-    public static void Register(string key, Action<IServiceCollection> configure)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        ArgumentNullException.ThrowIfNull(configure);
-
-        lock (Sync)
-        {
-            Registrations[key] = configure;
-        }
-    }
-
-    public static void Apply(IServiceCollection services)
+    public static void Apply(IServiceCollection services, string? providerAssemblyName)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        EnsureKnownProvidersLoaded();
-
-        KeyValuePair<string, Action<IServiceCollection>>[] registrations;
-        lock (Sync)
-        {
-            registrations = Registrations.ToArray();
-        }
-
-        foreach (var registration in registrations)
-        {
-            registration.Value(services);
-        }
-    }
-
-    private static void EnsureKnownProvidersLoaded()
-    {
-        if (Interlocked.Exchange(ref knownProvidersLoaded, 1) == 1)
+        var providerAssembly = EnsureProviderAssemblyLoaded(providerAssemblyName);
+        if (providerAssembly is null)
         {
             return;
         }
 
-        TryLoadOptionalIntegrationAssembly(
-            "LayerZero.Migrations.SqlServer",
-            "LayerZero.Migrations.SqlServer.Internal.SqlServerMigrationProviderRegistration",
-            "Register");
+        var registrars = providerAssembly
+            .GetCustomAttributes<MigrationProviderRegistrarAttribute>()
+            .Select(CreateRegistrar)
+            .ToArray();
+
+        if (registrars.Length is 0)
+        {
+            throw new InvalidOperationException(
+                $"LayerZero migrations could not find a provider registrar in assembly '{providerAssembly.GetName().Name}'.");
+        }
+
+        foreach (var registrar in registrars)
+        {
+            registrar.Register(services);
+        }
     }
 
-    private static void TryLoadOptionalIntegrationAssembly(string assemblyName, string registrationTypeName, string registrationMethodName)
+    private static Assembly? EnsureProviderAssemblyLoaded(string? providerAssemblyName)
     {
+        if (string.IsNullOrWhiteSpace(providerAssemblyName))
+        {
+            return null;
+        }
+
         try
         {
-            var assembly = Assembly.Load(new AssemblyName(assemblyName));
-            var registrationType = assembly.GetType(registrationTypeName, throwOnError: false);
-            var registrationMethod = registrationType?.GetMethod(
-                registrationMethodName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-            registrationMethod?.Invoke(obj: null, parameters: null);
+            return Assembly.Load(new AssemblyName(providerAssemblyName));
         }
-        catch
+        catch (Exception exception)
         {
-            // Optional migration provider packages self-register when present.
+            throw new InvalidOperationException(
+                $"LayerZero migrations could not load provider integration assembly '{providerAssemblyName}'. Ensure the matching migrations provider package is referenced.",
+                exception);
         }
+    }
+
+    private static IMigrationProviderRegistrar CreateRegistrar(MigrationProviderRegistrarAttribute attribute)
+    {
+        if (!typeof(IMigrationProviderRegistrar).IsAssignableFrom(attribute.RegistrarType))
+        {
+            throw new InvalidOperationException(
+                $"LayerZero migrations provider registrar type '{attribute.RegistrarType.FullName}' does not implement '{typeof(IMigrationProviderRegistrar).FullName}'.");
+        }
+
+        if (Activator.CreateInstance(attribute.RegistrarType) is not IMigrationProviderRegistrar registrar)
+        {
+            throw new InvalidOperationException(
+                $"LayerZero migrations provider registrar type '{attribute.RegistrarType.FullName}' must be instantiable with a public or internal parameterless constructor.");
+        }
+
+        return registrar;
     }
 }

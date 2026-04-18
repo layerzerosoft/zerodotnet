@@ -1,24 +1,26 @@
+using System.Buffers.Binary;
 using System.Data;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using LayerZero.Data;
-using LayerZero.Data.SqlServer.Configuration;
+using LayerZero.Data.Postgres.Configuration;
 using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
-using LayerZero.Migrations.SqlServer.Configuration;
-using Microsoft.Data.SqlClient;
+using LayerZero.Migrations.Postgres.Configuration;
 using Microsoft.Extensions.Options;
+using Npgsql;
 
-namespace LayerZero.Migrations.SqlServer.Internal;
+namespace LayerZero.Migrations.Postgres.Internal;
 
-internal sealed class SqlServerMigrationDatabaseAdapter(
+internal sealed class PostgresMigrationDatabaseAdapter(
     IDatabaseConnectionFactory connectionFactory,
-    IOptions<SqlServerDataOptions> dataOptionsAccessor,
-    IOptions<SqlServerMigrationsOptions> optionsAccessor) : IMigrationDatabaseAdapter
+    IOptions<PostgresDataOptions> dataOptionsAccessor,
+    IOptions<PostgresMigrationsOptions> optionsAccessor) : IMigrationDatabaseAdapter
 {
     private readonly IDatabaseConnectionFactory connectionFactory = connectionFactory;
-    private readonly SqlServerDataOptions dataOptions = dataOptionsAccessor.Value;
-    private readonly SqlServerMigrationsOptions options = optionsAccessor.Value;
+    private readonly PostgresDataOptions dataOptions = dataOptionsAccessor.Value;
+    private readonly PostgresMigrationsOptions options = optionsAccessor.Value;
 
     public async ValueTask<MigrationDatabaseSnapshot> ReadStateAsync(MigrationsOptions options, CancellationToken cancellationToken)
     {
@@ -40,31 +42,30 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
     public async ValueTask<IAsyncDisposable> AcquireLockAsync(MigrationsOptions options, CancellationToken cancellationToken)
     {
         var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var lockKey = ComputeLockKey(options.LockName);
 
         try
         {
-            await using var command = connection.CreateCommand();
-            command.CommandText = """
-                declare @result int;
-                exec @result = sys.sp_getapplock
-                    @Resource = @resource,
-                    @LockMode = 'Exclusive',
-                    @LockOwner = 'Session',
-                    @LockTimeout = @timeout;
-                select @result;
-                """;
-            command.Parameters.AddWithValue("@resource", options.LockName);
-            command.Parameters.AddWithValue("@timeout", GetLockTimeoutMilliseconds());
-            ApplyCommandTimeout(command);
-
-            var result = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
-            if (result < 0)
+            var started = DateTimeOffset.UtcNow;
+            while (!await TryAcquireLockAsync(connection, lockKey, cancellationToken).ConfigureAwait(false))
             {
-                throw new InvalidOperationException(
-                    $"SQL Server could not acquire the LayerZero migration lock within {this.options.LockTimeout}.");
+                if (DateTimeOffset.UtcNow - started >= this.options.LockTimeout)
+                {
+                    throw new InvalidOperationException(
+                        $"PostgreSQL could not acquire the LayerZero migration lock within {this.options.LockTimeout}.");
+                }
+
+                var remaining = this.options.LockTimeout - (DateTimeOffset.UtcNow - started);
+                var delay = remaining <= TimeSpan.Zero
+                    ? TimeSpan.Zero
+                    : remaining < TimeSpan.FromMilliseconds(100)
+                        ? remaining
+                        : TimeSpan.FromMilliseconds(100);
+
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             }
 
-            return new SqlServerMigrationLock(connection, options.LockName, this.options.CommandTimeoutSeconds);
+            return new PostgresMigrationLock(connection, lockKey, this.options.CommandTimeoutSeconds);
         }
         catch
         {
@@ -85,12 +86,10 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         }
 
         var builder = new StringBuilder();
-        builder.AppendLine("-- LayerZero SQL Server migrations");
+        builder.AppendLine("-- LayerZero PostgreSQL migrations");
         builder.AppendLine(RenderEnsureHistoryStore(options));
-        builder.AppendLine("go");
         builder.AppendLine();
         builder.AppendLine(RenderLockScript(options));
-        builder.AppendLine("go");
 
         for (var index = 0; index < artifacts.Count; index++)
         {
@@ -98,7 +97,6 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
             builder.AppendLine();
             builder.AppendLine($"-- {mode}: {artifact.Kind}:{artifact.Profile}:{artifact.Id} {artifact.Name}");
             builder.AppendLine(RenderArtifactBatch(mode, options, executor, artifact, index));
-            builder.AppendLine("go");
         }
 
         return builder.ToString();
@@ -117,7 +115,6 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         }
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await ExecuteNonQueryAsync(connection, transaction: null, "set xact_abort on;", cancellationToken).ConfigureAwait(false);
 
         for (var index = 0; index < artifacts.Count; index++)
         {
@@ -127,7 +124,7 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
 
             if (mode == MigrationExecutionMode.Apply && artifact.TransactionMode == MigrationTransactionMode.Transactional)
             {
-                await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+                await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(sql))
@@ -156,73 +153,63 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         }
     }
 
-    private async ValueTask<SqlConnection> OpenConnectionAsync(CancellationToken cancellationToken)
+    private async ValueTask<NpgsqlConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         var connection = await connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        return (SqlConnection)connection;
+        return (NpgsqlConnection)connection;
     }
 
     private async ValueTask<bool> HistoryTableExistsAsync(
-        SqlConnection connection,
+        NpgsqlConnection connection,
         MigrationsOptions runtimeOptions,
         CancellationToken cancellationToken)
     {
         var historySchema = GetHistorySchema(runtimeOptions);
 
-        const string sql = """
-            select case when exists (
-                select 1
-                from sys.tables t
-                inner join sys.schemas s on s.schema_id = t.schema_id
-                where s.name = @schema and t.name = @name
-            ) then 1 else 0 end;
-            """;
-
         await using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        command.Parameters.AddWithValue("@schema", historySchema);
-        command.Parameters.AddWithValue("@name", runtimeOptions.HistoryTableName);
+        command.CommandText = "select to_regclass($1) is not null;";
+        command.Parameters.AddWithValue(FormatRegClassLiteral(historySchema, runtimeOptions.HistoryTableName));
         ApplyCommandTimeout(command);
-        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture) == 1;
+        return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
     }
 
     private async ValueTask<bool> HasUserObjectsAsync(
-        SqlConnection connection,
+        NpgsqlConnection connection,
         MigrationsOptions runtimeOptions,
         CancellationToken cancellationToken)
     {
         var historySchema = GetHistorySchema(runtimeOptions);
 
-        const string sql = """
-            select case when exists (
-                select 1
-                from sys.tables t
-                inner join sys.schemas s on s.schema_id = t.schema_id
-                where t.is_ms_shipped = 0
-                  and not (s.name = @schema and t.name = @name)
-            ) then 1 else 0 end;
-            """;
-
         await using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        command.Parameters.AddWithValue("@schema", historySchema);
-        command.Parameters.AddWithValue("@name", runtimeOptions.HistoryTableName);
+        command.CommandText = """
+            select exists (
+                select 1
+                from pg_catalog.pg_class c
+                inner join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+                where c.relkind in ('r', 'p')
+                  and n.nspname not in ('pg_catalog', 'information_schema')
+                  and n.nspname not like 'pg_toast%'
+                  and not (n.nspname = $1 and c.relname = $2)
+            );
+            """;
+        command.Parameters.AddWithValue(historySchema);
+        command.Parameters.AddWithValue(runtimeOptions.HistoryTableName);
         ApplyCommandTimeout(command);
-        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture) == 1;
+        return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
     }
 
     private async ValueTask<IReadOnlyList<AppliedArtifactRecord>> ReadAppliedArtifactsAsync(
-        SqlConnection connection,
+        NpgsqlConnection connection,
         MigrationsOptions runtimeOptions,
         CancellationToken cancellationToken)
     {
         var records = new List<AppliedArtifactRecord>();
-        var historyTable = FormatTable(GetHistorySchema(runtimeOptions), runtimeOptions.HistoryTableName);
+        var historySchema = GetHistorySchema(runtimeOptions);
 
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
             select artifact_kind, artifact_id, artifact_profile, artifact_name, checksum, applied_utc, executor
-            from {historyTable}
+            from {FormatTable(historySchema, runtimeOptions.HistoryTableName)}
             order by artifact_kind asc, artifact_profile asc, artifact_id asc;
             """;
         ApplyCommandTimeout(command);
@@ -245,44 +232,27 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
 
     private string RenderEnsureHistoryStore(MigrationsOptions runtimeOptions)
     {
-        var historySchemaName = GetHistorySchema(runtimeOptions);
-        var historySchema = QuoteIdentifier(historySchemaName);
-        var historyTable = FormatTable(historySchemaName, runtimeOptions.HistoryTableName);
-        var fullNameLiteral = ToSqlUnicodeString($"{historySchema}.{QuoteIdentifier(runtimeOptions.HistoryTableName)}");
-
+        var historySchema = GetHistorySchema(runtimeOptions);
+        var historyTable = FormatTable(historySchema, runtimeOptions.HistoryTableName);
         return $"""
-            if schema_id({ToSqlUnicodeString(historySchemaName)}) is null
-                exec(N'create schema {historySchema}');
+            create schema if not exists {QuoteIdentifier(historySchema)};
 
-            if object_id({fullNameLiteral}, N'U') is null
-            begin
-                create table {historyTable}(
-                    artifact_kind nvarchar(16) not null,
-                    artifact_id char(14) not null,
-                    artifact_profile nvarchar(128) not null default N'',
-                    artifact_name nvarchar(256) not null,
-                    checksum char(64) not null,
-                    applied_utc datetimeoffset(7) not null,
-                    executor nvarchar(256) not null,
-                    constraint {QuoteIdentifier($"PK_{runtimeOptions.HistoryTableName}")} primary key (artifact_kind, artifact_profile, artifact_id)
-                );
-            end;
+            create table if not exists {historyTable}(
+                artifact_kind character varying(16) not null,
+                artifact_id character(14) not null,
+                artifact_profile character varying(128) not null default '',
+                artifact_name character varying(256) not null,
+                checksum character(64) not null,
+                applied_utc timestamp with time zone not null,
+                executor character varying(256) not null,
+                constraint {QuoteIdentifier($"PK_{runtimeOptions.HistoryTableName}")} primary key (artifact_kind, artifact_profile, artifact_id)
+            );
             """;
     }
 
     private string RenderLockScript(MigrationsOptions runtimeOptions)
     {
-        return $"""
-            declare @layerzero_lock_result int;
-            exec @layerzero_lock_result = sys.sp_getapplock
-                @Resource = {ToSqlUnicodeString(runtimeOptions.LockName)},
-                @LockMode = 'Exclusive',
-                @LockOwner = 'Session',
-                @LockTimeout = {GetLockTimeoutMilliseconds()};
-
-            if @layerzero_lock_result < 0
-                throw 51000, 'LayerZero could not acquire the SQL Server migration lock.', 1;
-            """;
+        return $"select pg_advisory_lock({ComputeLockKey(runtimeOptions.LockName).ToString(CultureInfo.InvariantCulture)});";
     }
 
     private string RenderArtifactBatch(
@@ -298,18 +268,16 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         if (mode == MigrationExecutionMode.Apply && artifact.TransactionMode == MigrationTransactionMode.Transactional)
         {
             return $"""
-                set xact_abort on;
-                begin transaction;
+                begin;
                 {body}
                 {historyInsert}
-                commit transaction;
+                commit;
                 """;
         }
 
         return string.IsNullOrWhiteSpace(body)
             ? historyInsert
             : $"""
-                set xact_abort on;
                 {body}
                 {historyInsert}
                 """;
@@ -333,17 +301,16 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
 
     private string RenderHistoryInsert(MigrationsOptions runtimeOptions, string executor, CompiledArtifact artifact)
     {
-        var historyTable = FormatTable(GetHistorySchema(runtimeOptions), runtimeOptions.HistoryTableName);
         return $"""
-            insert into {historyTable}(artifact_kind, artifact_id, artifact_profile, artifact_name, checksum, applied_utc, executor)
+            insert into {FormatTable(GetHistorySchema(runtimeOptions), runtimeOptions.HistoryTableName)}(artifact_kind, artifact_id, artifact_profile, artifact_name, checksum, applied_utc, executor)
             values (
-                {ToSqlUnicodeString(artifact.Kind == MigrationArtifactKind.Migration ? "migration" : "seed")},
-                {ToSqlUnicodeString(artifact.Id)},
-                {ToSqlUnicodeString(artifact.HistoryProfile)},
-                {ToSqlUnicodeString(artifact.Name)},
-                {ToSqlUnicodeString(artifact.Checksum)},
-                cast(sysutcdatetime() as datetimeoffset(7)),
-                {ToSqlUnicodeString(executor)}
+                {ToSqlLiteral(artifact.Kind == MigrationArtifactKind.Migration ? "migration" : "seed")},
+                {ToSqlLiteral(artifact.Id)},
+                {ToSqlLiteral(artifact.HistoryProfile)},
+                {ToSqlLiteral(artifact.Name)},
+                {ToSqlLiteral(artifact.Checksum)},
+                current_timestamp,
+                {ToSqlLiteral(executor)}
             );
             """;
     }
@@ -357,61 +324,31 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
     {
         return operation switch
         {
-            EnsureSchemaOperation value => $"""
-                if schema_id({ToSqlUnicodeString(value.Schema)}) is null
-                    exec(N'create schema {QuoteIdentifier(value.Schema)}');
-                """,
+            EnsureSchemaOperation value => $"""create schema if not exists {QuoteIdentifier(value.Schema)};""",
             CreateTableOperation value => RenderCreateTable(value),
-            DropTableOperation value => $"""
-                if object_id({ToSqlUnicodeString(FormatObjectId(value.Table))}, N'U') is not null
-                    drop table {FormatTable(value.Table)};
-                """,
-            AddColumnOperation value => $"""
-                if col_length({ToSqlUnicodeString(FormatObjectId(value.Table))}, {ToSqlUnicodeString(value.Column.Name)}) is null
-                    alter table {FormatTable(value.Table)}
-                    add {RenderColumn(value.Column)};
-                """,
-            CreateIndexOperation value => $"""
-                if not exists (
-                    select 1
-                    from sys.indexes
-                    where object_id = object_id({ToSqlUnicodeString(FormatObjectId(value.Table))}, N'U')
-                      and name = {ToSqlUnicodeString(value.Name)}
-                )
-                    create {(value.IsUnique ? "unique " : string.Empty)}index {QuoteIdentifier(value.Name)} on {FormatTable(value.Table)}({string.Join(", ", value.Columns.Select(QuoteIdentifier))});
-                """,
-            DropIndexOperation value => $"""
-                if exists (
-                    select 1
-                    from sys.indexes
-                    where object_id = object_id({ToSqlUnicodeString(FormatObjectId(value.Table))}, N'U')
-                      and name = {ToSqlUnicodeString(value.Name)}
-                )
-                    drop index {QuoteIdentifier(value.Name)} on {FormatTable(value.Table)};
-                """,
+            DropTableOperation value => $"""drop table if exists {FormatTable(value.Table)};""",
+            AddColumnOperation value => $"""alter table {FormatTable(value.Table)} add column if not exists {RenderColumn(value.Column)};""",
+            CreateIndexOperation value => $"""create {(value.IsUnique ? "unique " : string.Empty)}index if not exists {QuoteIdentifier(value.Name)} on {FormatTable(value.Table)}({string.Join(", ", value.Columns.Select(QuoteIdentifier))});""",
+            DropIndexOperation value => $"""drop index if exists {FormatIndex(value.Table, value.Name)};""",
             InsertDataOperation value => string.Join(Environment.NewLine, value.Rows.Select(row => RenderInsert(value.Table, row))),
             UpdateDataOperation value => RenderUpdate(value.Table, value.Key, value.Values),
             DeleteDataOperation value => RenderDelete(value.Table, value.Key),
             UpsertDataOperation value => RenderUpsert(value.Table, value.KeyColumns, value.Values),
             SyncDataOperation value => RenderSync(artifact, value, operationIndex),
             SqlOperation value => value.Sql.EndsWith(';') ? value.Sql : value.Sql + ";",
-            _ => throw new InvalidOperationException($"Unsupported SQL Server migration operation '{operation.GetType().FullName}'."),
+            _ => throw new InvalidOperationException($"Unsupported PostgreSQL migration operation '{operation.GetType().FullName}'."),
         };
     }
 
     private string RenderCreateTable(CreateTableOperation operation)
     {
         var columnDefinitions = operation.Columns.Select(RenderColumn).ToList();
-        columnDefinitions.Add(
-            $"primary key ({string.Join(", ", operation.PrimaryKeyColumns.Select(QuoteIdentifier))})");
+        columnDefinitions.Add($"primary key ({string.Join(", ", operation.PrimaryKeyColumns.Select(QuoteIdentifier))})");
 
         return $"""
-            if object_id({ToSqlUnicodeString(FormatObjectId(operation.Table))}, N'U') is null
-            begin
-                create table {FormatTable(operation.Table)}(
-                    {string.Join("," + Environment.NewLine + "    ", columnDefinitions)}
-                );
-            end;
+            create table if not exists {FormatTable(operation.Table)}(
+                {string.Join("," + Environment.NewLine + "    ", columnDefinitions)}
+            );
             """;
     }
 
@@ -444,38 +381,27 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
 
     private string RenderUpsert(QualifiedTableName table, IReadOnlyList<string> keyColumns, ColumnValueSet values)
     {
+        var columns = values.Values.Keys.Select(QuoteIdentifier).ToArray();
+        var insertValues = values.Values.Values.Select(ToSqlLiteral).ToArray();
         var nonKeyColumns = values.Values.Keys
             .Where(column => !keyColumns.Contains(column, StringComparer.OrdinalIgnoreCase))
             .ToArray();
-        var predicate = string.Join(
-            " and ",
-            keyColumns.Select(column => $"{QuoteIdentifier(column)} = {ToSqlLiteral(values.Values[column])}"));
 
+        var conflictTarget = string.Join(", ", keyColumns.Select(QuoteIdentifier));
         if (nonKeyColumns.Length == 0)
         {
             return $"""
-                if not exists (
-                    select 1
-                    from {FormatTable(table)}
-                    where {predicate}
-                )
-                begin
-                    insert into {FormatTable(table)}({string.Join(", ", values.Values.Keys.Select(QuoteIdentifier))})
-                    values ({string.Join(", ", values.Values.Values.Select(ToSqlLiteral))});
-                end;
+                insert into {FormatTable(table)}({string.Join(", ", columns)})
+                values ({string.Join(", ", insertValues)})
+                on conflict ({conflictTarget}) do nothing;
                 """;
         }
 
         return $"""
-            update {FormatTable(table)}
-            set {string.Join(", ", nonKeyColumns.Select(column => $"{QuoteIdentifier(column)} = {ToSqlLiteral(values.Values[column])}"))}
-            where {predicate};
-
-            if @@rowcount = 0
-            begin
-                insert into {FormatTable(table)}({string.Join(", ", values.Values.Keys.Select(QuoteIdentifier))})
-                values ({string.Join(", ", values.Values.Values.Select(ToSqlLiteral))});
-            end;
+            insert into {FormatTable(table)}({string.Join(", ", columns)})
+            values ({string.Join(", ", insertValues)})
+            on conflict ({conflictTarget}) do update
+            set {string.Join(", ", nonKeyColumns.Select(column => $"{QuoteIdentifier(column)} = excluded.{QuoteIdentifier(column)}"))};
             """;
     }
 
@@ -488,36 +414,36 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         var nonKeyColumns = columns
             .Where(column => !operation.KeyColumns.Contains(column, StringComparer.OrdinalIgnoreCase))
             .ToArray();
-        var tempTableName = $"#lz_sync_{artifact.Id}_{operationIndex}";
+        var tempTableName = $"lz_sync_{artifact.Id}_{operationIndex.ToString(CultureInfo.InvariantCulture)}";
         var tempTableColumns = columns
             .Select(column => $"{QuoteIdentifier(column)} {InferSqlType(operation.Rows, column)} null")
             .ToArray();
         var inserts = operation.Rows.Select(row => $"""
-            insert into {tempTableName}({string.Join(", ", columns.Select(QuoteIdentifier))})
+            insert into {QuoteIdentifier(tempTableName)}({string.Join(", ", columns.Select(QuoteIdentifier))})
             values ({string.Join(", ", columns.Select(column => row.Values.TryGetValue(column, out var value) ? ToSqlLiteral(value) : "null"))});
             """);
 
         var keyPredicate = string.Join(
             " and ",
-            operation.KeyColumns.Select(column => $"target.{QuoteIdentifier(column)} = source.{QuoteIdentifier(column)}"));
+            operation.KeyColumns.Select(column => $"target.{QuoteIdentifier(column)} is not distinct from source.{QuoteIdentifier(column)}"));
         var insertPredicate = string.Join(
             " and ",
-            operation.KeyColumns.Select(column => $"existing.{QuoteIdentifier(column)} = source.{QuoteIdentifier(column)}"));
+            operation.KeyColumns.Select(column => $"existing.{QuoteIdentifier(column)} is not distinct from source.{QuoteIdentifier(column)}"));
         var deletePredicate = string.Join(
             " and ",
-            operation.KeyColumns.Select(column => $"source.{QuoteIdentifier(column)} = target.{QuoteIdentifier(column)}"));
+            operation.KeyColumns.Select(column => $"source.{QuoteIdentifier(column)} is not distinct from target.{QuoteIdentifier(column)}"));
 
         var updateStatement = nonKeyColumns.Length == 0
             ? string.Empty
             : $"""
-                update target
-                set {string.Join(", ", nonKeyColumns.Select(column => $"target.{QuoteIdentifier(column)} = source.{QuoteIdentifier(column)}"))}
-                from {FormatTable(operation.Table)} as target
-                inner join {tempTableName} as source on {keyPredicate};
+                update {FormatTable(operation.Table)} as target
+                set {string.Join(", ", nonKeyColumns.Select(column => $"{QuoteIdentifier(column)} = source.{QuoteIdentifier(column)}"))}
+                from {QuoteIdentifier(tempTableName)} as source
+                where {keyPredicate};
                 """;
 
         return $"""
-            create table {tempTableName}(
+            create temporary table {QuoteIdentifier(tempTableName)}(
                 {string.Join("," + Environment.NewLine + "    ", tempTableColumns)}
             );
 
@@ -527,22 +453,21 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
 
             insert into {FormatTable(operation.Table)}({string.Join(", ", columns.Select(QuoteIdentifier))})
             select {string.Join(", ", columns.Select(column => $"source.{QuoteIdentifier(column)}"))}
-            from {tempTableName} as source
+            from {QuoteIdentifier(tempTableName)} as source
             where not exists (
                 select 1
                 from {FormatTable(operation.Table)} as existing
                 where {insertPredicate}
             );
 
-            delete target
-            from {FormatTable(operation.Table)} as target
+            delete from {FormatTable(operation.Table)} as target
             where not exists (
                 select 1
-                from {tempTableName} as source
+                from {QuoteIdentifier(tempTableName)} as source
                 where {deletePredicate}
             );
 
-            drop table {tempTableName};
+            drop table if exists {QuoteIdentifier(tempTableName)};
             """;
     }
 
@@ -550,7 +475,7 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
     {
         return string.Join(
             " and ",
-            key.Values.Select(pair => $"{QuoteIdentifier(pair.Key)} = {ToSqlLiteral(pair.Value)}"));
+            key.Values.Select(pair => $"{QuoteIdentifier(pair.Key)} is not distinct from {ToSqlLiteral(pair.Value)}"));
     }
 
     private string RenderColumn(ColumnDefinition column)
@@ -562,7 +487,7 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
 
         if (column.IsIdentity)
         {
-            builder.Append(" identity(1,1)");
+            builder.Append(" generated by default as identity");
         }
 
         builder.Append(column.IsNullable ? " null" : " not null");
@@ -579,17 +504,15 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
     {
         return type.Kind switch
         {
-            RelationalTypeKind.Int32 => "int",
+            RelationalTypeKind.Int32 => "integer",
             RelationalTypeKind.Int64 => "bigint",
-            RelationalTypeKind.Decimal => $"decimal({type.Precision ?? 18}, {type.Scale ?? 2})",
-            RelationalTypeKind.String => type.Unicode
-                ? type.Length is null ? "nvarchar(max)" : $"nvarchar({type.Length.Value})"
-                : type.Length is null ? "varchar(max)" : $"varchar({type.Length.Value})",
-            RelationalTypeKind.Boolean => "bit",
-            RelationalTypeKind.Guid => "uniqueidentifier",
-            RelationalTypeKind.DateTime => "datetime2(7)",
-            RelationalTypeKind.DateTimeOffset => "datetimeoffset(7)",
-            RelationalTypeKind.Binary => type.Length is null ? "varbinary(max)" : $"varbinary({type.Length.Value})",
+            RelationalTypeKind.Decimal => $"numeric({type.Precision ?? 18}, {type.Scale ?? 2})",
+            RelationalTypeKind.String => type.Length is null ? "text" : $"character varying({type.Length.Value})",
+            RelationalTypeKind.Boolean => "boolean",
+            RelationalTypeKind.Guid => "uuid",
+            RelationalTypeKind.DateTime => "timestamp without time zone",
+            RelationalTypeKind.DateTimeOffset => "timestamp with time zone",
+            RelationalTypeKind.Binary => "bytea",
             _ => throw new InvalidOperationException($"Unsupported relational type '{type.Kind}'."),
         };
     }
@@ -602,21 +525,21 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
 
         return sample switch
         {
-            null => "nvarchar(max)",
-            int => "int",
+            null => "text",
+            int => "integer",
             long => "bigint",
             short => "smallint",
-            byte => "tinyint",
-            decimal => "decimal(38, 18)",
-            double => "float",
+            byte => "smallint",
+            decimal => "numeric(38, 18)",
+            double => "double precision",
             float => "real",
-            bool => "bit",
-            Guid => "uniqueidentifier",
-            DateTime => "datetime2(7)",
-            DateTimeOffset => "datetimeoffset(7)",
-            byte[] bytes => bytes.Length == 0 ? "varbinary(1)" : $"varbinary({Math.Max(bytes.Length, 1)})",
-            string text => text.Length == 0 ? "nvarchar(1)" : text.Length > 4000 ? "nvarchar(max)" : $"nvarchar({text.Length})",
-            _ => "nvarchar(max)",
+            bool => "boolean",
+            Guid => "uuid",
+            DateTime => "timestamp without time zone",
+            DateTimeOffset => "timestamp with time zone",
+            byte[] => "bytea",
+            string => "text",
+            _ => "text",
         };
     }
 
@@ -624,13 +547,15 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
 
     private string FormatTable(string schema, string tableName) => $"{QuoteIdentifier(schema)}.{QuoteIdentifier(tableName)}";
 
-    private string FormatObjectId(QualifiedTableName table) => $"{QuoteIdentifier(ResolveSchema(table.Schema))}.{QuoteIdentifier(table.Name)}";
+    private string FormatIndex(QualifiedTableName table, string indexName) => $"{QuoteIdentifier(ResolveSchema(table.Schema))}.{QuoteIdentifier(indexName)}";
 
     private string ResolveSchema(string? schema) => string.IsNullOrWhiteSpace(schema) ? dataOptions.DefaultSchema : schema;
 
+    private static string FormatRegClassLiteral(string schema, string tableName) => $"{QuoteIdentifier(schema)}.{QuoteIdentifier(tableName)}";
+
     private static string QuoteIdentifier(string identifier)
     {
-        return $"[{identifier.Replace("]", "]]", StringComparison.Ordinal)}]";
+        return $"\"{identifier.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
     }
 
     private static string ToSqlLiteral(object? value)
@@ -638,22 +563,22 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         return value switch
         {
             null => "null",
-            string text => ToSqlUnicodeString(text),
-            bool flag => flag ? "1" : "0",
+            string text => ToSqlString(text),
+            bool flag => flag ? "true" : "false",
             byte or sbyte or short or ushort or int or uint or long or ulong => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "0",
             decimal decimalValue => decimalValue.ToString(CultureInfo.InvariantCulture),
             double doubleValue => doubleValue.ToString("R", CultureInfo.InvariantCulture),
             float floatValue => floatValue.ToString("R", CultureInfo.InvariantCulture),
-            Guid guidValue => ToSqlUnicodeString(guidValue.ToString("D", CultureInfo.InvariantCulture)),
-            DateTime dateTimeValue => $"cast({ToSqlUnicodeString(dateTimeValue.ToString("O", CultureInfo.InvariantCulture))} as datetime2(7))",
-            DateTimeOffset dateTimeOffsetValue => $"cast({ToSqlUnicodeString(dateTimeOffsetValue.ToString("O", CultureInfo.InvariantCulture))} as datetimeoffset(7))",
-            byte[] bytes => $"0x{Convert.ToHexString(bytes)}",
-            _ when value is IFormattable formattable => ToSqlUnicodeString(formattable.ToString(null, CultureInfo.InvariantCulture) ?? string.Empty),
-            _ => ToSqlUnicodeString(value.ToString() ?? string.Empty),
+            Guid guidValue => $"{ToSqlString(guidValue.ToString("D", CultureInfo.InvariantCulture))}::uuid",
+            DateTime dateTimeValue => $"{ToSqlString(dateTimeValue.ToString("O", CultureInfo.InvariantCulture))}::timestamp",
+            DateTimeOffset dateTimeOffsetValue => $"{ToSqlString(dateTimeOffsetValue.ToString("O", CultureInfo.InvariantCulture))}::timestamptz",
+            byte[] bytes => $"decode('{Convert.ToHexString(bytes)}', 'hex')",
+            _ when value is IFormattable formattable => ToSqlString(formattable.ToString(null, CultureInfo.InvariantCulture) ?? string.Empty),
+            _ => ToSqlString(value.ToString() ?? string.Empty),
         };
     }
 
-    private static string ToSqlUnicodeString(string value) => $"N'{value.Replace("'", "''", StringComparison.Ordinal)}'";
+    private static string ToSqlString(string value) => $"'{value.Replace("'", "''", StringComparison.Ordinal)}'";
 
     private static MigrationArtifactKind ParseArtifactKind(string value)
     {
@@ -665,13 +590,7 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         };
     }
 
-    private int GetLockTimeoutMilliseconds()
-    {
-        var milliseconds = options.LockTimeout.TotalMilliseconds;
-        return milliseconds >= int.MaxValue ? int.MaxValue : (int)milliseconds;
-    }
-
-    private void ApplyCommandTimeout(SqlCommand command)
+    private void ApplyCommandTimeout(NpgsqlCommand command)
     {
         if (options.CommandTimeoutSeconds is { } timeout)
         {
@@ -679,9 +598,21 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         }
     }
 
+    private async ValueTask<bool> TryAcquireLockAsync(
+        NpgsqlConnection connection,
+        long lockKey,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "select pg_try_advisory_lock($1);";
+        command.Parameters.AddWithValue(lockKey);
+        ApplyCommandTimeout(command);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
+    }
+
     private async ValueTask ExecuteNonQueryAsync(
-        SqlConnection connection,
-        SqlTransaction? transaction,
+        NpgsqlConnection connection,
+        NpgsqlTransaction? transaction,
         string sql,
         CancellationToken cancellationToken)
     {
@@ -696,11 +627,17 @@ internal sealed class SqlServerMigrationDatabaseAdapter(
         ApplyCommandTimeout(command);
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    private static long ComputeLockKey(string lockName)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(lockName));
+        return BinaryPrimitives.ReadInt64BigEndian(bytes.AsSpan(0, sizeof(long)));
+    }
 }
 
-internal sealed class SqlServerMigrationLock(
-    SqlConnection connection,
-    string resource,
+internal sealed class PostgresMigrationLock(
+    NpgsqlConnection connection,
+    long lockKey,
     int? commandTimeoutSeconds) : IAsyncDisposable
 {
     public async ValueTask DisposeAsync()
@@ -710,14 +647,8 @@ internal sealed class SqlServerMigrationLock(
             if (connection.State == ConnectionState.Open)
             {
                 await using var command = connection.CreateCommand();
-                command.CommandText = """
-                    declare @result int;
-                    exec @result = sys.sp_releaseapplock
-                        @Resource = @resource,
-                        @LockOwner = 'Session';
-                    select @result;
-                    """;
-                command.Parameters.AddWithValue("@resource", resource);
+                command.CommandText = "select pg_advisory_unlock($1);";
+                command.Parameters.AddWithValue(lockKey);
 
                 if (commandTimeoutSeconds is { } timeout)
                 {
@@ -729,7 +660,6 @@ internal sealed class SqlServerMigrationLock(
         }
         finally
         {
-            SqlConnection.ClearPool(connection);
             await connection.DisposeAsync().ConfigureAwait(false);
         }
     }

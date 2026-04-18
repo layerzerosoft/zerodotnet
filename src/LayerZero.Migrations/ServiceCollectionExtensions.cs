@@ -42,7 +42,7 @@ public static class ServiceCollectionExtensions
             builder.Services.PostConfigure(configure);
         }
 
-        MigrationProviderRegistry.Apply(builder.Services);
+        MigrationProviderRegistry.Apply(builder.Services, builder.GetSelectedProvider().MigrationsAssemblyName);
 
         builder.Services.TryAddSingleton<MigrationModelCompiler>();
         builder.Services.TryAddSingleton<IMigrationCatalog>(static _ => MigrationCatalogLoader.LoadFromEntryAssembly());

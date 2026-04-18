@@ -24,7 +24,7 @@ public static class SqlServerDataBuilderExtensions
         Action<SqlServerDataOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        builder.SelectProvider(SqlServerDataProvider.ProviderName);
+        builder.SelectProvider(SqlServerDataProvider.ProviderName, "LayerZero.Migrations.SqlServer");
 
         builder.Services.AddOptions<SqlServerDataOptions>()
             .Validate(static options => !string.IsNullOrWhiteSpace(options.ConnectionString),

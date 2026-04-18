@@ -37,7 +37,7 @@ public ref struct DataSqlInterpolatedStringHandler
     public void AppendFormatted<TValue>(TValue value)
     {
         parameters ??= [];
-        var name = $"@p{parameters.Count}";
+        var name = DataSqlParameterToken.Create(parameters.Count);
         parameters.Add(new DataSqlParameter(name, value));
         builder.Append(name);
     }

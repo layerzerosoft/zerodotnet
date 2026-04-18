@@ -352,7 +352,11 @@ internal sealed class DataContext(
         {
             var descriptor = compiled.Parameters[index];
             var parameter = command.CreateParameter();
-            parameter.ParameterName = descriptor.Name;
+            if (!string.IsNullOrEmpty(descriptor.ParameterName))
+            {
+                parameter.ParameterName = descriptor.ParameterName;
+            }
+
             parameter.Value = parameterValues[index] ?? DBNull.Value;
             if (TryGetDbType(descriptor.ValueType, out var dbType))
             {

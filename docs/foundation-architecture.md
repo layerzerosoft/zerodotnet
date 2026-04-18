@@ -11,10 +11,12 @@ before teams reach for heavy frameworks.
 - Command and event message contracts in `LayerZero.Core`.
 - Provider-agnostic data foundation in `LayerZero.Data`.
 - First-party SQL Server data provider in `LayerZero.Data.SqlServer`.
+- First-party PostgreSQL data provider in `LayerZero.Data.Postgres`.
 - Transport-neutral async messaging runtime in `LayerZero.Messaging`.
 - First-party RabbitMQ, Azure Service Bus, Kafka, and NATS JetStream adapters.
 - Transport-neutral relational migrations in `LayerZero.Migrations`.
 - First-party SQL Server migrations adapter in `LayerZero.Migrations.SqlServer`.
+- First-party PostgreSQL migrations adapter in `LayerZero.Migrations.Postgres`.
 - Real-broker adapter integration suites plus a fulfillment end-to-end broker matrix.
 - Self-mapping Minimal API endpoint slices.
 - Source-generated `AddSlices()` and `MapSlices()` as the default discovery path.
@@ -127,6 +129,8 @@ default, and no runtime assembly scanning as the default path.
   and typed relational entity mapping.
 - `LayerZero.Data.SqlServer` owns SQL Server provider registration and SQL
   Server-specific data services.
+- `LayerZero.Data.Postgres` owns PostgreSQL provider registration,
+  `NpgsqlDataSource` integration, and PostgreSQL-specific data services.
 - `LayerZero.Migrations` owns the provider-neutral runtime surface:
   `Migration`, `Seed`, `MigrationBuilder`, `SeedBuilder`, `IMigrationRuntime`,
   app-hosted commands, validation, scripting, baselining, and journaled
@@ -143,10 +147,12 @@ default, and no runtime assembly scanning as the default path.
   as a sample rather than the public center of gravity.
 - `LayerZero.Migrations.SqlServer` owns SQL Server SQL generation, history
   storage, `sp_getapplock` coordination, and adapter-specific execution.
+- `LayerZero.Migrations.Postgres` owns PostgreSQL SQL generation, history
+  storage, advisory-lock coordination, and adapter-specific execution.
 - Provider-specific behavior must stay in dedicated data or migration adapter
   packages, just like messaging transports do.
 
-The current SQL Server foundation is documented in
+The current SQL Server and PostgreSQL foundations are documented in
 `docs/migrations/relational-migrations.md`.
 
 ## HTTP Clients

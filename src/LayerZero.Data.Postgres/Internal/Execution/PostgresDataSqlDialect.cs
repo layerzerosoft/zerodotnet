@@ -3,14 +3,14 @@ using System.Text;
 using LayerZero.Data.Internal.Execution;
 using LayerZero.Data.Internal.Sql;
 using LayerZero.Data.Internal.Translation;
-using LayerZero.Data.SqlServer.Configuration;
+using LayerZero.Data.Postgres.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace LayerZero.Data.SqlServer.Internal.Execution;
+namespace LayerZero.Data.Postgres.Internal.Execution;
 
-internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> optionsAccessor) : IDataSqlDialect
+internal sealed class PostgresDataSqlDialect(IOptions<PostgresDataOptions> optionsAccessor) : IDataSqlDialect
 {
-    private readonly SqlServerDataOptions options = optionsAccessor.Value;
+    private readonly PostgresDataOptions options = optionsAccessor.Value;
 
     public CompiledDataCommandTemplate CompileReader(DataReaderCommandTemplate template, DataReadMode mode)
     {
@@ -24,17 +24,15 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
             effectiveTake = effectiveTake.HasValue ? Math.Min(effectiveTake.Value, 2) : 2;
         }
 
-        var commandText = BuildSelectQuery(
-            template.Root,
-            template.Joins,
-            template.Filter,
-            template.Orderings,
-            template.Skip,
-            effectiveTake,
-            template.Projections);
-
         return new CompiledDataCommandTemplate(
-            commandText,
+            BuildSelectQuery(
+                template.Root,
+                template.Joins,
+                template.Filter,
+                template.Orderings,
+                template.Skip,
+                effectiveTake,
+                template.Projections),
             CreateParameters(template.ParameterTypes),
             template.Projections.Select(static projection => projection.Alias).ToArray());
     }
@@ -71,43 +69,40 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
         switch (template.Aggregate)
         {
             case DataAggregateKind.Any:
-                builder.Append("select cast(case when exists(select 1 from (");
+                builder.Append("select exists(select 1 from (");
                 builder.Append(innerQuery);
-                builder.Append(") as [q]) then 1 else 0 end as bit)");
+                builder.Append(") as \"q\")");
                 break;
             case DataAggregateKind.Count:
-                builder.Append("select cast(count(1) as int) from (");
+                builder.Append("select cast(count(1) as integer) from (");
                 builder.Append(innerQuery);
-                builder.Append(") as [q]");
+                builder.Append(") as \"q\"");
                 break;
             case DataAggregateKind.LongCount:
-                builder.Append("select count_big(1) from (");
+                builder.Append("select count(1) from (");
                 builder.Append(innerQuery);
-                builder.Append(") as [q]");
+                builder.Append(") as \"q\"");
                 break;
             case DataAggregateKind.Sum:
-                builder.Append("select sum([q].[value]) from (");
+                builder.Append("select sum(\"q\".\"value\") from (");
                 builder.Append(innerQuery);
-                builder.Append(") as [q]");
+                builder.Append(") as \"q\"");
                 break;
             case DataAggregateKind.Min:
-                builder.Append("select min([q].[value]) from (");
+                builder.Append("select min(\"q\".\"value\") from (");
                 builder.Append(innerQuery);
-                builder.Append(") as [q]");
+                builder.Append(") as \"q\"");
                 break;
             case DataAggregateKind.Max:
-                builder.Append("select max([q].[value]) from (");
+                builder.Append("select max(\"q\".\"value\") from (");
                 builder.Append(innerQuery);
-                builder.Append(") as [q]");
+                builder.Append(") as \"q\"");
                 break;
             default:
                 throw new InvalidOperationException($"Unsupported aggregate '{template.Aggregate}'.");
         }
 
-        return new CompiledDataCommandTemplate(
-            builder.ToString(),
-            CreateParameters(template.ParameterTypes),
-            ["value"]);
+        return new CompiledDataCommandTemplate(builder.ToString(), CreateParameters(template.ParameterTypes), ["value"]);
     }
 
     public CompiledDataCommandTemplate CompileInsert(DataInsertCommandTemplate template)
@@ -125,25 +120,21 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
             builder.Append(" (");
             AppendDelimited(builder, template.Values.Select(static value => QuoteIdentifier(value.Column.Name)));
             builder.Append(") values (");
-            AppendDelimited(builder, template.Values.Select(static value => ParameterName(value.Ordinal)));
+            AppendDelimited(builder, template.Values.Select(static value => Placeholder(value.Ordinal)));
             builder.Append(");");
         }
 
-        return new CompiledDataCommandTemplate(
-            builder.ToString(),
-            CreateParameters(template.ParameterTypes),
-            []);
+        return new CompiledDataCommandTemplate(builder.ToString(), CreateParameters(template.ParameterTypes), []);
     }
 
     public CompiledDataCommandTemplate CompileUpdate(DataUpdateCommandTemplate template)
     {
         var builder = new StringBuilder();
-        builder.Append("update [t0] set ");
-        AppendDelimited(builder, template.Assignments.Select(assignment =>
-            $"{QuoteIdentifier(assignment.Column.Name)} = {ParameterName(assignment.Ordinal)}"));
-        builder.Append(" from ");
+        builder.Append("update ");
         AppendQualifiedTable(builder, template.Table.Name);
-        builder.Append(" as [t0]");
+        builder.Append(" as \"t0\" set ");
+        AppendDelimited(builder, template.Assignments.Select(assignment =>
+            $"{QuoteIdentifier(assignment.Column.Name)} = {Placeholder(assignment.Ordinal)}"));
 
         if (template.Filter is not null)
         {
@@ -152,19 +143,15 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
         }
 
         builder.Append(';');
-
-        return new CompiledDataCommandTemplate(
-            builder.ToString(),
-            CreateParameters(template.ParameterTypes),
-            []);
+        return new CompiledDataCommandTemplate(builder.ToString(), CreateParameters(template.ParameterTypes), []);
     }
 
     public CompiledDataCommandTemplate CompileDelete(DataDeleteCommandTemplate template)
     {
         var builder = new StringBuilder();
-        builder.Append("delete [t0] from ");
+        builder.Append("delete from ");
         AppendQualifiedTable(builder, template.Table.Name);
-        builder.Append(" as [t0]");
+        builder.Append(" as \"t0\"");
 
         if (template.Filter is not null)
         {
@@ -173,20 +160,16 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
         }
 
         builder.Append(';');
-
-        return new CompiledDataCommandTemplate(
-            builder.ToString(),
-            CreateParameters(template.ParameterTypes),
-            []);
+        return new CompiledDataCommandTemplate(builder.ToString(), CreateParameters(template.ParameterTypes), []);
     }
 
     public CompiledDataCommandTemplate CompileRawSql(DataSqlStatement statement)
     {
         return new CompiledDataCommandTemplate(
-            DataSqlStatementCompiler.RewriteCommandText(statement, ParameterName),
+            DataSqlStatementCompiler.RewriteCommandText(statement, Placeholder),
             statement.Parameters.Select((parameter, index) => new DataCommandParameterDescriptor(
-                ParameterName(index),
-                ParameterName(index),
+                Placeholder(index),
+                ParameterName: null,
                 parameter.Value?.GetType() ?? typeof(object))).ToArray(),
             []);
     }
@@ -203,15 +186,6 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
     {
         var builder = new StringBuilder();
         builder.Append("select ");
-
-        var useTop = skip is null && take.HasValue;
-        if (useTop)
-        {
-            builder.Append("top (");
-            builder.Append(take.GetValueOrDefault().ToString(CultureInfo.InvariantCulture));
-            builder.Append(") ");
-        }
-
         AppendDelimited(builder, projections.Select(projection =>
             $"{RenderExpression(projection.Expression, parameterizeProjectionLiterals)} as {QuoteIdentifier(projection.Alias)}"));
 
@@ -236,32 +210,23 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
             builder.Append(RenderPredicate(filter));
         }
 
-        if (orderings.Count > 0 || skip.HasValue)
+        if (orderings.Count > 0)
         {
             builder.Append(" order by ");
-            if (orderings.Count == 0)
-            {
-                builder.Append("(select 1)");
-            }
-            else
-            {
-                AppendDelimited(builder, orderings.Select(ordering =>
-                    $"{RenderExpression(ordering.Expression)} {(ordering.Descending ? "desc" : "asc")}"));
-            }
+            AppendDelimited(builder, orderings.Select(ordering =>
+                $"{RenderExpression(ordering.Expression)} {(ordering.Descending ? "desc" : "asc")}"));
+        }
+
+        if (take.HasValue)
+        {
+            builder.Append(" limit ");
+            builder.Append(take.Value.ToString(CultureInfo.InvariantCulture));
         }
 
         if (skip.HasValue)
         {
             builder.Append(" offset ");
             builder.Append(skip.Value.ToString(CultureInfo.InvariantCulture));
-            builder.Append(" rows");
-
-            if (take.HasValue)
-            {
-                builder.Append(" fetch next ");
-                builder.Append(take.Value.ToString(CultureInfo.InvariantCulture));
-                builder.Append(" rows only");
-            }
         }
 
         return builder.ToString();
@@ -280,9 +245,9 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
             DataUnaryExpressionTemplate { Operator: DataUnaryOperator.Not } unary
                 => $"(not {RenderPredicate(unary.Operand)})",
             DataColumnExpressionTemplate column when IsBooleanType(column.Column.ClrType)
-                => $"({RenderExpression(column)} = cast(1 as bit))",
+                => $"({RenderExpression(column)} = true)",
             DataParameterExpressionTemplate parameter when IsBooleanType(parameter.ValueType)
-                => $"({RenderExpression(parameter)} = cast(1 as bit))",
+                => $"({RenderExpression(parameter)} = true)",
             DataFunctionExpressionTemplate function
                 => RenderExpression(function),
             _ => RenderExpression(expression),
@@ -299,10 +264,8 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
 
         return comparison switch
         {
-            DataBinaryOperator.Equal =>
-                $"(({leftText} = {rightText}) or ({leftText} is null and {rightText} is null))",
-            DataBinaryOperator.NotEqual =>
-                $"(({leftText} <> {rightText}) or ({leftText} is null and {rightText} is not null) or ({leftText} is not null and {rightText} is null))",
+            DataBinaryOperator.Equal => $"({leftText} is not distinct from {rightText})",
+            DataBinaryOperator.NotEqual => $"({leftText} is distinct from {rightText})",
             _ => throw new InvalidOperationException($"Unsupported comparison '{comparison}'."),
         };
     }
@@ -312,8 +275,8 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
         return expression switch
         {
             DataColumnExpressionTemplate column => $"{QuoteIdentifier(column.Alias)}.{QuoteIdentifier(column.Column.Name)}",
-            DataParameterExpressionTemplate parameter when parameter.Ordinal >= 0 => ParameterName(parameter.Ordinal),
-            DataParameterExpressionTemplate => parameterizeProjectionLiterals ? "@p0" : "1",
+            DataParameterExpressionTemplate parameter when parameter.Ordinal >= 0 => Placeholder(parameter.Ordinal),
+            DataParameterExpressionTemplate => parameterizeProjectionLiterals ? Placeholder(0) : "1",
             DataBinaryExpressionTemplate binary when binary.Operator is DataBinaryOperator.Equal or DataBinaryOperator.NotEqual
                 => RenderComparison(binary.Left, binary.Right, binary.Operator),
             DataBinaryExpressionTemplate binary
@@ -332,9 +295,9 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
         var arguments = function.Arguments.Select(argument => RenderExpression(argument)).ToArray();
         return function.Name switch
         {
-            "Contains" => $"({arguments[0]} like ('%' + {arguments[1]} + '%'))",
-            "StartsWith" => $"({arguments[0]} like ({arguments[1]} + '%'))",
-            "EndsWith" => $"({arguments[0]} like ('%' + {arguments[1]}))",
+            "Contains" => $"({arguments[0]} like ('%' || {arguments[1]} || '%'))",
+            "StartsWith" => $"({arguments[0]} like ({arguments[1]} || '%'))",
+            "EndsWith" => $"({arguments[0]} like ('%' || {arguments[1]}))",
             _ => throw new InvalidOperationException($"Unsupported function '{function.Name}'."),
         };
     }
@@ -368,12 +331,12 @@ internal sealed class SqlServerDataSqlDialect(IOptions<SqlServerDataOptions> opt
 
     private static IReadOnlyList<DataCommandParameterDescriptor> CreateParameters(IReadOnlyList<Type> parameterTypes) =>
         parameterTypes
-            .Select((type, index) => new DataCommandParameterDescriptor(ParameterName(index), ParameterName(index), type))
+            .Select((type, index) => new DataCommandParameterDescriptor(Placeholder(index), ParameterName: null, type))
             .ToArray();
 
-    private static string ParameterName(int ordinal) => $"@p{ordinal.ToString(CultureInfo.InvariantCulture)}";
+    private static string Placeholder(int ordinal) => $"${(ordinal + 1).ToString(CultureInfo.InvariantCulture)}";
 
-    private static string QuoteIdentifier(string name) => $"[{name.Replace("]", "]]", StringComparison.Ordinal)}]";
+    private static string QuoteIdentifier(string name) => $"\"{name.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 
     private static void AppendDelimited(StringBuilder builder, IEnumerable<string> values)
     {
