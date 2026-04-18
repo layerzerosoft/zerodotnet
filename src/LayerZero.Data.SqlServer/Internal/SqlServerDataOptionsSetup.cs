@@ -1,4 +1,3 @@
-using LayerZero.Data.Configuration;
 using LayerZero.Data.SqlServer.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -6,13 +5,11 @@ using Microsoft.Extensions.Options;
 namespace LayerZero.Data.SqlServer.Internal;
 
 internal sealed class SqlServerDataOptionsSetup(
-    IOptions<LayerZeroDataOptions> dataOptionsAccessor,
     IConfiguration? configuration = null) :
     IConfigureOptions<SqlServerDataOptions>,
     IPostConfigureOptions<SqlServerDataOptions>
 {
     private readonly IConfiguration? configuration = configuration;
-    private readonly LayerZeroDataOptions dataOptions = dataOptionsAccessor.Value;
 
     public void Configure(SqlServerDataOptions options)
     {
@@ -21,15 +18,10 @@ internal sealed class SqlServerDataOptionsSetup(
 
     public void PostConfigure(string? name, SqlServerDataOptions options)
     {
-        var connectionStringName = string.IsNullOrWhiteSpace(options.ConnectionStringName)
-            ? dataOptions.ConnectionStringName
-            : options.ConnectionStringName;
-
-        options.ConnectionStringName = connectionStringName;
-
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
+        if (string.IsNullOrWhiteSpace(options.ConnectionString)
+            && !string.IsNullOrWhiteSpace(options.ConnectionStringName))
         {
-            options.ConnectionString = configuration?.GetConnectionString(connectionStringName);
+            options.ConnectionString = configuration?.GetConnectionString(options.ConnectionStringName);
         }
     }
 }

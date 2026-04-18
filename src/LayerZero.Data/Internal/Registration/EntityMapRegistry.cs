@@ -1,53 +1,63 @@
+using LayerZero.Data.Configuration;
+using Microsoft.Extensions.Options;
+
 namespace LayerZero.Data.Internal.Registration;
 
 internal interface IEntityMapRegistry
 {
-    IEntityMap GetMap(Type entityType);
-
     EntityTable<TEntity> GetTable<TEntity>()
         where TEntity : notnull;
 
     IEntityTable GetTable(Type entityType);
 
-    bool TryGetMap(Type entityType, out IEntityMap map);
+    bool TryGetTable(Type entityType, out IEntityTable table);
 }
 
-internal sealed class EntityMapRegistry(IEnumerable<IEntityMap> maps) : IEntityMapRegistry
+internal sealed class EntityMapRegistry(
+    IEnumerable<IEntityMap> maps,
+    IOptions<DataOptions> optionsAccessor) : IEntityMapRegistry
 {
-    private readonly Dictionary<Type, IEntityMap> mapByEntityType = BuildIndex(maps);
+    private readonly Dictionary<Type, IEntityTable> tableByEntityType = BuildIndex(
+        maps,
+        optionsAccessor.Value.Conventions.Clone());
 
-    public IEntityMap GetMap(Type entityType)
+    public EntityTable<TEntity> GetTable<TEntity>()
+        where TEntity : notnull =>
+        (EntityTable<TEntity>)GetTable(typeof(TEntity));
+
+    public IEntityTable GetTable(Type entityType)
     {
         ArgumentNullException.ThrowIfNull(entityType);
 
-        if (!mapByEntityType.TryGetValue(entityType, out var map))
+        if (!tableByEntityType.TryGetValue(entityType, out var table))
         {
             throw new InvalidOperationException($"No LayerZero data map was registered for entity type '{entityType.FullName}'.");
         }
 
-        return map;
+        return table;
     }
 
-    public EntityTable<TEntity> GetTable<TEntity>()
-        where TEntity : notnull =>
-        ((EntityMap<TEntity>)GetMap(typeof(TEntity))).Table;
-
-    public IEntityTable GetTable(Type entityType) => GetMap(entityType).Table;
-
-    public bool TryGetMap(Type entityType, out IEntityMap map)
+    public bool TryGetTable(Type entityType, out IEntityTable table)
     {
         ArgumentNullException.ThrowIfNull(entityType);
-        return mapByEntityType.TryGetValue(entityType, out map!);
+        return tableByEntityType.TryGetValue(entityType, out table!);
     }
 
-    private static Dictionary<Type, IEntityMap> BuildIndex(IEnumerable<IEntityMap> maps)
+    private static Dictionary<Type, IEntityTable> BuildIndex(
+        IEnumerable<IEntityMap> maps,
+        DataConventionsOptions conventions)
     {
         ArgumentNullException.ThrowIfNull(maps);
+        ArgumentNullException.ThrowIfNull(conventions);
 
-        var index = new Dictionary<Type, IEntityMap>();
+        var index = new Dictionary<Type, IEntityTable>();
         foreach (var map in maps)
         {
-            if (!index.TryAdd(map.EntityType, map))
+            var table = map is IConventionEntityMap conventionAware
+                ? conventionAware.GetTable(conventions)
+                : map.Table;
+
+            if (!index.TryAdd(map.EntityType, table))
             {
                 throw new InvalidOperationException($"Multiple LayerZero data maps were registered for entity type '{map.EntityType.FullName}'.");
             }

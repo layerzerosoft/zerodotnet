@@ -4,9 +4,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
-    <PackageReference Include="xunit.v3" />
+    <Using Remove="Xunit" />
   </ItemGroup>
 
   <ItemGroup>
@@ -15,7 +13,5 @@
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
-    <ProjectReference Include="../../src/LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj" />
-    <ProjectReference Include="../LayerZero.Data.TestAssembly/LayerZero.Data.TestAssembly.csproj" />
   </ItemGroup>
 </Project>

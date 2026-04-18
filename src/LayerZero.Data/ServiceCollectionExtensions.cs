@@ -1,6 +1,6 @@
+using LayerZero.Data.Internal;
 using LayerZero.Data.Configuration;
 using LayerZero.Data.Internal.Execution;
-using LayerZero.Data.Internal;
 using LayerZero.Data.Internal.Materialization;
 using LayerZero.Data.Internal.Registration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,30 +15,21 @@ namespace LayerZero.Data;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds LayerZero data services.
+     /// Adds LayerZero data services.
     /// </summary>
     /// <param name="services">The service collection.</param>
-    /// <param name="configure">The optional data configuration.</param>
-    /// <returns>The data builder.</returns>
-    public static LayerZeroDataBuilder AddLayerZeroData(
+    /// <param name="configure">The data configuration.</param>
+    /// <returns>The current service collection.</returns>
+    public static IServiceCollection AddData(
         this IServiceCollection services,
-        Action<LayerZeroDataOptions>? configure = null)
+        Action<DataBuilder> configure)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
 
-        services.AddOptions<LayerZeroDataOptions>()
-            .Validate(static options => !string.IsNullOrWhiteSpace(options.ConnectionStringName),
-                "The LayerZero data connection string name must not be empty.")
-            .ValidateOnStart();
+        services.AddOptions<DataOptions>().ValidateOnStart();
         services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IConfigureOptions<LayerZeroDataOptions>, LayerZeroDataOptionsSetup>());
-
-        if (configure is not null)
-        {
-            services.PostConfigure(configure);
-        }
-
-        services.TryAddSingleton<LayerZeroDataBuilderAccessor>();
+            ServiceDescriptor.Singleton<IConfigureOptions<DataOptions>, DataOptionsSetup>());
         services.TryAddSingleton<IEntityMapRegistry, EntityMapRegistry>();
         services.TryAddScoped<DataScopeManager>();
         services.TryAddSingleton<DataCommandCache>();
@@ -47,8 +38,12 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IDataContext>(static serviceProvider => serviceProvider.GetRequiredService<DataContext>());
         services.TryAddScoped<IDataSqlContext>(static serviceProvider => serviceProvider.GetRequiredService<DataContext>());
         services.TryAddScoped<IDataDispatcher, DataDispatcher>();
-        return new LayerZeroDataBuilder(services);
+
+        var builder = new DataBuilder(services);
+        configure(builder);
+        builder.ValidateProviderSelection();
+
+        DataAssemblyRegistrarCatalog.Apply(services);
+        return services;
     }
 }
-
-internal sealed class LayerZeroDataBuilderAccessor;

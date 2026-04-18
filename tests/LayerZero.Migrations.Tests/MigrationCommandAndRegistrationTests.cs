@@ -21,8 +21,7 @@ public sealed class MigrationCommandAndRegistrationTests
         ]);
 
         builder.Services
-            .AddLayerZeroData()
-            .UseSqlServer();
+            .AddData(data => data.UseSqlServer());
 
         using var host = builder.Build();
         var options = host.Services.GetRequiredService<IOptions<SqlServerDataOptions>>().Value;
@@ -41,9 +40,11 @@ public sealed class MigrationCommandAndRegistrationTests
         ]);
 
         builder.Services
-            .AddLayerZeroData()
-            .UseSqlServer()
-            .UseMigrations();
+            .AddData(data =>
+            {
+                data.UseSqlServer();
+                data.UseMigrations();
+            });
 
         using var host = builder.Build();
         var catalog = host.Services.GetRequiredService<IMigrationCatalog>();

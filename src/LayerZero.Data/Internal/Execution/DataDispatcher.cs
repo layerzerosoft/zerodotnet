@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -5,26 +6,16 @@ namespace LayerZero.Data.Internal.Execution;
 
 internal sealed class DataDispatcher(IServiceProvider services) : IDataDispatcher
 {
-    private static readonly MethodInfo QueryCoreMethod = typeof(DataDispatcher)
-        .GetMethod(nameof(QueryCoreAsync), BindingFlags.NonPublic | BindingFlags.Static)!;
-
-    private static readonly MethodInfo MutationCoreMethod = typeof(DataDispatcher)
-        .GetMethod(nameof(MutationCoreAsync), BindingFlags.NonPublic | BindingFlags.Static)!;
-
     public ValueTask<TResult> QueryAsync<TResult>(IDataQuery<TResult> query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-
-        var closed = QueryCoreMethod.MakeGenericMethod(query.GetType(), typeof(TResult));
-        return (ValueTask<TResult>)closed.Invoke(obj: null, [services, query, cancellationToken])!;
+        return QueryInvokerCache<TResult>.Get(query.GetType())(services, query, cancellationToken);
     }
 
     public ValueTask<TResult> MutateAsync<TResult>(IDataMutation<TResult> mutation, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(mutation);
-
-        var closed = MutationCoreMethod.MakeGenericMethod(mutation.GetType(), typeof(TResult));
-        return (ValueTask<TResult>)closed.Invoke(obj: null, [services, mutation, cancellationToken])!;
+        return MutationInvokerCache<TResult>.Get(mutation.GetType())(services, mutation, cancellationToken);
     }
 
     private static ValueTask<TResult> QueryCoreAsync<TQuery, TResult>(
@@ -45,5 +36,39 @@ internal sealed class DataDispatcher(IServiceProvider services) : IDataDispatche
     {
         return services.GetRequiredService<IDataMutationHandler<TMutation, TResult>>()
             .HandleAsync((TMutation)mutation, cancellationToken);
+    }
+
+    private static class QueryInvokerCache<TResult>
+    {
+        private static readonly ConcurrentDictionary<Type, Func<IServiceProvider, IDataQuery<TResult>, CancellationToken, ValueTask<TResult>>> Cache = new();
+        private static readonly MethodInfo QueryCoreMethod = typeof(DataDispatcher)
+            .GetMethod(nameof(QueryCoreAsync), BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetGenericMethodDefinition();
+
+        public static Func<IServiceProvider, IDataQuery<TResult>, CancellationToken, ValueTask<TResult>> Get(Type queryType)
+        {
+            ArgumentNullException.ThrowIfNull(queryType);
+            return Cache.GetOrAdd(queryType, static currentType =>
+                (Func<IServiceProvider, IDataQuery<TResult>, CancellationToken, ValueTask<TResult>>)QueryCoreMethod
+                    .MakeGenericMethod(currentType, typeof(TResult))
+                    .CreateDelegate(typeof(Func<IServiceProvider, IDataQuery<TResult>, CancellationToken, ValueTask<TResult>>)));
+        }
+    }
+
+    private static class MutationInvokerCache<TResult>
+    {
+        private static readonly ConcurrentDictionary<Type, Func<IServiceProvider, IDataMutation<TResult>, CancellationToken, ValueTask<TResult>>> Cache = new();
+        private static readonly MethodInfo MutationCoreMethod = typeof(DataDispatcher)
+            .GetMethod(nameof(MutationCoreAsync), BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetGenericMethodDefinition();
+
+        public static Func<IServiceProvider, IDataMutation<TResult>, CancellationToken, ValueTask<TResult>> Get(Type mutationType)
+        {
+            ArgumentNullException.ThrowIfNull(mutationType);
+            return Cache.GetOrAdd(mutationType, static currentType =>
+                (Func<IServiceProvider, IDataMutation<TResult>, CancellationToken, ValueTask<TResult>>)MutationCoreMethod
+                    .MakeGenericMethod(currentType, typeof(TResult))
+                    .CreateDelegate(typeof(Func<IServiceProvider, IDataMutation<TResult>, CancellationToken, ValueTask<TResult>>)));
+        }
     }
 }

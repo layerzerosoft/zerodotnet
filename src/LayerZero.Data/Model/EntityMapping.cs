@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using LayerZero.Data.Configuration;
 using LayerZero.Data.Internal;
 
 namespace LayerZero.Data;
@@ -112,14 +113,15 @@ public interface IEntityIndex
 /// Defines one typed relational entity map.
 /// </summary>
 /// <typeparam name="TEntity">The mapped entity type.</typeparam>
-public abstract class EntityMap<TEntity> : IEntityMap
+public abstract class EntityMap<TEntity> : IEntityMap, IConventionEntityMap
 {
-    private EntityTable<TEntity>? table;
+    private static readonly DataConventionsOptions DefaultConventions = new();
+    private readonly Dictionary<ConventionCacheKey, EntityTable<TEntity>> tables = [];
 
     /// <summary>
     /// Gets the mapped table.
     /// </summary>
-    public EntityTable<TEntity> Table => table ??= BuildTable();
+    public EntityTable<TEntity> Table => GetTable(DefaultConventions);
 
     /// <summary>
     /// Configures the map.
@@ -131,12 +133,40 @@ public abstract class EntityMap<TEntity> : IEntityMap
 
     IEntityTable IEntityMap.Table => Table;
 
-    private EntityTable<TEntity> BuildTable()
+    IEntityTable IConventionEntityMap.GetTable(DataConventionsOptions conventions) => GetTable(conventions);
+
+    internal EntityTable<TEntity> GetTable(DataConventionsOptions conventions)
     {
-        var builder = new EntityMapBuilder<TEntity>();
+        ArgumentNullException.ThrowIfNull(conventions);
+
+        var key = new ConventionCacheKey(conventions.TableNaming, conventions.ColumnNaming);
+        lock (tables)
+        {
+            if (!tables.TryGetValue(key, out var table))
+            {
+                table = BuildTable(conventions);
+                tables[key] = table;
+            }
+
+            return table;
+        }
+    }
+
+    private EntityTable<TEntity> BuildTable(DataConventionsOptions conventions)
+    {
+        var builder = new EntityMapBuilder<TEntity>(conventions.Clone());
         Configure(builder);
         return builder.Build();
     }
+
+    private readonly record struct ConventionCacheKey(
+        DataIdentifierNamingConvention TableNaming,
+        DataIdentifierNamingConvention ColumnNaming);
+}
+
+internal interface IConventionEntityMap
+{
+    IEntityTable GetTable(DataConventionsOptions conventions);
 }
 
 /// <summary>
@@ -349,8 +379,22 @@ public sealed class EntityMapBuilder<TEntity>
 {
     private readonly Dictionary<string, IEntityColumnBuilder<TEntity>> columns = new(StringComparer.Ordinal);
     private readonly List<EntityIndexDefinition> indexes = [];
+    private readonly DataConventionsOptions conventions;
     private string? schema;
     private string? tableName;
+
+    /// <summary>
+    /// Creates one entity map builder using the default exact-name conventions.
+    /// </summary>
+    public EntityMapBuilder()
+        : this(new DataConventionsOptions())
+    {
+    }
+
+    internal EntityMapBuilder(DataConventionsOptions conventions)
+    {
+        this.conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
+    }
 
     /// <summary>
     /// Maps the entity to the default schema.
@@ -390,7 +434,10 @@ public sealed class EntityMapBuilder<TEntity>
         var propertyInfo = ExpressionHelpers.GetProperty(property);
         if (!columns.TryGetValue(propertyName, out var existing))
         {
-            var builder = new EntityPropertyBuilder<TEntity, TProperty>(propertyInfo, propertyName, columnName ?? ExpressionHelpers.ToSnakeLikeName(propertyName));
+            var builder = new EntityPropertyBuilder<TEntity, TProperty>(
+                propertyInfo,
+                propertyName,
+                columnName ?? conventions.GetColumnName(propertyName));
             columns[propertyName] = builder;
             return builder;
         }
@@ -433,7 +480,7 @@ public sealed class EntityMapBuilder<TEntity>
     {
         if (string.IsNullOrWhiteSpace(tableName))
         {
-            throw new InvalidOperationException($"The entity map '{typeof(TEntity).FullName}' must configure a table.");
+            tableName = conventions.GetTableName(typeof(TEntity));
         }
 
         var builtColumns = columns.Values

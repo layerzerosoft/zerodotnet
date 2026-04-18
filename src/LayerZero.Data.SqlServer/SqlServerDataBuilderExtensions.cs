@@ -1,5 +1,5 @@
-using LayerZero.Data.Configuration;
 using LayerZero.Data.Internal.Sql;
+using LayerZero.Data.Configuration;
 using LayerZero.Data.SqlServer.Configuration;
 using LayerZero.Data.SqlServer.Internal.Execution;
 using LayerZero.Data.SqlServer.Internal;
@@ -19,16 +19,14 @@ public static class SqlServerDataBuilderExtensions
     /// </summary>
     /// <param name="builder">The data builder.</param>
     /// <param name="configure">The optional SQL Server configuration.</param>
-    /// <returns>The current builder.</returns>
-    public static LayerZeroDataBuilder UseSqlServer(
-        this LayerZeroDataBuilder builder,
+    public static void UseSqlServer(
+        this DataBuilder builder,
         Action<SqlServerDataOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        builder.SelectProvider(SqlServerDataProvider.ProviderName);
 
         builder.Services.AddOptions<SqlServerDataOptions>()
-            .Validate(static options => !string.IsNullOrWhiteSpace(options.ConnectionStringName),
-                "The SQL Server connection string name must not be empty.")
             .Validate(static options => !string.IsNullOrWhiteSpace(options.ConnectionString),
                 "The SQL Server connection string must not be empty.")
             .Validate(static options => !string.IsNullOrWhiteSpace(options.DefaultSchema),
@@ -41,16 +39,10 @@ public static class SqlServerDataBuilderExtensions
             ServiceDescriptor.Singleton<IPostConfigureOptions<SqlServerDataOptions>, SqlServerDataOptionsSetup>());
         builder.Services.TryAddSingleton<IDatabaseConnectionFactory, SqlServerDatabaseConnectionFactory>();
         builder.Services.TryAddSingleton<IDataSqlDialect, SqlServerDataSqlDialect>();
-        builder.Services.PostConfigure<LayerZeroDataOptions>(static options =>
-        {
-            options.ProviderName = SqlServerDataProvider.ProviderName;
-        });
 
         if (configure is not null)
         {
             builder.Services.PostConfigure(configure);
         }
-
-        return builder;
     }
 }

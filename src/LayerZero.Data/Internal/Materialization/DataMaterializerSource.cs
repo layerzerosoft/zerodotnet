@@ -47,11 +47,10 @@ internal sealed class DataMaterializerSource(IEntityMapRegistry mapRegistry) : I
             return joined;
         }
 
-        IEntityMap? map = null;
         Dictionary<string, IEntityColumn>? mapColumns = null;
-        if (mapRegistry.TryGetMap(targetType, out map))
+        if (mapRegistry.TryGetTable(targetType, out var table))
         {
-            mapColumns = ((IEntityTable)map.Table).Columns
+            mapColumns = table.Columns
                 .ToDictionary(static column => column.Name, static column => column, StringComparer.OrdinalIgnoreCase);
         }
 

@@ -247,7 +247,7 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
             {
                 rows.Row(row => row
                     .Set((EntityColumn<Role, int>)table.PrimaryKeyColumns[0], 1)
-                    .Set((EntityColumn<Role, string>)table.Columns.Single(column => column.Name == "name"), "admin"));
+                    .Set((EntityColumn<Role, string>)table.Columns.Single(column => column.Name == "Name"), "admin"));
             });
         }
     }
@@ -258,7 +258,7 @@ public sealed class SqlServerMigrationIntegrationTests(MsSqlFixture fixture) : I
         {
             var table = new RoleMap().Table;
             var idColumn = (EntityColumn<Role, int>)table.PrimaryKeyColumns[0];
-            var nameColumn = (EntityColumn<Role, string>)table.Columns.Single(column => column.Name == "name");
+            var nameColumn = (EntityColumn<Role, string>)table.Columns.Single(column => column.Name == "Name");
             builder.UpsertData(table, [idColumn], row => row.Set(idColumn, 2).Set(nameColumn, "developer"));
         }
     }

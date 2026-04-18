@@ -13,6 +13,10 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/LayerZero.Data/LayerZero.Data.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Data.Analyzers/LayerZero.Data.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
     <ProjectReference Include="../../src/LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj" />
   </ItemGroup>
 </Project>

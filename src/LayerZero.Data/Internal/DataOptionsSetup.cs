@@ -4,11 +4,11 @@ using Microsoft.Extensions.Options;
 
 namespace LayerZero.Data.Internal;
 
-internal sealed class LayerZeroDataOptionsSetup(IConfiguration? configuration = null) : IConfigureOptions<LayerZeroDataOptions>
+internal sealed class DataOptionsSetup(IConfiguration? configuration = null) : IConfigureOptions<DataOptions>
 {
     private readonly IConfiguration? configuration = configuration;
 
-    public void Configure(LayerZeroDataOptions options)
+    public void Configure(DataOptions options)
     {
         configuration?.GetSection("LayerZero:Data").Bind(options);
     }

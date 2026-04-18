@@ -17,9 +17,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="builder">The data builder.</param>
     /// <param name="configure">The optional migrations configuration.</param>
-    /// <returns>The current data builder.</returns>
-    public static LayerZeroDataBuilder UseMigrations(
-        this LayerZeroDataBuilder builder,
+    public static void UseMigrations(
+        this DataBuilder builder,
         Action<MigrationsOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -54,7 +53,5 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<IMigrationDatabaseAdapterResolver>().Resolve(),
                 serviceProvider.GetRequiredService<MigrationModelCompiler>(),
                 serviceProvider.GetRequiredService<IOptions<MigrationsOptions>>()));
-
-        return builder;
     }
 }

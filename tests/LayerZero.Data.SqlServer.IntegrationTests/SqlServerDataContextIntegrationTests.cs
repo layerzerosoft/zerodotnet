@@ -125,17 +125,15 @@ public sealed class SqlServerDataContextIntegrationTests : IAsyncLifetime
     private ServiceProvider BuildProvider()
     {
         var services = new ServiceCollection();
-        services.AddLayerZeroData(options => options.ConnectionStringName = "Default")
-            .UseSqlServer(options =>
+        services.AddData(data =>
+        {
+            data.UseSqlServer(options =>
             {
                 options.ConnectionString = container.GetConnectionString();
                 options.DefaultSchema = "dbo";
             });
+        });
 
-        services.AddSingleton<IEntityMap, OrderMap>();
-        services.AddSingleton<IEntityMap, CustomerMap>();
-        services.AddTransient<IDataQueryHandler<CountOrdersQuery, int>, CountOrdersQueryHandler>();
-        services.AddTransient<IDataMutationHandler<MarkOrderPaidMutation, int>, MarkOrderPaidMutationHandler>();
         return services.BuildServiceProvider();
     }
 
@@ -181,9 +179,9 @@ public sealed class SqlServerDataContextIntegrationTests : IAsyncLifetime
 
     private static Task SeedCustomersAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    private sealed record Order(Guid Id, string CustomerEmail, decimal Total, bool IsPaid, DateTimeOffset CreatedAt);
+    internal sealed record Order(Guid Id, string CustomerEmail, decimal Total, bool IsPaid, DateTimeOffset CreatedAt);
 
-    private sealed class OrderMap : EntityMap<Order>
+    internal sealed class OrderMap : EntityMap<Order>
     {
         protected override void Configure(EntityMapBuilder<Order> builder)
         {
@@ -196,9 +194,9 @@ public sealed class SqlServerDataContextIntegrationTests : IAsyncLifetime
         }
     }
 
-    private sealed record Customer(Guid Id, string Email);
+    internal sealed record Customer(Guid Id, string Email);
 
-    private sealed class CustomerMap : EntityMap<Customer>
+    internal sealed class CustomerMap : EntityMap<Customer>
     {
         protected override void Configure(EntityMapBuilder<Customer> builder)
         {
@@ -212,17 +210,17 @@ public sealed class SqlServerDataContextIntegrationTests : IAsyncLifetime
 
     private sealed record JoinedOrderSummary(string CustomerEmail, string Email);
 
-    private sealed record CountOrdersQuery(bool IsPaid) : IDataQuery<int>;
+    internal sealed record CountOrdersQuery(bool IsPaid) : IDataQuery<int>;
 
-    private sealed class CountOrdersQueryHandler(IDataContext dataContext) : IDataQueryHandler<CountOrdersQuery, int>
+    internal sealed class CountOrdersQueryHandler(IDataContext dataContext) : IDataQueryHandler<CountOrdersQuery, int>
     {
         public ValueTask<int> HandleAsync(CountOrdersQuery query, CancellationToken cancellationToken = default) =>
             dataContext.Query<Order>().Where(order => order.IsPaid == query.IsPaid).CountAsync(cancellationToken);
     }
 
-    private sealed record MarkOrderPaidMutation(Guid OrderId) : IDataMutation<int>;
+    internal sealed record MarkOrderPaidMutation(Guid OrderId) : IDataMutation<int>;
 
-    private sealed class MarkOrderPaidMutationHandler(IDataContext dataContext) : IDataMutationHandler<MarkOrderPaidMutation, int>
+    internal sealed class MarkOrderPaidMutationHandler(IDataContext dataContext) : IDataMutationHandler<MarkOrderPaidMutation, int>
     {
         public ValueTask<int> HandleAsync(MarkOrderPaidMutation mutation, CancellationToken cancellationToken = default) =>
             dataContext.Update<Order>().Where(order => order.Id == mutation.OrderId).Set(order => order.IsPaid, true).ExecuteAsync(cancellationToken);

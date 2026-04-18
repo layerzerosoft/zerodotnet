@@ -4,16 +4,17 @@ using LayerZero.Migrations;
 using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
-builder.Services
-    .AddLayerZeroData(options =>
+builder.Services.AddData(data =>
+{
+    data.UseSqlServer(options =>
     {
         options.ConnectionStringName = "Migrations";
-    })
-    .UseSqlServer()
-    .UseMigrations(options =>
+    });
+    data.UseMigrations(options =>
     {
         options.Executor = "layerzero-migrations-runner";
     });
+});
 
 if (await builder.RunLayerZeroMigrationsCommandAsync(args, builder.Build) is { } exitCode)
 {

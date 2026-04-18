@@ -139,8 +139,8 @@ public sealed class MigrationRuntimeTests
 
         var createTable = Assert.IsType<CreateTableOperation>(Assert.Single(model.Migrations[0].Operations));
         Assert.Equal("customers", createTable.Table.Name);
-        Assert.Contains(createTable.Columns, column => column.Name == "email" && column.Type.Equals(ColumnType.String(256)));
-        Assert.Contains("id", createTable.PrimaryKeyColumns);
+        Assert.Contains(createTable.Columns, column => column.Name == "Email" && column.Type.Equals(ColumnType.String(256)));
+        Assert.Contains("Id", createTable.PrimaryKeyColumns);
     }
 
     private static MigrationRuntime CreateRuntime(FakeMigrationDatabaseAdapter adapter, IMigrationCatalog registry)

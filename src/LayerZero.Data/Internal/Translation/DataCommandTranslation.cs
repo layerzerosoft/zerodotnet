@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Globalization;
+using System.Text;
 using LayerZero.Data.Internal.Execution;
 using LayerZero.Data.Internal.Registration;
 using LayerZero.Data.Internal.Sql;
@@ -124,9 +125,49 @@ internal static class DataCommandTranslation
         DataReadMode mode,
         Type resultType)
     {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{mode}|{resultType.AssemblyQualifiedName}|{model.RootEntityType.AssemblyQualifiedName}|{model.RowType.AssemblyQualifiedName}|{string.Join("|", model.Joins.Select(static join => $"{join.RightEntityType.AssemblyQualifiedName}:{join.LeftKey.Body}:{join.RightKey.Body}"))}|{string.Join("|", model.Filters.Select(static filter => filter.Body.ToString()))}|{string.Join("|", model.Orderings.Select(static ordering => $"{ordering.Selector.Body}:{ordering.Descending}"))}|{model.Skip?.ToString(CultureInfo.InvariantCulture) ?? "-"}|{model.Take?.ToString(CultureInfo.InvariantCulture) ?? "-"}|{projection?.Body.ToString() ?? "-"}");
+        var builder = new StringBuilder();
+        builder.Append(mode.ToString());
+        builder.Append('|');
+        builder.Append(DataExpressionFingerprint.Create(resultType));
+        builder.Append('|');
+        builder.Append(DataExpressionFingerprint.Create(model.RootEntityType));
+        builder.Append('|');
+        builder.Append(DataExpressionFingerprint.Create(model.RowType));
+        builder.Append('|');
+
+        foreach (var join in model.Joins)
+        {
+            builder.Append(DataExpressionFingerprint.Create(join.RightEntityType));
+            builder.Append(':');
+            builder.Append(DataExpressionFingerprint.Create(join.LeftKey));
+            builder.Append(':');
+            builder.Append(DataExpressionFingerprint.Create(join.RightKey));
+            builder.Append('|');
+        }
+
+        builder.Append("filters:");
+        foreach (var filter in model.Filters)
+        {
+            builder.Append(DataExpressionFingerprint.Create(filter));
+            builder.Append('|');
+        }
+
+        builder.Append("orderings:");
+        foreach (var ordering in model.Orderings)
+        {
+            builder.Append(DataExpressionFingerprint.Create(ordering.Selector));
+            builder.Append(':');
+            builder.Append(ordering.Descending ? '1' : '0');
+            builder.Append('|');
+        }
+
+        builder.Append("skip:");
+        builder.Append(model.Skip?.ToString(CultureInfo.InvariantCulture) ?? "-");
+        builder.Append("|take:");
+        builder.Append(model.Take?.ToString(CultureInfo.InvariantCulture) ?? "-");
+        builder.Append("|projection:");
+        builder.Append(projection is null ? "-" : DataExpressionFingerprint.Create(projection));
+        return builder.ToString();
     }
 
     public static string CreateAggregateCacheKey(
@@ -142,23 +183,59 @@ internal static class DataCommandTranslation
 
     public static string CreateUpdateCacheKey(DataUpdateModel model)
     {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"update|{model.EntityType.AssemblyQualifiedName}|{string.Join("|", model.Assignments.Select(static assignment => assignment.Property.Body.ToString()))}|{string.Join("|", model.Filters.Select(static filter => filter.Body.ToString()))}");
+        var builder = new StringBuilder();
+        builder.Append("update|");
+        builder.Append(DataExpressionFingerprint.Create(model.EntityType));
+        builder.Append('|');
+
+        foreach (var assignment in model.Assignments)
+        {
+            builder.Append(DataExpressionFingerprint.Create(assignment.Property));
+            builder.Append('|');
+            builder.Append(DataExpressionFingerprint.Create(assignment.ValueType));
+            builder.Append('|');
+        }
+
+        builder.Append("filters:");
+        foreach (var filter in model.Filters)
+        {
+            builder.Append(DataExpressionFingerprint.Create(filter));
+            builder.Append('|');
+        }
+
+        return builder.ToString();
     }
 
     public static string CreateDeleteCacheKey(DataDeleteModel model)
     {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"delete|{model.EntityType.AssemblyQualifiedName}|{string.Join("|", model.Filters.Select(static filter => filter.Body.ToString()))}");
+        var builder = new StringBuilder();
+        builder.Append("delete|");
+        builder.Append(DataExpressionFingerprint.Create(model.EntityType));
+        builder.Append("|filters:");
+
+        foreach (var filter in model.Filters)
+        {
+            builder.Append(DataExpressionFingerprint.Create(filter));
+            builder.Append('|');
+        }
+
+        return builder.ToString();
     }
 
     public static string CreateInsertCacheKey(IEntityTable table)
     {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"insert|{table.EntityType.AssemblyQualifiedName}|{string.Join("|", table.Columns.Where(static column => !column.Definition.IsIdentity).Select(static column => column.Name))}");
+        var builder = new StringBuilder();
+        builder.Append("insert|");
+        builder.Append(DataExpressionFingerprint.Create(table.EntityType));
+        builder.Append('|');
+
+        foreach (var column in table.Columns.Where(static column => !column.Definition.IsIdentity))
+        {
+            builder.Append(column.Name);
+            builder.Append('|');
+        }
+
+        return builder.ToString();
     }
 
     public static DataReaderCommandTemplate CreateReaderTemplate<TResult>(
