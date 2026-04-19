@@ -1,3 +1,5 @@
+using LayerZero.Data;
+using LayerZero.Data.Postgres;
 using LayerZero.Fulfillment.Shared;
 #pragma warning disable IDE0005 // Required for the source-generated AddMessages() extension.
 using LayerZero.Messaging;
@@ -13,7 +15,16 @@ public static class ProcessingHost
     public static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddLogging(logging => logging.AddSimpleConsole(static options => options.SingleLine = true));
-        services.AddFulfillmentStore(configuration);
+        services.AddData(data =>
+        {
+            data.UsePostgres(options =>
+            {
+                options.ConnectionString = FulfillmentConnectionStringResolver.Resolve(configuration);
+                options.ConnectionStringName = "Fulfillment";
+                options.DefaultSchema = "public";
+            });
+        });
+        services.AddFulfillmentStore();
         services.AddFulfillmentMessaging(
                 configuration,
                 FulfillmentMessagingRegistration.ResolveApplicationName(configuration, "processing", "fulfillment-processing"))

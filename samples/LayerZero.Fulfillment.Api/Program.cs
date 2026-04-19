@@ -1,8 +1,12 @@
 using System.Reflection;
 using LayerZero.AspNetCore;
+using LayerZero.Data;
+using LayerZero.Data.Postgres;
 using LayerZero.Fulfillment.Shared;
 using LayerZero.Messaging;
 using Microsoft.OpenApi;
+
+const string DefaultFulfillmentConnectionString = "Host=localhost;Port=5432;Database=fulfillment;Username=postgres;Password=postgres";
 
 var builder = WebApplication.CreateBuilder(args);
 var isOpenApiDocumentGeneration =
@@ -13,13 +17,26 @@ var disableTransportSetting = builder.Configuration["Messaging:DisableTransport"
     ?? builder.WebHost.GetSetting("Messaging:DisableTransport");
 var disableTransport = isOpenApiDocumentGeneration
     || (bool.TryParse(disableTransportSetting, out var disableTransportValue) && disableTransportValue);
+var fulfillmentConnectionString = FulfillmentConnectionStringResolver.Resolve(
+    builder.Configuration,
+    fallbackConnectionString: DefaultFulfillmentConnectionString,
+    overrideConnectionString: builder.WebHost.GetSetting("ConnectionStrings:Fulfillment"));
 
 builder.Services.AddOpenApi("v1", options =>
 {
     options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1;
 });
 
-builder.Services.AddFulfillmentStore(builder.Configuration);
+builder.Services.AddData(data =>
+{
+    data.UsePostgres(options =>
+    {
+        options.ConnectionString = fulfillmentConnectionString;
+        options.ConnectionStringName = "Fulfillment";
+        options.DefaultSchema = "public";
+    });
+});
+builder.Services.AddFulfillmentStore();
 builder.Services.AddSingleton<IMessageTopologyManifest, FulfillmentTopologyManifest>();
 
 if (disableTransport)
@@ -40,11 +57,6 @@ builder.Services
     .AddSlices();
 
 var app = builder.Build();
-
-using (var scope = app.Services.CreateScope())
-{
-    await scope.ServiceProvider.GetRequiredService<FulfillmentStore>().InitializeAsync();
-}
 
 app.MapOpenApi("/openapi/{documentName}.json");
 app.MapGet("/", () => Results.Redirect("/openapi/v1.json")).ExcludeFromDescription();

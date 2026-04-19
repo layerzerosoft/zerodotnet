@@ -7,47 +7,15 @@ namespace LayerZero.Fulfillment.Shared;
 
 internal static class FulfillmentProvisioning
 {
-    public static Task InitializeStoreAsync(
+    public static Task ProvisionTopologyAsync(
         Action<IServiceCollection, IConfiguration> configure,
         IConfiguration configuration,
         CancellationToken cancellationToken = default)
     {
-        return InitializeStoreAsync(configure, configuration, "store initialization", cancellationToken);
+        return ProvisionTopologyAsync(configure, configuration, "topology provisioning", cancellationToken);
     }
 
-    public static Task InitializeStoreAsync(
-        Action<IServiceCollection, IConfiguration> configure,
-        IConfiguration configuration,
-        string operationName,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(configure);
-        ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
-
-        return ExecuteAsync(
-            configure,
-            configuration,
-            operationName,
-            static async (services, logger, broker, ct) =>
-            {
-                logger.LogInformation("Initializing fulfillment store for broker {Broker}.", broker);
-                await using var scope = services.CreateAsyncScope();
-                await scope.ServiceProvider.GetRequiredService<FulfillmentStore>().InitializeAsync(ct).ConfigureAwait(false);
-                logger.LogInformation("Fulfillment store initialization completed for broker {Broker}.", broker);
-            },
-            cancellationToken);
-    }
-
-    public static Task InitializeStoreAndProvisionAsync(
-        Action<IServiceCollection, IConfiguration> configure,
-        IConfiguration configuration,
-        CancellationToken cancellationToken = default)
-    {
-        return InitializeStoreAndProvisionAsync(configure, configuration, "topology provisioning", cancellationToken);
-    }
-
-    public static Task InitializeStoreAndProvisionAsync(
+    public static Task ProvisionTopologyAsync(
         Action<IServiceCollection, IConfiguration> configure,
         IConfiguration configuration,
         string operationName,
@@ -61,31 +29,24 @@ internal static class FulfillmentProvisioning
             configure,
             configuration,
             operationName,
-            static (services, logger, broker, ct) => InitializeStoreAndProvisionAsync(services, logger, broker, ct),
+            static (services, logger, broker, ct) => ProvisionTopologyAsync(services, logger, broker, ct),
             cancellationToken);
     }
 
-    public static Task InitializeStoreAndProvisionAsync(
+    public static Task ProvisionTopologyAsync(
         IServiceProvider services,
         CancellationToken cancellationToken = default)
     {
-        return InitializeStoreAndProvisionAsync(services, logger: null, broker: null, cancellationToken);
+        return ProvisionTopologyAsync(services, logger: null, broker: null, cancellationToken);
     }
 
-    private static async Task InitializeStoreAndProvisionAsync(
+    private static async Task ProvisionTopologyAsync(
         IServiceProvider services,
         ILogger? logger,
         string? broker,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        broker ??= "unknown";
-
         await using var scope = services.CreateAsyncScope();
-        logger?.LogInformation("Initializing fulfillment store for broker {Broker}.", broker);
-        await scope.ServiceProvider.GetRequiredService<FulfillmentStore>().InitializeAsync(cancellationToken).ConfigureAwait(false);
-        logger?.LogInformation("Fulfillment store initialization completed for broker {Broker}.", broker);
-
         var managers = scope.ServiceProvider.GetServices<IMessageTopologyManager>().ToArray();
         if (managers.Length == 0)
         {
@@ -110,6 +71,7 @@ internal static class FulfillmentProvisioning
         CancellationToken cancellationToken)
     {
         var services = new ServiceCollection();
+        services.AddSingleton(configuration);
         configure(services, configuration);
         EnsureProvisioningLogging(services);
 

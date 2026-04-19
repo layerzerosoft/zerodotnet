@@ -40,7 +40,7 @@ public sealed class FulfillmentAppHostStartupTests
     public Task Rabbitmq_app_host_starts_fulfillment_resources_and_serves_real_api_flows()
     {
         return AssertAppHostStartsAsync<FulfillmentRabbitMqAppHost::Projects.LayerZero_Fulfillment_RabbitMq_AppHost>(
-            brokerResources: ["rabbitmq"],
+            brokerResources: ["rabbitmq", "postgres", "fulfillment"],
             oneShotResources: ["fulfillment-bootstrap"],
             longRunningResources: ["fulfillment-processing", "fulfillment-projections", "fulfillment-api"]);
     }
@@ -49,7 +49,7 @@ public sealed class FulfillmentAppHostStartupTests
     public Task Azure_service_bus_app_host_starts_fulfillment_resources_and_serves_real_api_flows()
     {
         return AssertAppHostStartsAsync<FulfillmentAzureServiceBusAppHost::Projects.LayerZero_Fulfillment_AzureServiceBus_AppHost>(
-            brokerResources: ["servicebus"],
+            brokerResources: ["servicebus", "postgres", "fulfillment"],
             oneShotResources: ["fulfillment-bootstrap"],
             longRunningResources: ["fulfillment-processing", "fulfillment-projections", "fulfillment-api"]);
     }
@@ -58,7 +58,7 @@ public sealed class FulfillmentAppHostStartupTests
     public Task Kafka_app_host_starts_fulfillment_resources_and_serves_real_api_flows()
     {
         return AssertAppHostStartsAsync<FulfillmentKafkaAppHost::Projects.LayerZero_Fulfillment_Kafka_AppHost>(
-            brokerResources: ["kafka"],
+            brokerResources: ["kafka", "postgres", "fulfillment"],
             oneShotResources: ["fulfillment-kafka-readiness", "fulfillment-bootstrap"],
             longRunningResources: ["fulfillment-processing", "fulfillment-projections", "fulfillment-api"]);
     }
@@ -67,7 +67,7 @@ public sealed class FulfillmentAppHostStartupTests
     public Task Nats_app_host_starts_fulfillment_resources_and_serves_real_api_flows()
     {
         return AssertAppHostStartsAsync<FulfillmentNatsAppHost::Projects.LayerZero_Fulfillment_Nats_AppHost>(
-            brokerResources: ["nats"],
+            brokerResources: ["nats", "postgres", "fulfillment"],
             oneShotResources: ["fulfillment-bootstrap"],
             longRunningResources: ["fulfillment-processing", "fulfillment-projections", "fulfillment-api"]);
     }
@@ -396,8 +396,8 @@ public sealed class FulfillmentAppHostStartupTests
     {
         var resourceLogs = await GetResourceLogsAsync(app, resourceName, cancellationToken);
 
-        Assert.Contains("Fulfillment provisioning operation store initialization started for broker", resourceLogs, StringComparison.Ordinal);
-        Assert.Contains("Initializing fulfillment store for broker", resourceLogs, StringComparison.Ordinal);
+        Assert.Contains("Fulfillment migrations started for broker", resourceLogs, StringComparison.Ordinal);
+        Assert.Contains("Fulfillment migrations completed for broker", resourceLogs, StringComparison.Ordinal);
         Assert.Contains("Provisioning topology manager", resourceLogs, StringComparison.Ordinal);
         Assert.Contains("Fulfillment provisioning operation processing topology provisioning completed for broker", resourceLogs, StringComparison.Ordinal);
         Assert.Contains("Fulfillment provisioning operation projection topology provisioning completed for broker", resourceLogs, StringComparison.Ordinal);

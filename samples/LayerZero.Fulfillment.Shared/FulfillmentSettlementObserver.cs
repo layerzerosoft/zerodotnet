@@ -1,12 +1,17 @@
 using LayerZero.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LayerZero.Fulfillment.Shared;
 
-public sealed class SqliteSettlementObserver(
-    FulfillmentStore store,
+public sealed class FulfillmentSettlementObserver(
+    IServiceScopeFactory scopeFactory,
     IMessageRegistry registry,
     IMessageConventions conventions) : IMessageSettlementObserver
 {
+    private readonly IServiceScopeFactory scopeFactory = scopeFactory;
+    private readonly IMessageRegistry registry = registry;
+    private readonly IMessageConventions conventions = conventions;
+
     public async ValueTask OnSettledAsync(
         MessageContext context,
         MessageProcessingAction action,
@@ -26,6 +31,8 @@ public sealed class SqliteSettlementObserver(
             ? conventions.GetEntityName(descriptor)
             : MessageTopologyNames.Entity(context.MessageKind, context.MessageName);
 
+        using var scope = scopeFactory.CreateScope();
+        var store = scope.ServiceProvider.GetRequiredService<FulfillmentStore>();
         await store.SaveDeadLetterAsync(
             context,
             handlerIdentity,

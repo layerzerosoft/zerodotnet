@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" />
     <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
     <ProjectReference Include="../LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />

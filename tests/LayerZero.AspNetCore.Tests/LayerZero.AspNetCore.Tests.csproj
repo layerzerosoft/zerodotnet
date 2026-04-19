@@ -6,11 +6,13 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
     <ProjectReference Include="../../src/LayerZero.Core/LayerZero.Core.csproj" />

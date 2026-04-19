@@ -190,8 +190,9 @@ The sample intentionally exercises:
 - cancel during in-flight processing
 - correlation and timeline visibility from HTTP ingress through worker handling
 
-The sample uses raw `Microsoft.Data.Sqlite` for order state, dead letters,
-idempotency checkpoints, and timelines.
+The sample uses `LayerZero.Data.Postgres` for order state, dead letters,
+idempotency checkpoints, and timelines, and `LayerZero.Migrations.Postgres`
+for bootstrap-owned schema management.
 
 ## Local Prerequisites
 

@@ -1,7 +1,10 @@
 using System.Net;
+using LayerZero.Fulfillment.Bootstrap;
 using LayerZero.Fulfillment.Client.Sample.Clients;
 using LayerZero.Fulfillment.Contracts.Orders;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Npgsql;
+using Testcontainers.PostgreSql;
 
 namespace LayerZero.Client.Integration.Tests;
 
@@ -94,19 +97,24 @@ public sealed class FulfillmentTypedClientIntegrationTests : IClassFixture<Fulfi
 
 public sealed class FulfillmentTypedClientFactory : WebApplicationFactory<Program>
 {
-    private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"layerzero-fulfillment-client-{Guid.NewGuid():N}.db");
+    private readonly object initializationGate = new();
+    private PostgreSqlContainer? container;
+    private string? connectionString;
+    private bool initialized;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        EnsureInitialized();
+
         builder.UseEnvironment("Development");
         builder.UseSetting("Messaging:DisableTransport", "true");
-        builder.UseSetting("ConnectionStrings:Fulfillment", $"Data Source={databasePath}");
+        builder.UseSetting("ConnectionStrings:Fulfillment", connectionString);
         builder.ConfigureAppConfiguration((_, configurationBuilder) =>
         {
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Messaging:DisableTransport"] = "true",
-                ["ConnectionStrings:Fulfillment"] = $"Data Source={databasePath}",
+                ["ConnectionStrings:Fulfillment"] = connectionString,
             });
         });
     }
@@ -115,9 +123,53 @@ public sealed class FulfillmentTypedClientFactory : WebApplicationFactory<Progra
     {
         base.Dispose(disposing);
 
-        if (disposing && File.Exists(databasePath))
+        if (disposing && container is not null)
         {
-            File.Delete(databasePath);
+            container.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            container = null;
+        }
+    }
+
+    private void EnsureInitialized()
+    {
+        if (initialized)
+        {
+            return;
+        }
+
+        lock (initializationGate)
+        {
+            if (initialized)
+            {
+                return;
+            }
+
+            container = new PostgreSqlBuilder("postgres:16.4").Build();
+            container.StartAsync().GetAwaiter().GetResult();
+
+            var databaseName = $"lz_{Guid.NewGuid():N}";
+            using (var connection = new NpgsqlConnection(container.GetConnectionString()))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = $"""create database "{databaseName}";""";
+                command.ExecuteNonQuery();
+            }
+
+            connectionString = new NpgsqlConnectionStringBuilder(container.GetConnectionString())
+            {
+                Database = databaseName,
+            }.ConnectionString;
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:Fulfillment"] = connectionString,
+                })
+                .Build();
+
+            FulfillmentBootstrapHost.ApplyMigrationsAsync(configuration).GetAwaiter().GetResult();
+            initialized = true;
         }
     }
 }

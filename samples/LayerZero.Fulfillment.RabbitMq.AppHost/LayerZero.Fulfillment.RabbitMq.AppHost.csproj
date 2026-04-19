@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
     <PackageReference Include="Aspire.Hosting.RabbitMQ" />
     <ProjectReference Include="../LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />

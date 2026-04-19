@@ -2,12 +2,6 @@ const string AzureServiceBusEmulatorImageTag = "2.0.0";
 const int AzureServiceBusAdministrationContainerPort = 5300;
 
 var builder = DistributedApplication.CreateBuilder(args);
-var fulfillmentDataDirectory = Path.Combine(builder.AppHostDirectory, "data");
-Directory.CreateDirectory(fulfillmentDataDirectory);
-
-var databasePath = Path.Combine(fulfillmentDataDirectory, "fulfillment.db");
-var databaseConnectionString = $"Data Source={databasePath}";
-
 var serviceBus = builder.AddAzureServiceBus("servicebus")
     .RunAsEmulator(static emulator => emulator.WithImageTag(AzureServiceBusEmulatorImageTag))
     .WithEndpoint("administration", static endpoint =>
@@ -15,22 +9,26 @@ var serviceBus = builder.AddAzureServiceBus("servicebus")
         endpoint.TargetPort = AzureServiceBusAdministrationContainerPort;
         endpoint.UriScheme = "sb";
     });
+var postgres = builder.AddPostgres("postgres");
+var fulfillmentDatabase = postgres.AddDatabase("fulfillment");
 var administrationEndpoint = serviceBus.Resource.GetEndpoint("administration");
 
 var bootstrap = WithAzureServiceBusAdministrationConnectionString(
     builder.AddProject<Projects.LayerZero_Fulfillment_Bootstrap>("fulfillment-bootstrap")
         .WithReference(serviceBus)
+        .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
         .WithEnvironment("Messaging__Broker", "AzureServiceBus")
-        .WithEnvironment("ConnectionStrings__Fulfillment", databaseConnectionString)
-        .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable),
+        .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable)
+        .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable),
     serviceBus,
     administrationEndpoint);
 
 builder.AddProject<Projects.LayerZero_Fulfillment_Processing>("fulfillment-processing")
     .WithReference(serviceBus)
+    .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
     .WithEnvironment("Messaging__Broker", "AzureServiceBus")
-    .WithEnvironment("ConnectionStrings__Fulfillment", databaseConnectionString)
     .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable)
+    .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap)
     .WithEnvironment(context => ConfigureAzureServiceBusAdministrationConnectionString(
         context,
@@ -39,9 +37,10 @@ builder.AddProject<Projects.LayerZero_Fulfillment_Processing>("fulfillment-proce
 
 builder.AddProject<Projects.LayerZero_Fulfillment_Projections>("fulfillment-projections")
     .WithReference(serviceBus)
+    .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
     .WithEnvironment("Messaging__Broker", "AzureServiceBus")
-    .WithEnvironment("ConnectionStrings__Fulfillment", databaseConnectionString)
     .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable)
+    .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap)
     .WithEnvironment(context => ConfigureAzureServiceBusAdministrationConnectionString(
         context,
@@ -50,13 +49,14 @@ builder.AddProject<Projects.LayerZero_Fulfillment_Projections>("fulfillment-proj
 
 builder.AddProject<Projects.LayerZero_Fulfillment_Api>("fulfillment-api", launchProfileName: null)
     .WithReference(serviceBus)
+    .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
     .WithEnvironment("Messaging__Broker", "AzureServiceBus")
-    .WithEnvironment("ConnectionStrings__Fulfillment", databaseConnectionString)
     .WithHttpEndpoint(port: 5382, name: "http")
     .WithHttpsEndpoint(port: 7382, name: "https")
     .WithUrlForEndpoint("http", static _ => new() { Url = "/openapi/v1.json", DisplayText = "OpenAPI (HTTP)" })
     .WithUrlForEndpoint("https", static _ => new() { Url = "/openapi/v1.json", DisplayText = "OpenAPI (HTTPS)" })
     .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable)
+    .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap)
     .WithEnvironment(context => ConfigureAzureServiceBusAdministrationConnectionString(
         context,

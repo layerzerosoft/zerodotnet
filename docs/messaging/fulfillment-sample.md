@@ -71,13 +71,9 @@ resource logs can legitimately show a different internal port.
 
 Each AppHost provisions its own topology through `LayerZero.Fulfillment.Bootstrap`
 before the API, processing worker, and projections worker start. Each AppHost
-also shares one SQLite database file across bootstrap, API, processing, and
-projections:
-
-- `samples/LayerZero.Fulfillment.RabbitMq.AppHost/data/fulfillment.db`
-- `samples/LayerZero.Fulfillment.AzureServiceBus.AppHost/data/fulfillment.db`
-- `samples/LayerZero.Fulfillment.Kafka.AppHost/data/fulfillment.db`
-- `samples/LayerZero.Fulfillment.Nats.AppHost/data/fulfillment.db`
+also provisions one shared PostgreSQL server resource, `postgres`, plus one
+shared fulfillment database resource, `fulfillment`, that bootstrap, API,
+processing, and projections all reference through `ConnectionStrings:Fulfillment`.
 
 The dashboard adds direct OpenAPI deep-links for the HTTP and HTTPS API
 endpoints so `/openapi/v1.json` is one click away from the resource card.
@@ -120,6 +116,13 @@ dotnet run --project samples/LayerZero.Fulfillment.Api
 dotnet run --project samples/LayerZero.Fulfillment.Bootstrap
 dotnet run --project samples/LayerZero.Fulfillment.Processing
 dotnet run --project samples/LayerZero.Fulfillment.Projections
+```
+
+The bootstrap host is also the canonical migration entrypoint:
+
+```bash
+dotnet run --project samples/LayerZero.Fulfillment.Bootstrap -- migrations status
+dotnet run --project samples/LayerZero.Fulfillment.Bootstrap -- migrations apply
 ```
 
 ## API Surface
@@ -171,9 +174,16 @@ The sample keeps failure and retry behavior explicit through `OrderScenario`:
 
 ## Data And Operator Visibility
 
-The sample uses raw `Microsoft.Data.Sqlite`, not EF Core.
+The sample uses `LayerZero.Data.Postgres` plus `LayerZero.Migrations.Postgres`,
+not EF Core. The fulfillment persistence layer uses typed LayerZero data
+queries and updates for normal reads and writes, and keeps raw SQL only for the
+PostgreSQL-specific conflict and guarded-update paths.
 
-SQLite stores:
+Bootstrap owns schema application and is the only sample host that runs
+migrations. API, processing, and projections only register
+`AddData(...UsePostgres...)` and use the existing schema.
+
+PostgreSQL tables store:
 
 - order state
 - projection/read-model state
@@ -252,4 +262,4 @@ dotnet run --project eng/LayerZero.Testcontainers.Cleanup -- --apply --older-tha
 
 - If Azure Service Bus provisioning fails against the emulator, make sure the admin connection string points at the emulator's management endpoint.
 - If timelines stop at intermediate states after cancel or duplicate scenarios, inspect the dead-letter list and worker logs first; the sample preserves terminal order states instead of overwriting them later.
-- If duplicate shipment or payment side effects reappear, inspect the SQLite `side_effects` table and the idempotency store wiring before increasing broker retries.
+- If duplicate shipment or payment side effects reappear, inspect the PostgreSQL `public.side_effects` table and the idempotency store wiring before increasing broker retries.

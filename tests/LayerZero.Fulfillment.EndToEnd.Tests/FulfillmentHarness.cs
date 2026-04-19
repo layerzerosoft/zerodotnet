@@ -1,9 +1,12 @@
 using System.Diagnostics;
+using LayerZero.Fulfillment.Bootstrap;
 using LayerZero.Fulfillment.Contracts.Orders;
 using LayerZero.Fulfillment.Processing;
 using LayerZero.Fulfillment.Projections;
 using LayerZero.Fulfillment.Shared;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Npgsql;
+using Testcontainers.PostgreSql;
 
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
@@ -53,19 +56,19 @@ public sealed class FulfillmentOrderRun
 
 public sealed class FulfillmentHarness : IAsyncDisposable
 {
-    private readonly string databasePath;
+    private readonly FulfillmentPostgresDatabase database;
     private readonly IHost processingHost;
     private readonly IHost projectionHost;
     private readonly FulfillmentApiFactory factory;
 
     private FulfillmentHarness(
-        string databasePath,
+        FulfillmentPostgresDatabase database,
         IHost processingHost,
         IHost projectionHost,
         FulfillmentApiFactory factory,
         HttpClient client)
     {
-        this.databasePath = databasePath;
+        this.database = database;
         this.processingHost = processingHost;
         this.projectionHost = projectionHost;
         this.factory = factory;
@@ -76,28 +79,34 @@ public sealed class FulfillmentHarness : IAsyncDisposable
 
     public static async Task<FulfillmentHarness> CreateAsync(IFulfillmentBrokerFixture brokerFixture, CancellationToken cancellationToken = default)
     {
-        var databasePath = Path.Combine(Path.GetTempPath(), $"layerzero-fulfillment-e2e-{Guid.NewGuid():N}.db");
+        var database = await FulfillmentPostgresDatabase.CreateAsync(cancellationToken).ConfigureAwait(false);
         var settings = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
-            ["ConnectionStrings:Fulfillment"] = $"Data Source={databasePath}",
+            ["ConnectionStrings:Fulfillment"] = database.ConnectionString,
             ["Messaging:ApplicationName"] = $"fulfillment-e2e-{Guid.NewGuid():N}",
         };
 
         brokerFixture.ApplyConfiguration(settings);
 
-        var processingHost = CreateWorkerHost(settings, static (services, configuration) => ProcessingHost.ConfigureServices(services, configuration));
-        var projectionHost = CreateWorkerHost(settings, static (services, configuration) => ProjectionHost.ConfigureServices(services, configuration));
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(settings)
+            .Build();
 
-        await FulfillmentProvisioning.InitializeStoreAndProvisionAsync(processingHost.Services, cancellationToken).ConfigureAwait(false);
-        await FulfillmentProvisioning.InitializeStoreAndProvisionAsync(projectionHost.Services, cancellationToken).ConfigureAwait(false);
+        await FulfillmentBootstrapHost.ApplyMigrationsAsync(configuration, cancellationToken).ConfigureAwait(false);
+
+        var processingHost = CreateWorkerHost(settings, static (services, currentConfiguration) => ProcessingHost.ConfigureServices(services, currentConfiguration));
+        var projectionHost = CreateWorkerHost(settings, static (services, currentConfiguration) => ProjectionHost.ConfigureServices(services, currentConfiguration));
+
+        await FulfillmentProvisioning.ProvisionTopologyAsync(processingHost.Services, cancellationToken).ConfigureAwait(false);
+        await FulfillmentProvisioning.ProvisionTopologyAsync(projectionHost.Services, cancellationToken).ConfigureAwait(false);
 
         await processingHost.StartAsync(cancellationToken).ConfigureAwait(false);
         await projectionHost.StartAsync(cancellationToken).ConfigureAwait(false);
 
-        var factory = new FulfillmentApiFactory(settings, databasePath);
+        var factory = new FulfillmentApiFactory(settings);
         var client = factory.CreateClient();
 
-        return new FulfillmentHarness(databasePath, processingHost, projectionHost, factory, client);
+        return new FulfillmentHarness(database, processingHost, projectionHost, factory, client);
     }
 
     public async ValueTask DisposeAsync()
@@ -108,11 +117,7 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         await DisposeAsync(projectionHost).ConfigureAwait(false);
         await DisposeAsync(processingHost).ConfigureAwait(false);
         await DisposeAsync(factory).ConfigureAwait(false);
-
-        if (File.Exists(databasePath))
-        {
-            File.Delete(databasePath);
-        }
+        await database.DisposeAsync().ConfigureAwait(false);
     }
 
     public async Task<FulfillmentOrderRun> PlaceOrderAsync(OrderScenario scenario, string? traceParent = null, CancellationToken cancellationToken = default)
@@ -145,7 +150,7 @@ public sealed class FulfillmentHarness : IAsyncDisposable
     public async Task CancelOrderAsync(Guid orderId, string reason, CancellationToken cancellationToken = default)
     {
         var response = await Client.PostAsJsonAsync(
-            OrderRoutes.Cancel.Replace("{id:guid}", orderId.ToString()),
+            OrderRoutes.Cancel.Replace("{id:guid}", orderId.ToString(), StringComparison.Ordinal),
             new CancelOrderApi.Body(reason),
             cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
@@ -236,7 +241,7 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         }
     }
 
-    private sealed class FulfillmentApiFactory(IReadOnlyDictionary<string, string?> settings, string databasePath) : WebApplicationFactory<Program>
+    private sealed class FulfillmentApiFactory(IReadOnlyDictionary<string, string?> settings) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -254,15 +259,43 @@ public sealed class FulfillmentHarness : IAsyncDisposable
                 configurationBuilder.AddInMemoryCollection(settings);
             });
         }
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-
-            if (disposing && File.Exists(databasePath))
-            {
-                File.Delete(databasePath);
-            }
-        }
     }
+}
+
+internal sealed class FulfillmentPostgresDatabase : IAsyncDisposable
+{
+    private FulfillmentPostgresDatabase(PostgreSqlContainer container, string connectionString)
+    {
+        Container = container;
+        ConnectionString = connectionString;
+    }
+
+    public PostgreSqlContainer Container { get; }
+
+    public string ConnectionString { get; }
+
+    public static async Task<FulfillmentPostgresDatabase> CreateAsync(CancellationToken cancellationToken)
+    {
+        var container = new PostgreSqlBuilder("postgres:16.4").Build();
+        await container.StartAsync(cancellationToken).ConfigureAwait(false);
+
+        var databaseName = $"lz_{Guid.NewGuid():N}";
+        await using var connection = new NpgsqlConnection(container.GetConnectionString());
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"""create database "{databaseName}";""";
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        var builder = new NpgsqlConnectionStringBuilder(container.GetConnectionString())
+        {
+            Database = databaseName,
+        };
+
+        return new FulfillmentPostgresDatabase(container, builder.ConnectionString);
+    }
+
+    public async ValueTask DisposeAsync() => await Container.DisposeAsync().ConfigureAwait(false);
 }

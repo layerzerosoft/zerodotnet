@@ -80,22 +80,14 @@ public static class FulfillmentMessagingRegistration
         };
     }
 
-    public static IServiceCollection AddFulfillmentStore(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddFulfillmentStore(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configuration);
-
-        var connectionString = configuration.GetConnectionString("Fulfillment")
-            ?? "Data Source=fulfillment.db";
 
         services.TryAddSingleton<IMessageRegistry, FulfillmentMessageRegistry>();
-        services.AddSingleton(servicesProvider => new FulfillmentStore(
-            connectionString,
-            servicesProvider.GetService<IMessageContextAccessor>(),
-            servicesProvider.GetService<IMessageRegistry>(),
-            servicesProvider.GetService<IMessageConventions>()));
-        services.AddSingleton<IMessageIdempotencyStore, SqliteMessageIdempotencyStore>();
-        services.AddSingleton<IMessageSettlementObserver, SqliteSettlementObserver>();
+        services.TryAddScoped<FulfillmentStore>();
+        services.TryAddSingleton<IMessageIdempotencyStore, FulfillmentMessageIdempotencyStore>();
+        services.TryAddSingleton<IMessageSettlementObserver, FulfillmentSettlementObserver>();
         services.AddScoped<DeadLetterReplayService>();
         return services;
     }

@@ -9,8 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" />
     <ProjectReference Include="../../src/LayerZero.Core/LayerZero.Core.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Data/LayerZero.Data.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Data.Analyzers/LayerZero.Data.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
     <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.RabbitMq/LayerZero.Messaging.RabbitMq.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />
