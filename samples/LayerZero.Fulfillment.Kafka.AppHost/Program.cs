@@ -8,34 +8,30 @@ var kafkaReadiness = builder.AddProject<Projects.LayerZero_Fulfillment_KafkaRead
     .WithReference(kafka)
     .WaitFor(kafka, WaitBehavior.StopOnResourceUnavailable);
 
-var bootstrap = builder.AddProject<Projects.LayerZero_Fulfillment_Bootstrap>("fulfillment-bootstrap")
+var bootstrap = builder.AddProject<Projects.LayerZero_Fulfillment_Kafka_Bootstrap>("fulfillment-bootstrap")
     .WithReference(kafka)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "Kafka")
     .WaitFor(kafka, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(kafkaReadiness);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Processing>("fulfillment-processing")
+builder.AddProject<Projects.LayerZero_Fulfillment_Kafka_Processing>("fulfillment-processing")
     .WithReference(kafka)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "Kafka")
     .WaitFor(kafka, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Projections>("fulfillment-projections")
+builder.AddProject<Projects.LayerZero_Fulfillment_Kafka_Projections>("fulfillment-projections")
     .WithReference(kafka)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "Kafka")
     .WaitFor(kafka, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Api>("fulfillment-api", launchProfileName: null)
+builder.AddProject<Projects.LayerZero_Fulfillment_Kafka_Api>("fulfillment-api", launchProfileName: null)
     .WithReference(kafka)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "Kafka")
     .WithHttpEndpoint(port: 5383, name: "http")
     .WithHttpsEndpoint(port: 7383, name: "https")
     .WithUrlForEndpoint("http", static _ => new() { Url = "/openapi/v1.json", DisplayText = "OpenAPI (HTTP)" })

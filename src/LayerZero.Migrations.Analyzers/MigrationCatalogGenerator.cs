@@ -13,7 +13,9 @@ namespace LayerZero.Migrations.Analyzers;
 public sealed class MigrationCatalogGenerator : IIncrementalGenerator
 {
     private const string GeneratedNamespace = "LayerZero.Migrations.Generated";
-    private const string CatalogClassName = "LayerZeroGeneratedMigrationCatalog";
+    private const string CatalogClassNamePrefix = "LayerZeroGeneratedMigrationCatalog";
+    private const string RegistrarClassNamePrefix = "LayerZeroGeneratedMigrationRegistrar";
+    private const string ModuleInitializerClassNamePrefix = "LayerZeroGeneratedMigrationModuleInitializer";
     private static readonly SymbolDisplayFormat FullyQualifiedFormat = SymbolDisplayFormat.FullyQualifiedFormat;
 
     private static readonly DiagnosticDescriptor UnsupportedConvention = new(
@@ -212,9 +214,31 @@ public sealed class MigrationCatalogGenerator : IIncrementalGenerator
             }
         }
 
+        var catalogClassName = CreateGeneratedTypeName(CatalogClassNamePrefix, compilation.AssemblyName);
+        var registrarClassName = CreateGeneratedTypeName(RegistrarClassNamePrefix, compilation.AssemblyName);
+        var moduleInitializerClassName = CreateGeneratedTypeName(ModuleInitializerClassNamePrefix, compilation.AssemblyName);
+        var referencedRegistrars = GetReferencedRegistrarTypes(compilation)
+            .Append($"global::{GeneratedNamespace}.{registrarClassName}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+        var referencedProviderRegistrars = GetReferencedProviderRegistrarTypes(compilation)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
         context.AddSource(
             "LayerZero.Migrations.Catalog.g.cs",
-            SourceText.From(RenderSource(migrations, seeds), Encoding.UTF8));
+            SourceText.From(
+                RenderSource(
+                    migrations,
+                    seeds,
+                    referencedRegistrars,
+                    referencedProviderRegistrars,
+                    catalogClassName,
+                    registrarClassName,
+                    moduleInitializerClassName),
+                Encoding.UTF8));
     }
 
     private static bool TryCreateMetadata(
@@ -368,9 +392,56 @@ public sealed class MigrationCatalogGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
+    private static IEnumerable<string> GetReferencedRegistrarTypes(Compilation compilation)
+    {
+        foreach (var assembly in compilation.SourceModule.ReferencedAssemblySymbols)
+        {
+            foreach (var attribute in assembly.GetAttributes())
+            {
+                if (attribute.AttributeClass?.ContainingNamespace.ToDisplayString() != "LayerZero.Migrations"
+                    || !attribute.AttributeClass.Name.Equals("MigrationAssemblyRegistrarAttribute", StringComparison.Ordinal)
+                    || attribute.ConstructorArguments.Length != 1)
+                {
+                    continue;
+                }
+
+                if (attribute.ConstructorArguments[0].Value is INamedTypeSymbol registrarType)
+                {
+                    yield return registrarType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<string> GetReferencedProviderRegistrarTypes(Compilation compilation)
+    {
+        foreach (var assembly in compilation.SourceModule.ReferencedAssemblySymbols)
+        {
+            foreach (var attribute in assembly.GetAttributes())
+            {
+                if (attribute.AttributeClass?.ContainingNamespace.ToDisplayString() != "LayerZero.Migrations"
+                    || !attribute.AttributeClass.Name.Equals("MigrationProviderRegistrarAttribute", StringComparison.Ordinal)
+                    || attribute.ConstructorArguments.Length != 1)
+                {
+                    continue;
+                }
+
+                if (attribute.ConstructorArguments[0].Value is INamedTypeSymbol registrarType)
+                {
+                    yield return registrarType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                }
+            }
+        }
+    }
+
     private static string RenderSource(
         IEnumerable<ArtifactMetadata> migrations,
-        IEnumerable<ArtifactMetadata> seeds)
+        IEnumerable<ArtifactMetadata> seeds,
+        IEnumerable<string> registrarTypes,
+        IEnumerable<string> providerRegistrarTypes,
+        string catalogClassName,
+        string registrarClassName,
+        string moduleInitializerClassName)
     {
         var orderedMigrations = migrations
             .Distinct()
@@ -388,12 +459,13 @@ public sealed class MigrationCatalogGenerator : IIncrementalGenerator
         var builder = new StringBuilder();
         builder.AppendLine("// <auto-generated />");
         builder.AppendLine("#nullable enable");
+        builder.AppendLine("#pragma warning disable CS1591");
         builder.AppendLine();
-        builder.AppendLine($"[assembly: global::LayerZero.Migrations.MigrationCatalogAttribute(typeof(global::{GeneratedNamespace}.{CatalogClassName}))]");
+        builder.AppendLine($"[assembly: global::LayerZero.Migrations.MigrationAssemblyRegistrarAttribute(typeof(global::{GeneratedNamespace}.{registrarClassName}))]");
         builder.AppendLine();
         builder.AppendLine($"namespace {GeneratedNamespace}");
         builder.AppendLine("{");
-        builder.AppendLine($"    internal sealed class {CatalogClassName} : global::LayerZero.Migrations.IMigrationCatalog");
+        builder.AppendLine($"    internal sealed class {catalogClassName} : global::LayerZero.Migrations.IMigrationCatalog");
         builder.AppendLine("    {");
         builder.AppendLine("        private static readonly global::LayerZero.Migrations.MigrationDescriptor[] AllMigrations =");
         builder.AppendLine("        [");
@@ -421,13 +493,80 @@ public sealed class MigrationCatalogGenerator : IIncrementalGenerator
         builder.AppendLine();
         builder.AppendLine("        public global::System.Collections.Generic.IReadOnlyList<global::LayerZero.Migrations.SeedDescriptor> Seeds => AllSeeds;");
         builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine("    [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
+        builder.AppendLine($"    public sealed class {registrarClassName} : global::LayerZero.Migrations.IMigrationAssemblyRegistrar");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public void Register(global::LayerZero.Migrations.MigrationAssemblyRegistrationBuilder builder)");
+        builder.AppendLine("        {");
+        builder.AppendLine("            global::System.ArgumentNullException.ThrowIfNull(builder);");
+        builder.AppendLine($"            builder.AddCatalog<{catalogClassName}>();");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine($"    internal static class {moduleInitializerClassName}");
+        builder.AppendLine("    {");
+        builder.AppendLine("        [global::System.Runtime.CompilerServices.ModuleInitializer]");
+        builder.AppendLine("        internal static void Initialize()");
+        builder.AppendLine("        {");
+
+        foreach (var registrarType in registrarTypes)
+        {
+            builder.AppendLine($"            global::LayerZero.Migrations.MigrationAssemblyRegistrarCatalog.Register<{registrarType}>();");
+        }
+
+        foreach (var providerRegistrarType in providerRegistrarTypes)
+        {
+            builder.AppendLine($"            global::LayerZero.Migrations.Internal.MigrationProviderRegistrarCatalog.Register<{providerRegistrarType}>();");
+        }
+
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
         builder.AppendLine("}");
+        builder.AppendLine("#pragma warning restore CS1591");
         return builder.ToString();
     }
 
     private static string Escape(string value)
     {
         return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+    }
+
+    private static string CreateGeneratedTypeName(string prefix, string? assemblyName)
+    {
+        return $"{prefix}_{SanitizeIdentifier(assemblyName)}";
+    }
+
+    private static string SanitizeIdentifier(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "Assembly";
+        }
+
+        var identifier = value!;
+        var builder = new StringBuilder(identifier.Length + 1);
+        if (!IsIdentifierStart(identifier[0]))
+        {
+            builder.Append('_');
+        }
+
+        foreach (var character in identifier)
+        {
+            builder.Append(IsIdentifierPart(character) ? character : '_');
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool IsIdentifierStart(char character)
+    {
+        return character == '_' || char.IsLetter(character);
+    }
+
+    private static bool IsIdentifierPart(char character)
+    {
+        return character == '_' || char.IsLetterOrDigit(character);
     }
 
     private readonly struct ArtifactMetadata

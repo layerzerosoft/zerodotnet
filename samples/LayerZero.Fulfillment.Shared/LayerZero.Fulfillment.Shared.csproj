@@ -16,10 +16,6 @@
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
     <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
-    <ProjectReference Include="../../src/LayerZero.Messaging.RabbitMq/LayerZero.Messaging.RabbitMq.csproj" />
-    <ProjectReference Include="../../src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />
-    <ProjectReference Include="../../src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
-    <ProjectReference Include="../../src/LayerZero.Messaging.Nats/LayerZero.Messaging.Nats.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
   </ItemGroup>
 </Project>

@@ -2,11 +2,12 @@ using LayerZero.Data.Postgres;
 using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
 using LayerZero.Migrations.Postgres.Configuration;
+using System.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
-[assembly: MigrationProviderRegistrar(typeof(LayerZero.Migrations.Postgres.Internal.PostgresMigrationProviderRegistration))]
+[assembly: LayerZero.Migrations.MigrationProviderRegistrarAttribute(typeof(LayerZero.Migrations.Postgres.Internal.PostgresMigrationProviderRegistration))]
 
 namespace LayerZero.Migrations.Postgres.Internal;
 
@@ -20,8 +21,21 @@ internal sealed class PostgresMigrationDatabaseAdapterFactory : IMigrationDataba
     }
 }
 
-internal sealed class PostgresMigrationProviderRegistration : IMigrationProviderRegistrar
+/// <summary>
+/// Registers PostgreSQL-specific migration services for analyzer-generated startup paths.
+/// </summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
+public sealed class PostgresMigrationProviderRegistration : IMigrationProviderRegistrar
 {
+    /// <summary>
+    /// Gets the data provider name handled by this registrar.
+    /// </summary>
+    public string ProviderName => PostgresDataProvider.ProviderName;
+
+    /// <summary>
+    /// Adds PostgreSQL migration services to the container.
+    /// </summary>
+    /// <param name="services">The service collection being configured.</param>
     public void Register(IServiceCollection services)
     {
         services.AddOptions<PostgresMigrationsOptions>()

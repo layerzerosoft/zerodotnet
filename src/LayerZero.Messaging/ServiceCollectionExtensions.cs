@@ -6,6 +6,8 @@ using LayerZero.Messaging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace LayerZero.Messaging;
 
@@ -18,11 +20,37 @@ public static class ServiceCollectionExtensions
     /// Adds the LayerZero messaging foundation.
     /// </summary>
     /// <param name="services">The service collection.</param>
+    /// <param name="applicationName">The logical application name.</param>
+    /// <returns>A messaging builder.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static MessagingBuilder AddMessaging(
+        this IServiceCollection services,
+        string applicationName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicationName);
+        var scopeAssembly = Assembly.GetCallingAssembly();
+        return AddMessagingCore(services, options => options.ApplicationName = applicationName, scopeAssembly);
+    }
+
+    /// <summary>
+    /// Adds the LayerZero messaging foundation.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
     /// <param name="configure">Optional messaging configuration.</param>
     /// <returns>A messaging builder.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public static MessagingBuilder AddMessaging(
         this IServiceCollection services,
         Action<MessagingOptions>? configure = null)
+    {
+        var scopeAssembly = Assembly.GetCallingAssembly();
+        return AddMessagingCore(services, configure, scopeAssembly);
+    }
+
+    private static MessagingBuilder AddMessagingCore(
+        IServiceCollection services,
+        Action<MessagingOptions>? configure,
+        Assembly? scopeAssembly)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -54,12 +82,16 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<MessageEnvelopeSerializer>();
         services.TryAddSingleton<MessageRouteResolver>();
         services.TryAddSingleton<IMessageRouteResolver>(static services => services.GetRequiredService<MessageRouteResolver>());
+        services.TryAddSingleton<IMessageTransportResolver, KeyedMessageTransportResolver>();
         services.TryAddSingleton<IMessageFailureClassifier, DefaultMessageFailureClassifier>();
+        services.TryAddSingleton<IMessageTopologyProvisioner, MessageTopologyProvisioner>();
         services.TryAddScoped<ICommandSender, CommandSender>();
         services.TryAddScoped<IEventPublisher, EventPublisher>();
         services.TryAddScoped<IMessageProcessor, MessageProcessor>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, MessagingStartupValidationHostedService>());
         services.TryAddSingleton(MessagingTelemetry.Instance);
+
+        MessagingAssemblyRegistrarCatalog.Apply(services, scopeAssembly);
 
         return new MessagingBuilder(services);
     }

@@ -70,4 +70,23 @@ public sealed class SqlServerRegistrationTests
         Assert.Equal("Server=(local);Database=Section;Trusted_Connection=True;", options.ConnectionString);
         Assert.Equal("section", options.DefaultSchema);
     }
+
+    [Fact]
+    public void UseSqlServer_named_connection_uses_the_requested_connection_string_and_provider_defaults()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(
+        [
+            new KeyValuePair<string, string?>("ConnectionStrings:Fulfillment", "Server=(local);Database=Fulfillment;Trusted_Connection=True;"),
+        ]);
+
+        builder.Services.AddData(data => data.UseSqlServer("Fulfillment"));
+
+        using var host = builder.Build();
+        var options = host.Services.GetRequiredService<IOptions<SqlServerDataOptions>>().Value;
+
+        Assert.Equal("Server=(local);Database=Fulfillment;Trusted_Connection=True;", options.ConnectionString);
+        Assert.Equal("Fulfillment", options.ConnectionStringName);
+        Assert.Equal("dbo", options.DefaultSchema);
+    }
 }

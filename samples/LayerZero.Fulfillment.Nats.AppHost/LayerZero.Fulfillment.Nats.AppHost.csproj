@@ -10,9 +10,9 @@
     <PackageReference Include="Aspire.Hosting.AppHost" />
     <PackageReference Include="Aspire.Hosting.Nats" />
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
-    <ProjectReference Include="../LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
-    <ProjectReference Include="../LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
-    <ProjectReference Include="../LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
-    <ProjectReference Include="../LayerZero.Fulfillment.Projections/LayerZero.Fulfillment.Projections.csproj" />
+    <ProjectReference Include="../LayerZero.Fulfillment.Nats.Api/LayerZero.Fulfillment.Nats.Api.csproj" />
+    <ProjectReference Include="../LayerZero.Fulfillment.Nats.Bootstrap/LayerZero.Fulfillment.Nats.Bootstrap.csproj" />
+    <ProjectReference Include="../LayerZero.Fulfillment.Nats.Processing/LayerZero.Fulfillment.Nats.Processing.csproj" />
+    <ProjectReference Include="../LayerZero.Fulfillment.Nats.Projections/LayerZero.Fulfillment.Nats.Projections.csproj" />
   </ItemGroup>
 </Project>

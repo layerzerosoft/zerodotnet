@@ -396,11 +396,10 @@ public sealed class FulfillmentAppHostStartupTests
     {
         var resourceLogs = await GetResourceLogsAsync(app, resourceName, cancellationToken);
 
-        Assert.Contains("Fulfillment migrations started for broker", resourceLogs, StringComparison.Ordinal);
-        Assert.Contains("Fulfillment migrations completed for broker", resourceLogs, StringComparison.Ordinal);
-        Assert.Contains("Provisioning topology manager", resourceLogs, StringComparison.Ordinal);
-        Assert.Contains("Fulfillment provisioning operation processing topology provisioning completed for broker", resourceLogs, StringComparison.Ordinal);
-        Assert.Contains("Fulfillment provisioning operation projection topology provisioning completed for broker", resourceLogs, StringComparison.Ordinal);
+        Assert.Contains("Fulfillment migrations started.", resourceLogs, StringComparison.Ordinal);
+        Assert.Contains("Fulfillment migrations completed.", resourceLogs, StringComparison.Ordinal);
+        Assert.Contains("Fulfillment messaging topology provisioning started.", resourceLogs, StringComparison.Ordinal);
+        Assert.Contains("Fulfillment messaging topology provisioning completed.", resourceLogs, StringComparison.Ordinal);
     }
 
     private static async Task<Guid> PlaceOrderAsync(

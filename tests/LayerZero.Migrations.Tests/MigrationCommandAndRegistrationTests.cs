@@ -2,6 +2,8 @@ using LayerZero.Data;
 using LayerZero.Data.SqlServer;
 using LayerZero.Data.SqlServer.Configuration;
 using LayerZero.Migrations.Configuration;
+using LayerZero.Migrations.TestAssembly.Migrations;
+using LayerZero.Migrations.TestAssembly.Seeds.Baseline;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -32,7 +34,7 @@ public sealed class MigrationCommandAndRegistrationTests
     }
 
     [Fact]
-    public void Use_migrations_registers_an_empty_catalog_without_generated_di_calls()
+    public void Use_migrations_registers_generated_catalogs_from_referenced_assemblies_without_manual_di_calls()
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(
@@ -51,8 +53,8 @@ public sealed class MigrationCommandAndRegistrationTests
         var catalog = host.Services.GetRequiredService<IMigrationCatalog>();
         _ = host.Services.GetRequiredService<IMigrationRuntime>();
 
-        Assert.Empty(catalog.Migrations);
-        Assert.Empty(catalog.Seeds);
+        Assert.Contains(catalog.Migrations, migration => migration.MigrationType == typeof(CreateInvoicesMigration));
+        Assert.Contains(catalog.Seeds, seed => seed.SeedType == typeof(BaselineInvoiceStatusesSeed));
     }
 
     [Fact]

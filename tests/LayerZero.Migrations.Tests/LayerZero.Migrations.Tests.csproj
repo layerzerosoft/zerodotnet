@@ -14,6 +14,11 @@
     <ProjectReference Include="../../src/LayerZero.Data/LayerZero.Data.csproj" />
     <ProjectReference Include="../../src/LayerZero.Data.SqlServer/LayerZero.Data.SqlServer.csproj" />
     <ProjectReference Include="../../src/LayerZero.Migrations/LayerZero.Migrations.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Migrations.Analyzers/LayerZero.Migrations.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
     <ProjectReference Include="../../src/LayerZero.Migrations.SqlServer/LayerZero.Migrations.SqlServer.csproj" />
+    <ProjectReference Include="../LayerZero.Migrations.TestAssembly/LayerZero.Migrations.TestAssembly.csproj" />
   </ItemGroup>
 </Project>

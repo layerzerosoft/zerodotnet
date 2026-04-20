@@ -19,7 +19,7 @@ internal sealed class FulfillmentOrderMap : EntityMap<FulfillmentOrderRecord>
 {
     protected override void Configure(EntityMapBuilder<FulfillmentOrderRecord> builder)
     {
-        builder.ToTable("public", "orders");
+        builder.ToTable("orders");
         builder.Property(order => order.OrderId).HasColumnName("order_id").IsKeyPart();
         builder.Property(order => order.CustomerEmail).HasColumnName("customer_email").HasStringType(320).IsRequired();
         builder.Property(order => order.Status).HasColumnName("status").HasStringType(64).IsRequired();
@@ -52,7 +52,7 @@ internal sealed class FulfillmentTimelineMap : EntityMap<FulfillmentTimelineReco
 {
     protected override void Configure(EntityMapBuilder<FulfillmentTimelineRecord> builder)
     {
-        builder.ToTable("public", "order_timeline");
+        builder.ToTable("order_timeline");
         builder.Property(entry => entry.Sequence).HasColumnName("id").IsIdentity().IsKeyPart();
         builder.Property(entry => entry.OrderId).HasColumnName("order_id").IsRequired();
         builder.Property(entry => entry.Step).HasColumnName("step").HasStringType(128).IsRequired();
@@ -79,7 +79,7 @@ internal sealed class FulfillmentMessageIdempotencyMap : EntityMap<FulfillmentMe
 {
     protected override void Configure(EntityMapBuilder<FulfillmentMessageIdempotencyRecord> builder)
     {
-        builder.ToTable("public", "message_idempotency");
+        builder.ToTable("message_idempotency");
         builder.Property(entry => entry.DedupeKey).HasColumnName("dedupe_key").HasStringType(256).IsKeyPart();
         builder.Property(entry => entry.Status).HasColumnName("status").HasStringType(32).IsRequired();
         builder.Property(entry => entry.UpdatedAtUtc).HasColumnName("updated_at_utc").IsRequired();
@@ -105,7 +105,7 @@ internal sealed class FulfillmentDeadLetterMap : EntityMap<FulfillmentDeadLetter
 {
     protected override void Configure(EntityMapBuilder<FulfillmentDeadLetterRecord> builder)
     {
-        builder.ToTable("public", "deadletters");
+        builder.ToTable("deadletters");
         builder.Property(entry => entry.MessageId).HasColumnName("message_id").HasStringType(64).IsKeyPart();
         builder.Property(entry => entry.MessageName).HasColumnName("message_name").HasStringType(256).IsRequired();
         builder.Property(entry => entry.HandlerIdentity).HasColumnName("handler_identity").HasStringType(256).IsKeyPart();
@@ -131,7 +131,7 @@ internal sealed class FulfillmentScenarioFlagMap : EntityMap<FulfillmentScenario
 {
     protected override void Configure(EntityMapBuilder<FulfillmentScenarioFlagRecord> builder)
     {
-        builder.ToTable("public", "scenario_flags");
+        builder.ToTable("scenario_flags");
         builder.Property(entry => entry.OrderId).HasColumnName("order_id").IsKeyPart();
         builder.Property(entry => entry.PaymentTimeoutConsumed).HasColumnName("payment_timeout_consumed").HasDefaultValue(false);
     }
@@ -146,7 +146,7 @@ internal sealed class FulfillmentSideEffectMap : EntityMap<FulfillmentSideEffect
 {
     protected override void Configure(EntityMapBuilder<FulfillmentSideEffectRecord> builder)
     {
-        builder.ToTable("public", "side_effects");
+        builder.ToTable("side_effects");
         builder.Property(entry => entry.EffectKey).HasColumnName("effect_key").HasStringType(256).IsKeyPart();
         builder.Property(entry => entry.Value).HasColumnName("value").HasStringType().IsOptional();
         builder.Property(entry => entry.RecordedAtUtc).HasColumnName("recorded_at_utc").IsRequired();

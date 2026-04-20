@@ -1,8 +1,13 @@
 using System.Net;
-using LayerZero.Fulfillment.Bootstrap;
+using LayerZero.Core;
 using LayerZero.Fulfillment.Client.Sample.Clients;
 using LayerZero.Fulfillment.Contracts.Orders;
+using LayerZero.Fulfillment.RabbitMq.Api;
+using LayerZero.Fulfillment.RabbitMq.Bootstrap;
+using LayerZero.Messaging;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -81,7 +86,7 @@ public sealed class FulfillmentTypedClientIntegrationTests : IClassFixture<Fulfi
 
         var builder = services.AddLayerZeroClient<FulfillmentClient>(client =>
         {
-            client.BaseAddress = new Uri("https://localhost:7380");
+            client.BaseAddress = new Uri("https://localhost:7381");
         }).AddHttpMessageHandler<PassthroughHandler>();
 
         Assert.NotNull(builder);
@@ -95,7 +100,7 @@ public sealed class FulfillmentTypedClientIntegrationTests : IClassFixture<Fulfi
     private sealed class PassthroughHandler : DelegatingHandler;
 }
 
-public sealed class FulfillmentTypedClientFactory : WebApplicationFactory<Program>
+public sealed class FulfillmentTypedClientFactory : WebApplicationFactory<RabbitMqFulfillmentApiEntryPoint>
 {
     private readonly object initializationGate = new();
     private PostgreSqlContainer? container;
@@ -107,15 +112,18 @@ public sealed class FulfillmentTypedClientFactory : WebApplicationFactory<Progra
         EnsureInitialized();
 
         builder.UseEnvironment("Development");
-        builder.UseSetting("Messaging:DisableTransport", "true");
         builder.UseSetting("ConnectionStrings:Fulfillment", connectionString);
         builder.ConfigureAppConfiguration((_, configurationBuilder) =>
         {
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Messaging:DisableTransport"] = "true",
                 ["ConnectionStrings:Fulfillment"] = connectionString,
             });
+        });
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<ICommandSender>();
+            services.AddSingleton<ICommandSender, StubCommandSender>();
         });
     }
 
@@ -165,11 +173,30 @@ public sealed class FulfillmentTypedClientFactory : WebApplicationFactory<Progra
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:Fulfillment"] = connectionString,
+                    ["ConnectionStrings:rabbitmq"] = "amqp://guest:guest@localhost:5672/",
                 })
                 .Build();
 
-            FulfillmentBootstrapHost.ApplyMigrationsAsync(configuration).GetAwaiter().GetResult();
+            using var host = CreateBootstrapHost(configuration);
+            RabbitMqFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services).GetAwaiter().GetResult();
             initialized = true;
+        }
+    }
+
+    private static IHost CreateBootstrapHost(IConfiguration configuration)
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddConfiguration(configuration);
+        RabbitMqFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
+        return builder.Build();
+    }
+
+    private sealed class StubCommandSender : ICommandSender
+    {
+        public ValueTask<Result> SendAsync<TCommand>(TCommand command, CancellationToken cancellationToken = default)
+            where TCommand : class, ICommand
+        {
+            return ValueTask.FromResult(Result.Success());
         }
     }
 }

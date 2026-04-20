@@ -1,14 +1,12 @@
 using LayerZero.Messaging;
 using LayerZero.Messaging.Serialization;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LayerZero.Fulfillment.Shared;
 
 public sealed class DeadLetterReplayService(
     FulfillmentStore store,
     IMessageRegistry registry,
-    IServiceProvider services,
-    IMessageRouteResolver routeResolver,
+    IMessageTransportResolver transportResolver,
     MessageEnvelopeSerializer serializer)
 {
     public async Task<bool> RequeueAsync(string messageId, string? handlerIdentity = null, CancellationToken cancellationToken = default)
@@ -20,7 +18,7 @@ public sealed class DeadLetterReplayService(
         }
 
         var deserialized = serializer.Deserialize(envelope.Value.Body, envelope.Value.TransportName, registry);
-        var transport = services.GetRequiredKeyedService<IMessageBusTransport>(routeResolver.Resolve(deserialized.Descriptor));
+        var transport = transportResolver.Resolve(deserialized.Descriptor);
         var transportMessage = new TransportMessage(
             deserialized.Descriptor,
             deserialized.Context.WithAttempt(0),

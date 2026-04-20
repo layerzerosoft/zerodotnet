@@ -61,8 +61,9 @@ public sealed class MigrationCatalogGeneratorTests
         var generated = string.Join(Environment.NewLine, result.GeneratedSources.Select(static item => item.SourceText.ToString()));
 
         Assert.Empty(result.Diagnostics);
-        Assert.Contains("MigrationCatalogAttribute", generated, StringComparison.Ordinal);
+        Assert.Contains("MigrationAssemblyRegistrarAttribute", generated, StringComparison.Ordinal);
         Assert.Contains("LayerZeroGeneratedMigrationCatalog", generated, StringComparison.Ordinal);
+        Assert.Contains("LayerZeroGeneratedMigrationRegistrar", generated, StringComparison.Ordinal);
         Assert.Contains("CreateAccountsMigration", generated, StringComparison.Ordinal);
         Assert.Contains("\"Baseline Roles\"", generated, StringComparison.Ordinal);
         Assert.Contains("\"dev\"", generated, StringComparison.Ordinal);

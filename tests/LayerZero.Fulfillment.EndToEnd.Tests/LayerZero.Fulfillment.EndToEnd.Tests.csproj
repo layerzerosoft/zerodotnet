@@ -22,7 +22,6 @@
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.RabbitMq.AppHost/LayerZero.Fulfillment.RabbitMq.AppHost.csproj">
       <Aliases>FulfillmentRabbitMqAppHost</Aliases>
     </ProjectReference>
-    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.AzureServiceBus.AppHost/LayerZero.Fulfillment.AzureServiceBus.AppHost.csproj">
       <Aliases>FulfillmentAzureServiceBusAppHost</Aliases>
     </ProjectReference>
@@ -32,10 +31,23 @@
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Nats.AppHost/LayerZero.Fulfillment.Nats.AppHost.csproj">
       <Aliases>FulfillmentNatsAppHost</Aliases>
     </ProjectReference>
-    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.AzureServiceBus.Api/LayerZero.Fulfillment.AzureServiceBus.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.AzureServiceBus.Bootstrap/LayerZero.Fulfillment.AzureServiceBus.Bootstrap.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.AzureServiceBus.Processing/LayerZero.Fulfillment.AzureServiceBus.Processing.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.AzureServiceBus.Projections/LayerZero.Fulfillment.AzureServiceBus.Projections.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
-    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
-    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Projections/LayerZero.Fulfillment.Projections.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Kafka.Api/LayerZero.Fulfillment.Kafka.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Kafka.Bootstrap/LayerZero.Fulfillment.Kafka.Bootstrap.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Kafka.Processing/LayerZero.Fulfillment.Kafka.Processing.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Kafka.Projections/LayerZero.Fulfillment.Kafka.Projections.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Nats.Api/LayerZero.Fulfillment.Nats.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Nats.Bootstrap/LayerZero.Fulfillment.Nats.Bootstrap.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Nats.Processing/LayerZero.Fulfillment.Nats.Processing.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Nats.Projections/LayerZero.Fulfillment.Nats.Projections.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.RabbitMq.Api/LayerZero.Fulfillment.RabbitMq.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.RabbitMq.Bootstrap/LayerZero.Fulfillment.RabbitMq.Bootstrap.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.RabbitMq.Processing/LayerZero.Fulfillment.RabbitMq.Processing.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.RabbitMq.Projections/LayerZero.Fulfillment.RabbitMq.Projections.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />
     <ProjectReference Include="../LayerZero.Messaging.IntegrationTesting/LayerZero.Messaging.IntegrationTesting.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />

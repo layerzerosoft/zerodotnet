@@ -82,7 +82,8 @@ public sealed class SliceGeneratorTests
         Assert.Empty(result.Diagnostics);
         Assert.Contains("AddSlices", combinedSource, StringComparison.Ordinal);
         Assert.Contains("MapSlices", combinedSource, StringComparison.Ordinal);
-        Assert.Contains("AddMessages", combinedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddMessages", combinedSource, StringComparison.Ordinal);
+        Assert.Contains("LayerZeroGeneratedMessagingRegistrar", combinedSource, StringComparison.Ordinal);
         Assert.Contains("LayerZeroGeneratedMessageRegistry", combinedSource, StringComparison.Ordinal);
         Assert.Contains("LayerZeroGeneratedMessageJsonContext", combinedSource, StringComparison.Ordinal);
         Assert.Contains("global::Demo.AlphaSlice.MapEndpoint(endpoints);", combinedSource, StringComparison.Ordinal);
@@ -160,7 +161,7 @@ public sealed class SliceGeneratorTests
         const string source = """
             namespace LayerZero.AspNetCore;
 
-            public static class LayerZeroGeneratedSliceExtensions
+            public static class LayerZeroGeneratedSliceExtensions_LayerZero_Generator_Tests_Input
             {
             }
             """;

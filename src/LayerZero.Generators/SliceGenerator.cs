@@ -13,10 +13,13 @@ namespace LayerZero.Generators;
 [Generator(LanguageNames.CSharp)]
 public sealed class SliceGenerator : IIncrementalGenerator
 {
-    private const string SliceExtensionsClassName = "LayerZeroGeneratedSliceExtensions";
+    private const string SliceExtensionsClassNamePrefix = "LayerZeroGeneratedSliceExtensions";
     private const string SliceExtensionsNamespace = "LayerZero.AspNetCore";
-    private const string MessagingExtensionsClassName = "LayerZeroGeneratedMessagingExtensions";
+    private const string SliceRegistrarClassNamePrefix = "LayerZeroGeneratedSliceRegistrar";
+    private const string SliceModuleInitializerClassNamePrefix = "LayerZeroGeneratedSliceModuleInitializer";
     private const string MessagingNamespace = "LayerZero.Messaging";
+    private const string MessagingRegistrarClassNamePrefix = "LayerZeroGeneratedMessagingRegistrar";
+    private const string MessagingModuleInitializerClassName = "LayerZeroGeneratedMessagingModuleInitializer";
     private const string MessagingRegistryClassName = "LayerZeroGeneratedMessageRegistry";
     private const string MessagingTopologyManifestClassName = "LayerZeroGeneratedMessageTopologyManifest";
     private const string MessagingJsonContextClassName = "LayerZeroGeneratedMessageJsonContext";
@@ -106,24 +109,18 @@ public sealed class SliceGenerator : IIncrementalGenerator
     {
         var sliceExtensionsAvailable = compilation.GetTypeByMetadataName("LayerZero.AspNetCore.ServiceCollectionExtensions") is not null;
         var messagingAvailable = compilation.GetTypeByMetadataName("LayerZero.Messaging.IMessageRegistry") is not null;
+        var sliceExtensionsClassName = CreateGeneratedTypeName(SliceExtensionsClassNamePrefix, compilation.AssemblyName);
+        var sliceRegistrarClassName = CreateGeneratedTypeName(SliceRegistrarClassNamePrefix, compilation.AssemblyName);
+        var sliceModuleInitializerClassName = CreateGeneratedTypeName(SliceModuleInitializerClassNamePrefix, compilation.AssemblyName);
+        var messagingRegistrarClassName = CreateGeneratedTypeName(MessagingRegistrarClassNamePrefix, compilation.AssemblyName);
 
-        if (sliceExtensionsAvailable && HasGeneratedExtensionCollision(compilation, SliceExtensionsNamespace, SliceExtensionsClassName))
+        if (sliceExtensionsAvailable && HasGeneratedExtensionCollision(compilation, SliceExtensionsNamespace, sliceExtensionsClassName))
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 ExtensionCollision,
                 Location.None,
                 SliceExtensionsNamespace,
-                SliceExtensionsClassName));
-            return;
-        }
-
-        if (messagingAvailable && HasGeneratedExtensionCollision(compilation, MessagingNamespace, MessagingExtensionsClassName))
-        {
-            context.ReportDiagnostic(Diagnostic.Create(
-                ExtensionCollision,
-                Location.None,
-                MessagingNamespace,
-                MessagingExtensionsClassName));
+                sliceExtensionsClassName));
             return;
         }
 
@@ -188,7 +185,10 @@ public sealed class SliceGenerator : IIncrementalGenerator
                 endpointSlices.Distinct(StringComparer.Ordinal).OrderBy(static value => value, StringComparer.Ordinal),
                 registrations.Distinct().OrderBy(static registration => registration.ServiceType, StringComparer.Ordinal)
                     .ThenBy(static registration => registration.ImplementationType, StringComparer.Ordinal)
-                    .ThenBy(static registration => registration.Kind));
+                    .ThenBy(static registration => registration.Kind),
+                sliceExtensionsClassName,
+                sliceRegistrarClassName,
+                sliceModuleInitializerClassName);
 
             context.AddSource("LayerZero.Slices.g.cs", SourceText.From(sliceSource, Encoding.UTF8));
         }
@@ -217,11 +217,19 @@ public sealed class SliceGenerator : IIncrementalGenerator
                 string.Join(", ", duplicateHandler.HandlerTypes)));
         }
 
+        var messagingRegistrarTypes = GetReferencedMessagingRegistrarTypes(compilation)
+            .Append($"global::{MessagingNamespace}.{messagingRegistrarClassName}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
+
         var messagingSource = RenderMessagingSource(
             registrations.Distinct().OrderBy(static registration => registration.ServiceType, StringComparer.Ordinal)
                 .ThenBy(static registration => registration.ImplementationType, StringComparer.Ordinal)
                 .ThenBy(static registration => registration.Kind),
-            messageState);
+            messageState,
+            messagingRegistrarTypes,
+            messagingRegistrarClassName);
 
         context.AddSource("LayerZero.Messaging.g.cs", SourceText.From(messagingSource, Encoding.UTF8));
     }
@@ -525,16 +533,45 @@ public sealed class SliceGenerator : IIncrementalGenerator
         return current.GetTypeMembers(typeName).Any();
     }
 
-    private static string RenderSliceSource(IEnumerable<string> endpointSlices, IEnumerable<Registration> registrations)
+    private static IEnumerable<string> GetReferencedMessagingRegistrarTypes(Compilation compilation)
+    {
+        foreach (var assembly in compilation.SourceModule.ReferencedAssemblySymbols)
+        {
+            foreach (var attribute in assembly.GetAttributes())
+            {
+                if (attribute.AttributeClass?.ContainingNamespace.ToDisplayString() != "LayerZero.Messaging"
+                    || !attribute.AttributeClass.Name.Equals("MessagingAssemblyRegistrarAttribute", StringComparison.Ordinal)
+                    || attribute.ConstructorArguments.Length != 1)
+                {
+                    continue;
+                }
+
+                if (attribute.ConstructorArguments[0].Value is INamedTypeSymbol registrarType)
+                {
+                    yield return registrarType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                }
+            }
+        }
+    }
+
+    private static string RenderSliceSource(
+        IEnumerable<string> endpointSlices,
+        IEnumerable<Registration> registrations,
+        string sliceExtensionsClassName,
+        string sliceRegistrarClassName,
+        string sliceModuleInitializerClassName)
     {
         var builder = new StringBuilder();
         builder.AppendLine("// <auto-generated />");
         builder.AppendLine("#nullable enable");
+        builder.AppendLine("#pragma warning disable CS1591");
+        builder.AppendLine();
+        builder.AppendLine($"[assembly: global::LayerZero.AspNetCore.AspNetCoreAssemblyRegistrarAttribute(typeof(global::{SliceExtensionsNamespace}.{sliceRegistrarClassName}))]");
         builder.AppendLine();
         builder.AppendLine($"namespace {SliceExtensionsNamespace}");
         builder.AppendLine("{");
         builder.AppendLine($"    [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"LayerZero.Generators\", \"0.1.0-alpha.1\")]");
-        builder.AppendLine($"    public static partial class {SliceExtensionsClassName}");
+        builder.AppendLine($"    public static partial class {sliceExtensionsClassName}");
         builder.AppendLine("    {");
         builder.AppendLine("        public static global::Microsoft.Extensions.DependencyInjection.IServiceCollection AddSlices(");
         builder.AppendLine("            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
@@ -565,45 +602,85 @@ public sealed class SliceGenerator : IIncrementalGenerator
         builder.AppendLine("            return endpoints;");
         builder.AppendLine("        }");
         builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine("    [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
+        builder.AppendLine($"    public sealed class {sliceRegistrarClassName} : global::LayerZero.AspNetCore.IAspNetCoreAssemblyRegistrar");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public void Register(global::LayerZero.AspNetCore.AspNetCoreAssemblyRegistrationBuilder builder)");
+        builder.AppendLine("        {");
+        builder.AppendLine("            global::System.ArgumentNullException.ThrowIfNull(builder);");
+
+        foreach (var registration in registrations)
+        {
+            builder.AppendLine($"            builder.Add<{registration.ServiceType}, {registration.ImplementationType}>(global::LayerZero.AspNetCore.RegistrationKind.{registration.Kind});");
+        }
+
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine($"    internal static class {sliceModuleInitializerClassName}");
+        builder.AppendLine("    {");
+        builder.AppendLine("        [global::System.Runtime.CompilerServices.ModuleInitializer]");
+        builder.AppendLine("        internal static void Initialize()");
+        builder.AppendLine("        {");
+        builder.AppendLine($"            global::LayerZero.AspNetCore.AspNetCoreAssemblyRegistrarCatalog.Register<global::{SliceExtensionsNamespace}.{sliceRegistrarClassName}>();");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
         builder.AppendLine("}");
+        builder.AppendLine("#pragma warning restore CS1591");
         return builder.ToString();
     }
 
-    private static string RenderMessagingSource(IEnumerable<Registration> registrations, MessageGenerationState state)
+    private static string RenderMessagingSource(
+        IEnumerable<Registration> registrations,
+        MessageGenerationState state,
+        IEnumerable<string> registrarTypes,
+        string messagingRegistrarClassName)
     {
         var handledInvocations = state.GetHandledInvocations().ToArray();
         var builder = new StringBuilder();
         builder.AppendLine("// <auto-generated />");
         builder.AppendLine("#nullable enable");
+        builder.AppendLine("#pragma warning disable CS1591");
+        builder.AppendLine();
+        builder.AppendLine($"[assembly: global::LayerZero.Messaging.MessagingAssemblyRegistrarAttribute(typeof(global::{MessagingNamespace}.{messagingRegistrarClassName}))]");
         builder.AppendLine();
         builder.AppendLine($"namespace {MessagingNamespace}");
         builder.AppendLine("{");
-        builder.AppendLine($"    [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"LayerZero.Generators\", \"0.1.0-alpha.1\")]");
-        builder.AppendLine($"    public static partial class {MessagingExtensionsClassName}");
+        builder.AppendLine("    [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
+        builder.AppendLine($"    public sealed class {messagingRegistrarClassName} : global::LayerZero.Messaging.IMessagingAssemblyRegistrar");
         builder.AppendLine("    {");
-        builder.AppendLine("        public static global::Microsoft.Extensions.DependencyInjection.IServiceCollection AddMessages(");
-        builder.AppendLine("            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
+        builder.AppendLine("        public void Register(global::LayerZero.Messaging.MessagingAssemblyRegistrationBuilder builder)");
         builder.AppendLine("        {");
-        builder.AppendLine("            global::System.ArgumentNullException.ThrowIfNull(services);");
+        builder.AppendLine("            global::System.ArgumentNullException.ThrowIfNull(builder);");
 
         foreach (var registration in registrations)
         {
-            AppendRegistration(builder, registration);
+            builder.AppendLine($"            builder.AddService<{registration.ServiceType}, {registration.ImplementationType}>(global::LayerZero.Messaging.MessagingRegistrationKind.{registration.Kind});");
         }
 
-        builder.AppendLine();
-        builder.AppendLine("            global::Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<global::LayerZero.Messaging.IMessageRegistry, global::LayerZero.Messaging.LayerZeroGeneratedMessageRegistry>(services);");
-        builder.AppendLine("            global::Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<global::LayerZero.Messaging.IMessageTopologyManifest, global::LayerZero.Messaging.LayerZeroGeneratedMessageTopologyManifest>(services);");
+        builder.AppendLine($"            builder.AddRegistry<{MessagingRegistryClassName}>();");
+        builder.AppendLine($"            builder.AddTopologyManifest<{MessagingTopologyManifestClassName}>();");
 
         foreach (var invocation in handledInvocations)
         {
-            builder.AppendLine("            global::Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddEnumerable(");
-            builder.AppendLine("                services,");
-            builder.AppendLine($"                global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::LayerZero.Messaging.IMessageHandlerInvoker, global::LayerZero.Messaging.{GetInvokerClassName(invocation.Message.TypeName, invocation.Handler.ImplementationType)}>());");
+            builder.AppendLine($"            builder.AddInvoker<{GetInvokerClassName(invocation.Message.TypeName, invocation.Handler.ImplementationType)}>();");
         }
 
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
         builder.AppendLine();
-        builder.AppendLine("            return services;");
+        builder.AppendLine($"    internal static class {MessagingModuleInitializerClassName}");
+        builder.AppendLine("    {");
+        builder.AppendLine("        [global::System.Runtime.CompilerServices.ModuleInitializer]");
+        builder.AppendLine("        internal static void Initialize()");
+        builder.AppendLine("        {");
+
+        foreach (var registrarType in registrarTypes)
+        {
+            builder.AppendLine($"            global::LayerZero.Messaging.MessagingAssemblyRegistrarCatalog.Register<{registrarType}>();");
+        }
+
         builder.AppendLine("        }");
         builder.AppendLine("    }");
         builder.AppendLine();
@@ -731,6 +808,7 @@ public sealed class SliceGenerator : IIncrementalGenerator
         }
 
         builder.AppendLine("}");
+        builder.AppendLine("#pragma warning restore CS1591");
         return builder.ToString();
     }
 
@@ -913,6 +991,26 @@ public sealed class SliceGenerator : IIncrementalGenerator
     private static string Escape(string value)
     {
         return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+    }
+
+    private static string CreateGeneratedTypeName(string prefix, string? assemblyName)
+    {
+        if (string.IsNullOrWhiteSpace(assemblyName))
+        {
+            return $"{prefix}_Assembly";
+        }
+
+        var value = assemblyName!;
+        var builder = new StringBuilder(value.Length + prefix.Length + 1);
+        builder.Append(prefix);
+        builder.Append('_');
+
+        foreach (var character in value)
+        {
+            builder.Append(char.IsLetterOrDigit(character) || character == '_' ? character : '_');
+        }
+
+        return builder.ToString();
     }
 
     private readonly struct Registration : IEquatable<Registration>

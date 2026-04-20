@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using LayerZero.Core;
+using LayerZero.Messaging.Configuration;
 using LayerZero.Messaging.AzureServiceBus;
 using LayerZero.Messaging.Kafka;
 using LayerZero.Messaging.Nats;
@@ -120,6 +121,38 @@ public sealed partial class MessagingTopologyTests
         Assert.Contains(provider.ServiceProvider.GetServices<IHostedService>(), static hostedService => hostedService.GetType().FullName?.Contains("NatsConsumerHostedService", StringComparison.Ordinal) == true);
     }
 
+    [Fact]
+    public Task Rabbitmq_transport_roles_register_the_expected_service_graph()
+    {
+        return AssertTransportRolesAsync(
+            static (builder, role) => builder.AddRabbitMqBus("primary", options => options.ConnectionString = "amqp://guest:guest@localhost:5672", role),
+            "RabbitMqConsumerHostedService");
+    }
+
+    [Fact]
+    public Task Azure_service_bus_transport_roles_register_the_expected_service_graph()
+    {
+        return AssertTransportRolesAsync(
+            static (builder, role) => builder.AddAzureServiceBusBus("primary", options => options.ConnectionString = "Endpoint=sb://localhost/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=demo", role),
+            "AzureServiceBusConsumerHostedService");
+    }
+
+    [Fact]
+    public Task Kafka_transport_roles_register_the_expected_service_graph()
+    {
+        return AssertTransportRolesAsync(
+            static (builder, role) => builder.AddKafkaBus("primary", options => options.BootstrapServers = "localhost:9092", role),
+            "KafkaConsumerHostedService");
+    }
+
+    [Fact]
+    public Task Nats_transport_roles_register_the_expected_service_graph()
+    {
+        return AssertTransportRolesAsync(
+            static (builder, role) => builder.AddNatsBus("primary", options => options.Url = "nats://localhost:4222", role),
+            "NatsConsumerHostedService");
+    }
+
     private static ServiceCollection CreateAdapterServices()
     {
         var descriptor = CreateDescriptor<AffinityCommand>(static command => command.OrderId.ToString("N"), affinityKeyMemberName: "OrderId");
@@ -128,6 +161,47 @@ public sealed partial class MessagingTopologyTests
         services.AddSingleton<IMessageRegistry>(new SingleMessageRegistry(descriptor));
         services.AddSingleton<IMessageTopologyManifest>(new EmptyTopologyManifest(descriptor));
         return services;
+    }
+
+    private static async Task AssertTransportRolesAsync(Action<MessagingBuilder, MessageTransportRole> addTransport, string consumerHostedServiceTypeName)
+    {
+        await AssertTransportRoleAsync(addTransport, consumerHostedServiceTypeName, MessageTransportRole.SendOnly, expectTransport: true, expectTopologyManager: false, expectConsumerHostedService: false);
+        await AssertTransportRoleAsync(addTransport, consumerHostedServiceTypeName, MessageTransportRole.Consumers, expectTransport: true, expectTopologyManager: true, expectConsumerHostedService: true);
+        await AssertTransportRoleAsync(addTransport, consumerHostedServiceTypeName, MessageTransportRole.Administration, expectTransport: false, expectTopologyManager: true, expectConsumerHostedService: false);
+    }
+
+    private static async Task AssertTransportRoleAsync(
+        Action<MessagingBuilder, MessageTransportRole> addTransport,
+        string consumerHostedServiceTypeName,
+        MessageTransportRole role,
+        bool expectTransport,
+        bool expectTopologyManager,
+        bool expectConsumerHostedService)
+    {
+        var services = CreateAdapterServices();
+        addTransport(services.AddMessaging(), role);
+
+        await using var provider = services.BuildServiceProvider();
+
+        Assert.Contains(provider.GetServices<MessageBusRegistration>(), static registration => registration.Name == "primary");
+        Assert.Equal(expectTransport, CanResolveTransport(provider));
+        Assert.Equal(expectTopologyManager, provider.GetServices<IMessageTopologyManager>().Any());
+        Assert.Equal(
+            expectConsumerHostedService,
+            provider.GetServices<IHostedService>().Any(hostedService => string.Equals(hostedService.GetType().Name, consumerHostedServiceTypeName, StringComparison.Ordinal)));
+    }
+
+    private static bool CanResolveTransport(IServiceProvider provider)
+    {
+        try
+        {
+            _ = provider.GetRequiredService<IMessageTransportResolver>().Resolve("primary");
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static MessageDescriptor CreateDescriptor<TMessage>(Func<TMessage, string?> affinityAccessor, string? affinityKeyMemberName = null)

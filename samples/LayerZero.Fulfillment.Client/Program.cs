@@ -3,7 +3,7 @@ using LayerZero.Fulfillment.Client.Sample.Clients;
 using LayerZero.Fulfillment.Contracts.Orders;
 using Microsoft.Extensions.DependencyInjection;
 
-var baseAddress = new Uri(args.FirstOrDefault() ?? "http://localhost:5380", UriKind.Absolute);
+var baseAddress = new Uri(args.FirstOrDefault() ?? "http://localhost:5381", UriKind.Absolute);
 
 var services = new ServiceCollection();
 services.AddLayerZeroClient<FulfillmentClient>(client =>

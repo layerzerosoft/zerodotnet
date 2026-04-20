@@ -18,13 +18,35 @@ public static class SqlServerDataBuilderExtensions
     /// Uses SQL Server as the active LayerZero data provider.
     /// </summary>
     /// <param name="builder">The data builder.</param>
+    /// <param name="connectionStringName">The logical connection string name.</param>
     /// <param name="configure">The optional SQL Server configuration.</param>
-    public static void UseSqlServer(
+    /// <returns>The current builder.</returns>
+    public static DataBuilder UseSqlServer(
+        this DataBuilder builder,
+        string connectionStringName,
+        Action<SqlServerDataOptions>? configure = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionStringName);
+        return builder.UseSqlServer(options =>
+        {
+            options.ConnectionStringName = connectionStringName;
+            configure?.Invoke(options);
+        });
+    }
+
+    /// <summary>
+    /// Uses SQL Server as the active LayerZero data provider.
+    /// </summary>
+    /// <param name="builder">The data builder.</param>
+    /// <param name="configure">The optional SQL Server configuration.</param>
+    public static DataBuilder UseSqlServer(
         this DataBuilder builder,
         Action<SqlServerDataOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.SelectProvider(SqlServerDataProvider.ProviderName, "LayerZero.Migrations.SqlServer");
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IConfigureOptions<DataOptions>, SqlServerDataConventionsSetup>());
 
         builder.Services.AddOptions<SqlServerDataOptions>()
             .Validate(static options => !string.IsNullOrWhiteSpace(options.ConnectionString),
@@ -42,7 +64,18 @@ public static class SqlServerDataBuilderExtensions
 
         if (configure is not null)
         {
-            builder.Services.PostConfigure(configure);
+            builder.Services.Configure(configure);
         }
+
+        return builder;
+    }
+}
+
+internal sealed class SqlServerDataConventionsSetup : IConfigureOptions<DataOptions>
+{
+    public void Configure(DataOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        options.Conventions.UseExactIdentifiers();
     }
 }

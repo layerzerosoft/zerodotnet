@@ -4,33 +4,29 @@ var nats = builder.AddNats("nats")
 var postgres = builder.AddPostgres("postgres");
 var fulfillmentDatabase = postgres.AddDatabase("fulfillment");
 
-var bootstrap = builder.AddProject<Projects.LayerZero_Fulfillment_Bootstrap>("fulfillment-bootstrap")
+var bootstrap = builder.AddProject<Projects.LayerZero_Fulfillment_Nats_Bootstrap>("fulfillment-bootstrap")
     .WithReference(nats)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "Nats")
     .WaitFor(nats, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Processing>("fulfillment-processing")
+builder.AddProject<Projects.LayerZero_Fulfillment_Nats_Processing>("fulfillment-processing")
     .WithReference(nats)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "Nats")
     .WaitFor(nats, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Projections>("fulfillment-projections")
+builder.AddProject<Projects.LayerZero_Fulfillment_Nats_Projections>("fulfillment-projections")
     .WithReference(nats)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "Nats")
     .WaitFor(nats, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Api>("fulfillment-api", launchProfileName: null)
+builder.AddProject<Projects.LayerZero_Fulfillment_Nats_Api>("fulfillment-api", launchProfileName: null)
     .WithReference(nats)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "Nats")
     .WithHttpEndpoint(port: 5384, name: "http")
     .WithHttpsEndpoint(port: 7384, name: "https")
     .WithUrlForEndpoint("http", static _ => new() { Url = "/openapi/v1.json", DisplayText = "OpenAPI (HTTP)" })

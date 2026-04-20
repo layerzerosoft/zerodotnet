@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -183,12 +184,26 @@ public static class DataAssemblyRegistrarCatalog
         Registrars.GetOrAdd(typeof(TRegistrar), static _ => new TRegistrar());
     }
 
-    internal static void Apply(IServiceCollection services)
+    internal static void Apply(IServiceCollection services, Assembly? scopeAssembly = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         var builder = new DataAssemblyRegistrationBuilder();
-        foreach (var registrar in Registrars
+        var registrations = Registrars.AsEnumerable();
+        if (scopeAssembly is not null)
+        {
+            var reachableAssemblyNames = GetReachableAssemblyNames(
+                scopeAssembly,
+                registrations.Select(static pair => pair.Key.Assembly));
+            registrations = registrations.Where(pair =>
+            {
+                var assemblyName = pair.Key.Assembly.GetName().Name;
+                return !string.IsNullOrWhiteSpace(assemblyName)
+                    && reachableAssemblyNames.Contains(assemblyName);
+            });
+        }
+
+        foreach (var registrar in registrations
             .OrderBy(static pair => pair.Key.FullName, StringComparer.Ordinal)
             .Select(static pair => pair.Value))
         {
@@ -196,5 +211,43 @@ public static class DataAssemblyRegistrarCatalog
         }
 
         builder.Apply(services);
+    }
+
+    private static HashSet<string> GetReachableAssemblyNames(
+        Assembly scopeAssembly,
+        IEnumerable<Assembly> candidateAssemblies)
+    {
+        var knownAssemblies = candidateAssemblies
+            .Append(scopeAssembly)
+            .Select(static assembly => new { Assembly = assembly, Name = assembly.GetName().Name })
+            .Where(static entry => !string.IsNullOrWhiteSpace(entry.Name))
+            .GroupBy(static entry => entry.Name!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(static group => group.Key, static group => group.First().Assembly, StringComparer.OrdinalIgnoreCase);
+
+        var reachableAssemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pending = new Queue<Assembly>();
+        pending.Enqueue(scopeAssembly);
+
+        while (pending.Count > 0)
+        {
+            var assembly = pending.Dequeue();
+            var assemblyName = assembly.GetName().Name;
+            if (string.IsNullOrWhiteSpace(assemblyName)
+                || !reachableAssemblyNames.Add(assemblyName))
+            {
+                continue;
+            }
+
+            foreach (var referencedAssemblyName in assembly.GetReferencedAssemblies())
+            {
+                if (!string.IsNullOrWhiteSpace(referencedAssemblyName.Name)
+                    && knownAssemblies.TryGetValue(referencedAssemblyName.Name, out var referencedAssembly))
+                {
+                    pending.Enqueue(referencedAssembly);
+                }
+            }
+        }
+
+        return reachableAssemblyNames;
     }
 }

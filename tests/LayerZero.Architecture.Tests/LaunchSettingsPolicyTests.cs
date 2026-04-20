@@ -5,23 +5,39 @@ namespace LayerZero.Architecture.Tests;
 public sealed class LaunchSettingsPolicyTests
 {
     [Fact]
-    public void Fulfillment_api_sample_uses_stable_supported_launch_profile_urls()
+    public void Fulfillment_rabbitmq_api_sample_uses_stable_supported_launch_profile_urls()
     {
-        var root = FindRepositoryRoot();
-        var profiles = ReadProfiles(
-            root,
-            "LayerZero.Fulfillment.Api",
-            "The fulfillment API sample launch settings must exist.");
+        AssertApiLaunchProfile(
+            "LayerZero.Fulfillment.RabbitMq.Api",
+            "http://localhost:5381",
+            "https://localhost:7381;http://localhost:5381");
+    }
 
-        AssertLaunchProfile(
-            profiles.GetProperty("http"),
-            expectedApplicationUrl: "http://localhost:5380",
-            expectedLaunchUrl: "openapi/v1.json");
+    [Fact]
+    public void Fulfillment_azure_service_bus_api_sample_uses_stable_supported_launch_profile_urls()
+    {
+        AssertApiLaunchProfile(
+            "LayerZero.Fulfillment.AzureServiceBus.Api",
+            "http://localhost:5382",
+            "https://localhost:7382;http://localhost:5382");
+    }
 
-        AssertLaunchProfile(
-            profiles.GetProperty("https"),
-            expectedApplicationUrl: "https://localhost:7380;http://localhost:5380",
-            expectedLaunchUrl: "openapi/v1.json");
+    [Fact]
+    public void Fulfillment_kafka_api_sample_uses_stable_supported_launch_profile_urls()
+    {
+        AssertApiLaunchProfile(
+            "LayerZero.Fulfillment.Kafka.Api",
+            "http://localhost:5383",
+            "https://localhost:7383;http://localhost:5383");
+    }
+
+    [Fact]
+    public void Fulfillment_nats_api_sample_uses_stable_supported_launch_profile_urls()
+    {
+        AssertApiLaunchProfile(
+            "LayerZero.Fulfillment.Nats.Api",
+            "http://localhost:5384",
+            "https://localhost:7384;http://localhost:5384");
     }
 
     [Fact]
@@ -147,6 +163,28 @@ public sealed class LaunchSettingsPolicyTests
         AssertEnvironmentVariable(httpsProfile, "DOTNET_ENVIRONMENT", "Development");
         AssertEnvironmentVariable(httpsProfile, "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL", expectedOtlpEndpoint);
         AssertEnvironmentVariable(httpsProfile, "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL", expectedResourceServiceEndpoint);
+    }
+
+    private static void AssertApiLaunchProfile(
+        string sampleProjectName,
+        string expectedHttpApplicationUrl,
+        string expectedHttpsApplicationUrl)
+    {
+        var root = FindRepositoryRoot();
+        var profiles = ReadProfiles(
+            root,
+            sampleProjectName,
+            $"The {sampleProjectName} launch settings must exist.");
+
+        AssertLaunchProfile(
+            profiles.GetProperty("http"),
+            expectedApplicationUrl: expectedHttpApplicationUrl,
+            expectedLaunchUrl: "openapi/v1.json");
+
+        AssertLaunchProfile(
+            profiles.GetProperty("https"),
+            expectedApplicationUrl: expectedHttpsApplicationUrl,
+            expectedLaunchUrl: "openapi/v1.json");
     }
 
     private static void AssertAppHostDebugConfiguration(string name, string expectedProgram)

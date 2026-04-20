@@ -1,18 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
+    <OutputType>Library</OutputType>
     <IsPackable>false</IsPackable>
-    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
-    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)/obj/openapi</OpenApiDocumentsDirectory>
-    <OpenApiGenerateDocumentsOptions>--document-name v1 --file-name openapi_v1 --openapi-version OpenApi3_1</OpenApiGenerateDocumentsOptions>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Net.Compilers.Toolset" PrivateAssets="all" />
     <ProjectReference Include="../../src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
-    <ProjectReference Include="../../src/LayerZero.Data/LayerZero.Data.csproj" />
-    <ProjectReference Include="../../src/LayerZero.Data.Postgres/LayerZero.Data.Postgres.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
     <ProjectReference Include="../../src/LayerZero.Generators/LayerZero.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="../LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />

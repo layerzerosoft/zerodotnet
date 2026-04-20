@@ -4,6 +4,8 @@ using LayerZero.Migrations.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace LayerZero.Migrations;
 
@@ -17,7 +19,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="builder">The data builder.</param>
     /// <param name="configure">The optional migrations configuration.</param>
-    public static void UseMigrations(
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static DataBuilder UseMigrations(
         this DataBuilder builder,
         Action<MigrationsOptions>? configure = null)
     {
@@ -42,10 +45,12 @@ public static class ServiceCollectionExtensions
             builder.Services.PostConfigure(configure);
         }
 
-        MigrationProviderRegistry.Apply(builder.Services, builder.GetSelectedProvider().MigrationsAssemblyName);
+        var scopeAssembly = Assembly.GetCallingAssembly();
+        MigrationAssemblyRegistrarCatalog.Apply(builder.Services, scopeAssembly);
+        var selectedProvider = builder.GetSelectedProvider();
+        MigrationProviderRegistry.Apply(builder.Services, selectedProvider.Name, selectedProvider.MigrationsAssemblyName);
 
         builder.Services.TryAddSingleton<MigrationModelCompiler>();
-        builder.Services.TryAddSingleton<IMigrationCatalog>(static _ => MigrationCatalogLoader.LoadFromEntryAssembly());
         builder.Services.TryAddSingleton<IMigrationDatabaseAdapterResolver, MigrationDatabaseAdapterResolver>();
         builder.Services.TryAddSingleton<IMigrationRuntime>(static serviceProvider =>
             new MigrationRuntime(
@@ -53,5 +58,7 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<IMigrationDatabaseAdapterResolver>().Resolve(),
                 serviceProvider.GetRequiredService<MigrationModelCompiler>(),
                 serviceProvider.GetRequiredService<IOptions<MigrationsOptions>>()));
+
+        return builder;
     }
 }

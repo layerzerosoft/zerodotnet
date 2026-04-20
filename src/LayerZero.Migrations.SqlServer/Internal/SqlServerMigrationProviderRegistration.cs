@@ -2,11 +2,12 @@ using LayerZero.Data.SqlServer;
 using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
 using LayerZero.Migrations.SqlServer.Configuration;
+using System.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
-[assembly: MigrationProviderRegistrar(typeof(LayerZero.Migrations.SqlServer.Internal.SqlServerMigrationProviderRegistration))]
+[assembly: LayerZero.Migrations.MigrationProviderRegistrarAttribute(typeof(LayerZero.Migrations.SqlServer.Internal.SqlServerMigrationProviderRegistration))]
 
 namespace LayerZero.Migrations.SqlServer.Internal;
 
@@ -20,8 +21,21 @@ internal sealed class SqlServerMigrationDatabaseAdapterFactory : IMigrationDatab
     }
 }
 
-internal sealed class SqlServerMigrationProviderRegistration : IMigrationProviderRegistrar
+/// <summary>
+/// Registers SQL Server-specific migration services for analyzer-generated startup paths.
+/// </summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
+public sealed class SqlServerMigrationProviderRegistration : IMigrationProviderRegistrar
 {
+    /// <summary>
+    /// Gets the data provider name handled by this registrar.
+    /// </summary>
+    public string ProviderName => SqlServerDataProvider.ProviderName;
+
+    /// <summary>
+    /// Adds SQL Server migration services to the container.
+    /// </summary>
+    /// <param name="services">The service collection being configured.</param>
     public void Register(IServiceCollection services)
     {
         services.AddOptions<SqlServerMigrationsOptions>()

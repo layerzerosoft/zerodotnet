@@ -3,14 +3,13 @@ using LayerZero.Core;
 using LayerZero.Messaging.Diagnostics;
 using LayerZero.Messaging.Internal;
 using LayerZero.Messaging.Serialization;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LayerZero.Messaging.Dispatching;
 
 internal sealed class EventPublisher(
-    IServiceProvider services,
     IMessageRegistry registry,
     MessageRouteResolver routeResolver,
+    IMessageTransportResolver transportResolver,
     MessageEnvelopeSerializer serializer,
     IMessageContextAccessor contextAccessor,
     IMessageConventions conventions,
@@ -37,7 +36,7 @@ internal sealed class EventPublisher(
         }
 
         var busName = routeResolver.Resolve(descriptor);
-        var transport = services.GetRequiredKeyedService<IMessageBusTransport>(busName);
+        var transport = transportResolver.Resolve(busName);
         var context = MessageContextFactory.Create(
             descriptor,
             eventMessage,

@@ -70,4 +70,23 @@ public sealed class PostgresRegistrationTests
         Assert.Equal("Host=localhost;Database=override;Username=postgres;Password=postgres", options.ConnectionString);
         Assert.Equal("public", options.DefaultSchema);
     }
+
+    [Fact]
+    public void UsePostgres_named_connection_uses_the_requested_connection_string_and_provider_defaults()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(
+        [
+            new KeyValuePair<string, string?>("ConnectionStrings:Fulfillment", "Host=localhost;Database=fulfillment;Username=postgres;Password=postgres"),
+        ]);
+
+        builder.Services.AddData(data => data.UsePostgres("Fulfillment"));
+
+        using var host = builder.Build();
+        var options = host.Services.GetRequiredService<IOptions<PostgresDataOptions>>().Value;
+
+        Assert.Equal("Host=localhost;Database=fulfillment;Username=postgres;Password=postgres", options.ConnectionString);
+        Assert.Equal("Fulfillment", options.ConnectionStringName);
+        Assert.Equal("public", options.DefaultSchema);
+    }
 }

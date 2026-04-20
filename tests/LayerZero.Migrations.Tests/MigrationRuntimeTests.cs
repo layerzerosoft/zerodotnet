@@ -3,6 +3,8 @@ using LayerZero.Migrations.Configuration;
 using LayerZero.Migrations.Internal;
 using Microsoft.Extensions.Options;
 
+#pragma warning disable LZMIG001
+
 namespace LayerZero.Migrations.Tests;
 
 public sealed class MigrationRuntimeTests
@@ -277,3 +279,5 @@ public sealed class MigrationRuntimeTests
         }
     }
 }
+
+#pragma warning restore LZMIG001

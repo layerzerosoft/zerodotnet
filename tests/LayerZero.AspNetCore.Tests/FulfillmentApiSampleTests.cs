@@ -1,12 +1,17 @@
 using System.Net;
 using System.Text.Json.Nodes;
 using LayerZero.Core;
-using LayerZero.Fulfillment.Bootstrap;
 using LayerZero.Fulfillment.Api.Features.Orders.Get;
 using LayerZero.Fulfillment.Api.Features.Orders.Place;
 using LayerZero.Fulfillment.Contracts.Orders;
+using LayerZero.Fulfillment.RabbitMq.Api;
+using LayerZero.Fulfillment.RabbitMq.Bootstrap;
+using LayerZero.Messaging;
+using LayerZero.Messaging.IntegrationTesting;
 using LayerZero.Validation;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -140,6 +145,20 @@ public sealed class FulfillmentApiSampleTests : IClassFixture<FulfillmentApiFact
         Assert.DoesNotContain("NSwag", document, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Loading_an_unrelated_generated_messaging_assembly_does_not_pollute_a_new_api_host()
+    {
+        _ = typeof(IntegrationTestHost);
+
+        using var isolatedFactory = new FulfillmentApiFactory();
+        using var client = isolatedFactory.CreateClient();
+        using var scope = isolatedFactory.Services.CreateScope();
+
+        Assert.NotNull(client);
+        Assert.Null(scope.ServiceProvider.GetService<ICommandHandler<HappyCommand>>());
+        Assert.Null(scope.ServiceProvider.GetService<IEventHandler<HappyEvent>>());
+    }
+
     private static async Task<Guid> PlaceOrderAsync(HttpClient client, CancellationToken cancellationToken)
     {
         var response = await client.PostAsJsonAsync(
@@ -167,7 +186,7 @@ public sealed class FulfillmentApiSampleTests : IClassFixture<FulfillmentApiFact
     }
 }
 
-public sealed class FulfillmentApiFactory : WebApplicationFactory<Program>
+public sealed class FulfillmentApiFactory : WebApplicationFactory<RabbitMqFulfillmentApiEntryPoint>
 {
     private readonly object initializationGate = new();
     private PostgreSqlContainer? container;
@@ -179,15 +198,18 @@ public sealed class FulfillmentApiFactory : WebApplicationFactory<Program>
         EnsureInitialized();
 
         builder.UseEnvironment("Development");
-        builder.UseSetting("Messaging:DisableTransport", "true");
         builder.UseSetting("ConnectionStrings:Fulfillment", connectionString);
         builder.ConfigureAppConfiguration((_, configurationBuilder) =>
         {
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Messaging:DisableTransport"] = "true",
                 ["ConnectionStrings:Fulfillment"] = connectionString,
             });
+        });
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<ICommandSender>();
+            services.AddSingleton<ICommandSender, StubCommandSender>();
         });
     }
 
@@ -237,11 +259,30 @@ public sealed class FulfillmentApiFactory : WebApplicationFactory<Program>
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:Fulfillment"] = connectionString,
+                    ["ConnectionStrings:rabbitmq"] = "amqp://guest:guest@localhost:5672/",
                 })
                 .Build();
 
-            FulfillmentBootstrapHost.ApplyMigrationsAsync(configuration).GetAwaiter().GetResult();
+            using var host = CreateBootstrapHost(configuration);
+            RabbitMqFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services).GetAwaiter().GetResult();
             initialized = true;
+        }
+    }
+
+    private static IHost CreateBootstrapHost(IConfiguration configuration)
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddConfiguration(configuration);
+        RabbitMqFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
+        return builder.Build();
+    }
+
+    private sealed class StubCommandSender : ICommandSender
+    {
+        public ValueTask<Result> SendAsync<TCommand>(TCommand command, CancellationToken cancellationToken = default)
+            where TCommand : class, ICommand
+        {
+            return ValueTask.FromResult(Result.Success());
         }
     }
 }

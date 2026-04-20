@@ -24,8 +24,9 @@ public sealed class RabbitMqFulfillmentFixture : TestcontainerFixtureBase<Rabbit
 
     public void ApplyConfiguration(IDictionary<string, string?> settings)
     {
-        settings["Messaging:Broker"] = BrokerName;
-        settings["Messaging:RabbitMq:ConnectionString"] = Container.GetConnectionString();
+        var connectionString = Container.GetConnectionString();
+        settings["ConnectionStrings:rabbitmq"] = connectionString;
+        settings["Messaging:RabbitMq:ConnectionString"] = connectionString;
         settings["Messaging:RabbitMq:RetryDelay"] = "00:00:00.200";
         settings["Messaging:RabbitMq:MaxDeliveryAttempts"] = "2";
         settings["Messaging:RabbitMq:PrefetchCount"] = "8";
@@ -50,8 +51,9 @@ public sealed class KafkaFulfillmentFixture : TestcontainerFixtureBase<KafkaCont
 
     public void ApplyConfiguration(IDictionary<string, string?> settings)
     {
-        settings["Messaging:Broker"] = BrokerName;
-        settings["Messaging:Kafka:BootstrapServers"] = Container.GetBootstrapAddress();
+        var bootstrapServers = Container.GetBootstrapAddress();
+        settings["ConnectionStrings:kafka"] = bootstrapServers;
+        settings["Messaging:Kafka:BootstrapServers"] = bootstrapServers;
         settings["Messaging:Kafka:PollInterval"] = "00:00:00.100";
         settings["Messaging:Kafka:PartitionCount"] = "3";
         settings["Messaging:Kafka:MaxDeliveryAttempts"] = "2";
@@ -77,8 +79,9 @@ public sealed class NatsFulfillmentFixture : TestcontainerFixtureBase<NatsContai
 
     public void ApplyConfiguration(IDictionary<string, string?> settings)
     {
-        settings["Messaging:Broker"] = BrokerName;
-        settings["Messaging:Nats:Url"] = Container.GetConnectionString();
+        var connectionString = Container.GetConnectionString();
+        settings["ConnectionStrings:nats"] = connectionString;
+        settings["Messaging:Nats:Url"] = connectionString;
         settings["Messaging:Nats:RetryDelay"] = "00:00:00.200";
         settings["Messaging:Nats:MaxDeliver"] = "2";
     }
@@ -103,8 +106,9 @@ public sealed class AzureServiceBusFulfillmentFixture : TestcontainerFixtureBase
 
     public void ApplyConfiguration(IDictionary<string, string?> settings)
     {
-        settings["Messaging:Broker"] = BrokerName;
-        settings["Messaging:AzureServiceBus:ConnectionString"] = Container.GetConnectionString();
+        var connectionString = Container.GetConnectionString();
+        settings["ConnectionStrings:servicebus"] = connectionString;
+        settings["Messaging:AzureServiceBus:ConnectionString"] = connectionString;
         settings["Messaging:AzureServiceBus:AdministrationConnectionString"] = Container.GetHttpConnectionString();
         settings["Messaging:AzureServiceBus:PrefetchCount"] = "8";
         settings["Messaging:AzureServiceBus:MaxConcurrentCalls"] = "2";
@@ -130,7 +134,7 @@ public sealed class CloudAzureServiceBusFulfillmentFixture : IFulfillmentBrokerF
 
     public void ApplyConfiguration(IDictionary<string, string?> settings)
     {
-        settings["Messaging:Broker"] = BrokerName;
+        settings["ConnectionStrings:servicebus"] = connectionString;
         settings["Messaging:AzureServiceBus:ConnectionString"] = connectionString;
         settings["Messaging:AzureServiceBus:AdministrationConnectionString"] = administrationConnectionString;
         settings["Messaging:AzureServiceBus:PrefetchCount"] = "8";

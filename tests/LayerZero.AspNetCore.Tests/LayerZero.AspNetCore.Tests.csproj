@@ -12,9 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../samples/LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.RabbitMq.Api/LayerZero.Fulfillment.RabbitMq.Api.csproj" />
+    <ProjectReference Include="../../samples/LayerZero.Fulfillment.RabbitMq.Bootstrap/LayerZero.Fulfillment.RabbitMq.Bootstrap.csproj" />
     <ProjectReference Include="../../samples/LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
+    <ProjectReference Include="../LayerZero.Messaging.IntegrationTesting/LayerZero.Messaging.IntegrationTesting.csproj" />
     <ProjectReference Include="../../src/LayerZero.Core/LayerZero.Core.csproj" />
     <ProjectReference Include="../../src/LayerZero.Testing/LayerZero.Testing.csproj" />
     <ProjectReference Include="../../src/LayerZero.Validation/LayerZero.Validation.csproj" />

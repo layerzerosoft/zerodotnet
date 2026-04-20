@@ -2,6 +2,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="LayerZero.Messaging.Tests" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <ProjectReference Include="../LayerZero.Generators/LayerZero.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
     <ProjectReference Include="../LayerZero.Core/LayerZero.Core.csproj" />
     <ProjectReference Include="../LayerZero.Validation/LayerZero.Validation.csproj" />
   </ItemGroup>

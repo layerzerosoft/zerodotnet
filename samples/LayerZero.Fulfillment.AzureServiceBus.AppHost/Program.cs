@@ -14,19 +14,17 @@ var fulfillmentDatabase = postgres.AddDatabase("fulfillment");
 var administrationEndpoint = serviceBus.Resource.GetEndpoint("administration");
 
 var bootstrap = WithAzureServiceBusAdministrationConnectionString(
-    builder.AddProject<Projects.LayerZero_Fulfillment_Bootstrap>("fulfillment-bootstrap")
+    builder.AddProject<Projects.LayerZero_Fulfillment_AzureServiceBus_Bootstrap>("fulfillment-bootstrap")
         .WithReference(serviceBus)
         .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-        .WithEnvironment("Messaging__Broker", "AzureServiceBus")
         .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable)
         .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable),
     serviceBus,
     administrationEndpoint);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Processing>("fulfillment-processing")
+builder.AddProject<Projects.LayerZero_Fulfillment_AzureServiceBus_Processing>("fulfillment-processing")
     .WithReference(serviceBus)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "AzureServiceBus")
     .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap)
@@ -35,10 +33,9 @@ builder.AddProject<Projects.LayerZero_Fulfillment_Processing>("fulfillment-proce
         serviceBus,
         administrationEndpoint));
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Projections>("fulfillment-projections")
+builder.AddProject<Projects.LayerZero_Fulfillment_AzureServiceBus_Projections>("fulfillment-projections")
     .WithReference(serviceBus)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "AzureServiceBus")
     .WaitFor(serviceBus, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap)
@@ -47,10 +44,9 @@ builder.AddProject<Projects.LayerZero_Fulfillment_Projections>("fulfillment-proj
         serviceBus,
         administrationEndpoint));
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Api>("fulfillment-api", launchProfileName: null)
+builder.AddProject<Projects.LayerZero_Fulfillment_AzureServiceBus_Api>("fulfillment-api", launchProfileName: null)
     .WithReference(serviceBus)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "AzureServiceBus")
     .WithHttpEndpoint(port: 5382, name: "http")
     .WithHttpsEndpoint(port: 7382, name: "https")
     .WithUrlForEndpoint("http", static _ => new() { Url = "/openapi/v1.json", DisplayText = "OpenAPI (HTTP)" })

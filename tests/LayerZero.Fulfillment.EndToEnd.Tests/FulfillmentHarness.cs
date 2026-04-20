@@ -1,8 +1,21 @@
 using System.Diagnostics;
-using LayerZero.Fulfillment.Bootstrap;
 using LayerZero.Fulfillment.Contracts.Orders;
-using LayerZero.Fulfillment.Processing;
-using LayerZero.Fulfillment.Projections;
+using LayerZero.Fulfillment.AzureServiceBus.Api;
+using LayerZero.Fulfillment.AzureServiceBus.Bootstrap;
+using LayerZero.Fulfillment.AzureServiceBus.Processing;
+using LayerZero.Fulfillment.AzureServiceBus.Projections;
+using LayerZero.Fulfillment.Kafka.Api;
+using LayerZero.Fulfillment.Kafka.Bootstrap;
+using LayerZero.Fulfillment.Kafka.Processing;
+using LayerZero.Fulfillment.Kafka.Projections;
+using LayerZero.Fulfillment.Nats.Api;
+using LayerZero.Fulfillment.Nats.Bootstrap;
+using LayerZero.Fulfillment.Nats.Processing;
+using LayerZero.Fulfillment.Nats.Projections;
+using LayerZero.Fulfillment.RabbitMq.Api;
+using LayerZero.Fulfillment.RabbitMq.Bootstrap;
+using LayerZero.Fulfillment.RabbitMq.Processing;
+using LayerZero.Fulfillment.RabbitMq.Projections;
 using LayerZero.Fulfillment.Shared;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
@@ -59,13 +72,13 @@ public sealed class FulfillmentHarness : IAsyncDisposable
     private readonly FulfillmentPostgresDatabase database;
     private readonly IHost processingHost;
     private readonly IHost projectionHost;
-    private readonly FulfillmentApiFactory factory;
+    private readonly IFulfillmentApiFactory factory;
 
     private FulfillmentHarness(
         FulfillmentPostgresDatabase database,
         IHost processingHost,
         IHost projectionHost,
-        FulfillmentApiFactory factory,
+        IFulfillmentApiFactory factory,
         HttpClient client)
     {
         this.database = database;
@@ -88,22 +101,18 @@ public sealed class FulfillmentHarness : IAsyncDisposable
 
         brokerFixture.ApplyConfiguration(settings);
 
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(settings)
-            .Build();
+        using (var bootstrapHost = CreateBootstrapHost(brokerFixture.BrokerName, settings))
+        {
+            await ApplyBootstrapAsync(bootstrapHost, brokerFixture.BrokerName, cancellationToken).ConfigureAwait(false);
+        }
 
-        await FulfillmentBootstrapHost.ApplyMigrationsAsync(configuration, cancellationToken).ConfigureAwait(false);
-
-        var processingHost = CreateWorkerHost(settings, static (services, currentConfiguration) => ProcessingHost.ConfigureServices(services, currentConfiguration));
-        var projectionHost = CreateWorkerHost(settings, static (services, currentConfiguration) => ProjectionHost.ConfigureServices(services, currentConfiguration));
-
-        await FulfillmentProvisioning.ProvisionTopologyAsync(processingHost.Services, cancellationToken).ConfigureAwait(false);
-        await FulfillmentProvisioning.ProvisionTopologyAsync(projectionHost.Services, cancellationToken).ConfigureAwait(false);
+        var processingHost = CreateProcessingHost(brokerFixture.BrokerName, settings);
+        var projectionHost = CreateProjectionsHost(brokerFixture.BrokerName, settings);
 
         await processingHost.StartAsync(cancellationToken).ConfigureAwait(false);
         await projectionHost.StartAsync(cancellationToken).ConfigureAwait(false);
 
-        var factory = new FulfillmentApiFactory(settings);
+        var factory = CreateApiFactory(brokerFixture.BrokerName, settings);
         var client = factory.CreateClient();
 
         return new FulfillmentHarness(database, processingHost, projectionHost, factory, client);
@@ -218,14 +227,118 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         return $"00-{traceId}-{spanId}-01";
     }
 
-    private static IHost CreateWorkerHost(
-        IReadOnlyDictionary<string, string?> settings,
-        Action<IServiceCollection, IConfiguration> configure)
+    private static IHost CreateBootstrapHost(string brokerName, IReadOnlyDictionary<string, string?> settings)
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(settings);
-        configure(builder.Services, builder.Configuration);
+        switch (brokerName)
+        {
+            case "AzureServiceBus":
+                AzureServiceBusFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "RabbitMq":
+                RabbitMqFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "Kafka":
+                KafkaFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "Nats":
+                NatsFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
+        }
+
         return builder.Build();
+    }
+
+    private static async Task ApplyBootstrapAsync(IHost host, string brokerName, CancellationToken cancellationToken)
+    {
+        switch (brokerName)
+        {
+            case "AzureServiceBus":
+                await AzureServiceBusFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services, cancellationToken).ConfigureAwait(false);
+                await AzureServiceBusFulfillmentBootstrapHost.ProvisionMessagingAsync(host.Services, cancellationToken).ConfigureAwait(false);
+                break;
+            case "RabbitMq":
+                await RabbitMqFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services, cancellationToken).ConfigureAwait(false);
+                await RabbitMqFulfillmentBootstrapHost.ProvisionMessagingAsync(host.Services, cancellationToken).ConfigureAwait(false);
+                break;
+            case "Kafka":
+                await KafkaFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services, cancellationToken).ConfigureAwait(false);
+                await KafkaFulfillmentBootstrapHost.ProvisionMessagingAsync(host.Services, cancellationToken).ConfigureAwait(false);
+                break;
+            case "Nats":
+                await NatsFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services, cancellationToken).ConfigureAwait(false);
+                await NatsFulfillmentBootstrapHost.ProvisionMessagingAsync(host.Services, cancellationToken).ConfigureAwait(false);
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
+        }
+    }
+
+    private static IHost CreateProcessingHost(string brokerName, IReadOnlyDictionary<string, string?> settings)
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(settings);
+
+        switch (brokerName)
+        {
+            case "AzureServiceBus":
+                AzureServiceBusFulfillmentProcessingHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "RabbitMq":
+                RabbitMqFulfillmentProcessingHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "Kafka":
+                KafkaFulfillmentProcessingHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "Nats":
+                NatsFulfillmentProcessingHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
+        }
+
+        return builder.Build();
+    }
+
+    private static IHost CreateProjectionsHost(string brokerName, IReadOnlyDictionary<string, string?> settings)
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(settings);
+
+        switch (brokerName)
+        {
+            case "AzureServiceBus":
+                AzureServiceBusFulfillmentProjectionsHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "RabbitMq":
+                RabbitMqFulfillmentProjectionsHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "Kafka":
+                KafkaFulfillmentProjectionsHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            case "Nats":
+                NatsFulfillmentProjectionsHost.ConfigureServices(builder.Services, builder.Configuration);
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
+        }
+
+        return builder.Build();
+    }
+
+    private static IFulfillmentApiFactory CreateApiFactory(string brokerName, IReadOnlyDictionary<string, string?> settings)
+    {
+        return brokerName switch
+        {
+            "AzureServiceBus" => new AzureServiceBusFulfillmentApiFactory(settings),
+            "RabbitMq" => new RabbitMqFulfillmentApiFactory(settings),
+            "Kafka" => new KafkaFulfillmentApiFactory(settings),
+            "Nats" => new NatsFulfillmentApiFactory(settings),
+            _ => throw new InvalidOperationException($"Unsupported broker '{brokerName}'."),
+        };
     }
 
     private static async ValueTask DisposeAsync(object instance)
@@ -241,12 +354,23 @@ public sealed class FulfillmentHarness : IAsyncDisposable
         }
     }
 
-    private sealed class FulfillmentApiFactory(IReadOnlyDictionary<string, string?> settings) : WebApplicationFactory<Program>
+    private interface IFulfillmentApiFactory
     {
+        IServiceProvider Services { get; }
+
+        HttpClient CreateClient();
+    }
+
+    private abstract class FulfillmentApiFactory<TEntryPoint>(IReadOnlyDictionary<string, string?> settings)
+        : WebApplicationFactory<TEntryPoint>, IFulfillmentApiFactory
+        where TEntryPoint : class
+    {
+        protected IReadOnlyDictionary<string, string?> Settings { get; } = settings;
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
-            foreach (var setting in settings)
+            foreach (var setting in Settings)
             {
                 if (!string.IsNullOrWhiteSpace(setting.Value))
                 {
@@ -256,10 +380,22 @@ public sealed class FulfillmentHarness : IAsyncDisposable
 
             builder.ConfigureAppConfiguration((_, configurationBuilder) =>
             {
-                configurationBuilder.AddInMemoryCollection(settings);
+                configurationBuilder.AddInMemoryCollection(Settings);
             });
         }
     }
+
+    private sealed class RabbitMqFulfillmentApiFactory(IReadOnlyDictionary<string, string?> settings)
+        : FulfillmentApiFactory<RabbitMqFulfillmentApiEntryPoint>(settings);
+
+    private sealed class AzureServiceBusFulfillmentApiFactory(IReadOnlyDictionary<string, string?> settings)
+        : FulfillmentApiFactory<AzureServiceBusFulfillmentApiEntryPoint>(settings);
+
+    private sealed class KafkaFulfillmentApiFactory(IReadOnlyDictionary<string, string?> settings)
+        : FulfillmentApiFactory<KafkaFulfillmentApiEntryPoint>(settings);
+
+    private sealed class NatsFulfillmentApiFactory(IReadOnlyDictionary<string, string?> settings)
+        : FulfillmentApiFactory<NatsFulfillmentApiEntryPoint>(settings);
 }
 
 internal sealed class FulfillmentPostgresDatabase : IAsyncDisposable

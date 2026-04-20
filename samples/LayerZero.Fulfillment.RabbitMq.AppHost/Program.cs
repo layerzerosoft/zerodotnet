@@ -4,33 +4,29 @@ var rabbitMq = builder.AddRabbitMQ("rabbitmq")
 var postgres = builder.AddPostgres("postgres");
 var fulfillmentDatabase = postgres.AddDatabase("fulfillment");
 
-var bootstrap = builder.AddProject<Projects.LayerZero_Fulfillment_Bootstrap>("fulfillment-bootstrap")
+var bootstrap = builder.AddProject<Projects.LayerZero_Fulfillment_RabbitMq_Bootstrap>("fulfillment-bootstrap")
     .WithReference(rabbitMq)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "RabbitMq")
     .WaitFor(rabbitMq, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Processing>("fulfillment-processing")
+builder.AddProject<Projects.LayerZero_Fulfillment_RabbitMq_Processing>("fulfillment-processing")
     .WithReference(rabbitMq)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "RabbitMq")
     .WaitFor(rabbitMq, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Projections>("fulfillment-projections")
+builder.AddProject<Projects.LayerZero_Fulfillment_RabbitMq_Projections>("fulfillment-projections")
     .WithReference(rabbitMq)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "RabbitMq")
     .WaitFor(rabbitMq, WaitBehavior.StopOnResourceUnavailable)
     .WaitFor(fulfillmentDatabase, WaitBehavior.StopOnResourceUnavailable)
     .WaitForCompletion(bootstrap);
 
-builder.AddProject<Projects.LayerZero_Fulfillment_Api>("fulfillment-api", launchProfileName: null)
+builder.AddProject<Projects.LayerZero_Fulfillment_RabbitMq_Api>("fulfillment-api", launchProfileName: null)
     .WithReference(rabbitMq)
     .WithReference(fulfillmentDatabase, connectionName: "Fulfillment")
-    .WithEnvironment("Messaging__Broker", "RabbitMq")
     .WithHttpEndpoint(port: 5381, name: "http")
     .WithHttpsEndpoint(port: 7381, name: "https")
     .WithUrlForEndpoint("http", static _ => new() { Url = "/openapi/v1.json", DisplayText = "OpenAPI (HTTP)" })

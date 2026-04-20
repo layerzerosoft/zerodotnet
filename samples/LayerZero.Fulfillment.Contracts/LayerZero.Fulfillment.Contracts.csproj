@@ -7,5 +7,9 @@
     <ProjectReference Include="../../src/LayerZero.Core/LayerZero.Core.csproj" />
     <ProjectReference Include="../../src/LayerZero.Http/LayerZero.Http.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Generators/LayerZero.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
   </ItemGroup>
 </Project>

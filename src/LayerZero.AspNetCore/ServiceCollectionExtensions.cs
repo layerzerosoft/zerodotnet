@@ -1,6 +1,8 @@
 using LayerZero.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace LayerZero.AspNetCore;
 
@@ -14,9 +16,14 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public static IServiceCollection AddLayerZero(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        var scopeAssembly = Assembly.GetCallingAssembly();
+        services.AddProblemDetails();
+        services.AddValidation();
+        AspNetCoreAssemblyRegistrarCatalog.Apply(services, scopeAssembly);
         return services;
     }
 

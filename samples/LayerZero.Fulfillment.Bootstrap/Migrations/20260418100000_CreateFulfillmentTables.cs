@@ -7,21 +7,13 @@ internal sealed class CreateFulfillmentTablesMigration : Migration
 {
     public override void Build(MigrationBuilder builder)
     {
-        var orders = new FulfillmentOrderMap().Table;
-        var timeline = new FulfillmentTimelineMap().Table;
-        var idempotency = new FulfillmentMessageIdempotencyMap().Table;
-        var deadletters = new FulfillmentDeadLetterMap().Table;
-        var scenarioFlags = new FulfillmentScenarioFlagMap().Table;
-        var sideEffects = new FulfillmentSideEffectMap().Table;
-
-        builder.EnsureSchema("public");
-        builder.CreateTable(orders);
-        builder.CreateTable(timeline);
-        builder.CreateIndex(timeline, timeline.Indexes[0]);
-        builder.CreateTable(idempotency);
-        builder.CreateTable(deadletters);
-        builder.CreateIndex(deadletters, deadletters.Indexes[0]);
-        builder.CreateTable(scenarioFlags);
-        builder.CreateTable(sideEffects);
+        builder.CreateTable(FulfillmentTables.Orders);
+        builder.CreateTable(FulfillmentTables.Timeline);
+        builder.CreateIndex(FulfillmentTables.Timeline, FulfillmentTables.Timeline.Indexes[0]);
+        builder.CreateTable(FulfillmentTables.MessageIdempotency);
+        builder.CreateTable(FulfillmentTables.DeadLetters);
+        builder.CreateIndex(FulfillmentTables.DeadLetters, FulfillmentTables.DeadLetters.Indexes[0]);
+        builder.CreateTable(FulfillmentTables.ScenarioFlags);
+        builder.CreateTable(FulfillmentTables.SideEffects);
     }
 }

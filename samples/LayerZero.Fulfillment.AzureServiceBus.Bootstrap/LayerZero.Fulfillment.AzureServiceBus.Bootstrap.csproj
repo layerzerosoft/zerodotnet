@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <ProjectReference Include="../../src/LayerZero.Data/LayerZero.Data.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Data.Postgres/LayerZero.Data.Postgres.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Generators/LayerZero.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="../../src/LayerZero.Migrations/LayerZero.Migrations.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Migrations.Analyzers/LayerZero.Migrations.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="../../src/LayerZero.Migrations.Postgres/LayerZero.Migrations.Postgres.csproj" />
+    <ProjectReference Include="../LayerZero.Fulfillment.Bootstrap/LayerZero.Fulfillment.Bootstrap.csproj" />
+    <ProjectReference Include="../LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
+    <ProjectReference Include="../LayerZero.Fulfillment.Projections/LayerZero.Fulfillment.Projections.csproj" />
+  </ItemGroup>
+</Project>

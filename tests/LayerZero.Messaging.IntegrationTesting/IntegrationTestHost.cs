@@ -27,7 +27,6 @@ public static class IntegrationTestHost
         });
 
         addTransport(messaging);
-        builder.Services.AddMessages();
         configureServices?.Invoke(builder.Services);
         return builder.Build();
     }
