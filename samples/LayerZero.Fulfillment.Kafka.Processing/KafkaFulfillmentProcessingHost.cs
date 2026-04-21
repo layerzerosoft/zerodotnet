@@ -3,6 +3,8 @@ using LayerZero.Data.Postgres;
 using LayerZero.Fulfillment.Shared;
 using LayerZero.Messaging;
 using LayerZero.Messaging.Kafka;
+using LayerZero.Messaging.Operations;
+using LayerZero.Messaging.Operations.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,6 +20,7 @@ public static class KafkaFulfillmentProcessingHost
 
         services.AddLogging(logging => logging.AddSimpleConsole(static options => options.SingleLine = true));
         services.AddData().UsePostgres("Fulfillment");
+        services.AddMessagingOperations().UsePostgres("Fulfillment");
         services.AddFulfillmentStore();
         services.AddMessaging(ResolveApplicationName(configuration))
             .AddKafka(configuration, role: MessageTransportRole.Consumers);

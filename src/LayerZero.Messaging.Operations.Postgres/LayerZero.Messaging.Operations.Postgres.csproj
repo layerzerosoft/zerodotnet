@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="LayerZero.Messaging.Operations.Postgres.IntegrationTests" />
+    <PackageReference Include="Npgsql" />
+    <ProjectReference Include="../LayerZero.Data/LayerZero.Data.csproj" />
+    <ProjectReference Include="../LayerZero.Data.Analyzers/LayerZero.Data.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="../LayerZero.Data.Postgres/LayerZero.Data.Postgres.csproj" />
+    <ProjectReference Include="../LayerZero.Messaging.Operations/LayerZero.Messaging.Operations.csproj" />
+    <ProjectReference Include="../LayerZero.Migrations/LayerZero.Migrations.csproj" />
+    <ProjectReference Include="../LayerZero.Migrations.Analyzers/LayerZero.Migrations.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="../LayerZero.Migrations.Postgres/LayerZero.Migrations.Postgres.csproj" />
+  </ItemGroup>
+</Project>

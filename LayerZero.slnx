@@ -34,6 +34,9 @@
     <Project Path="samples/LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/LayerZero.Bootstrap/LayerZero.Bootstrap.csproj" />
+    <Project Path="src/LayerZero.Bootstrap.Migrations/LayerZero.Bootstrap.Migrations.csproj" />
+    <Project Path="src/LayerZero.Bootstrap.Messaging/LayerZero.Bootstrap.Messaging.csproj" />
     <Project Path="src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
     <Project Path="src/LayerZero.Client/LayerZero.Client.csproj" />
     <Project Path="src/LayerZero.Core/LayerZero.Core.csproj" />
@@ -47,6 +50,8 @@
     <Project Path="src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />
     <Project Path="src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
     <Project Path="src/LayerZero.Messaging.Nats/LayerZero.Messaging.Nats.csproj" />
+    <Project Path="src/LayerZero.Messaging.Operations/LayerZero.Messaging.Operations.csproj" />
+    <Project Path="src/LayerZero.Messaging.Operations.Postgres/LayerZero.Messaging.Operations.Postgres.csproj" />
     <Project Path="src/LayerZero.Messaging.RabbitMq/LayerZero.Messaging.RabbitMq.csproj" />
     <Project Path="src/LayerZero.Migrations.Analyzers/LayerZero.Migrations.Analyzers.csproj" />
     <Project Path="src/LayerZero.Migrations.Postgres/LayerZero.Migrations.Postgres.csproj" />
@@ -56,6 +61,7 @@
     <Project Path="src/LayerZero.Validation/LayerZero.Validation.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/LayerZero.Bootstrap.Tests/LayerZero.Bootstrap.Tests.csproj" />
     <Project Path="tests/LayerZero.Architecture.Tests/LayerZero.Architecture.Tests.csproj" />
     <Project Path="tests/LayerZero.AspNetCore.Tests/LayerZero.AspNetCore.Tests.csproj" />
     <Project Path="tests/LayerZero.Client.Integration.Tests/LayerZero.Client.Integration.Tests.csproj" />
@@ -76,6 +82,7 @@
     <Project Path="tests/LayerZero.Messaging.IntegrationTesting.Tests/LayerZero.Messaging.IntegrationTesting.Tests.csproj" />
     <Project Path="tests/LayerZero.Messaging.Kafka.IntegrationTests/LayerZero.Messaging.Kafka.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.Nats.IntegrationTests/LayerZero.Messaging.Nats.IntegrationTests.csproj" />
+    <Project Path="tests/LayerZero.Messaging.Operations.Postgres.IntegrationTests/LayerZero.Messaging.Operations.Postgres.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.RabbitMq.IntegrationTests/LayerZero.Messaging.RabbitMq.IntegrationTests.csproj" />
     <Project Path="tests/LayerZero.Messaging.Tests/LayerZero.Messaging.Tests.csproj" />
     <Project Path="tests/LayerZero.Migrations.Analyzers.Tests/LayerZero.Migrations.Analyzers.Tests.csproj" />

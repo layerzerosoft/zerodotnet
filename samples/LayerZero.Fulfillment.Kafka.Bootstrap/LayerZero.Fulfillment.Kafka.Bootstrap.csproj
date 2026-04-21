@@ -6,9 +6,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <ProjectReference Include="../../src/LayerZero.Bootstrap/LayerZero.Bootstrap.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Bootstrap.Messaging/LayerZero.Bootstrap.Messaging.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Bootstrap.Migrations/LayerZero.Bootstrap.Migrations.csproj" />
     <ProjectReference Include="../../src/LayerZero.Data/LayerZero.Data.csproj" />
     <ProjectReference Include="../../src/LayerZero.Data.Postgres/LayerZero.Data.Postgres.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.Operations.Postgres/LayerZero.Messaging.Operations.Postgres.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
     <ProjectReference Include="../../src/LayerZero.Generators/LayerZero.Generators.csproj"
                       OutputItemType="Analyzer"

@@ -5,6 +5,8 @@ using LayerZero.Fulfillment.Api;
 using LayerZero.Fulfillment.Shared;
 using LayerZero.Messaging;
 using LayerZero.Messaging.Nats;
+using LayerZero.Messaging.Operations;
+using LayerZero.Messaging.Operations.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
@@ -24,6 +26,7 @@ public static class NatsFulfillmentApiHost
         });
         services.AddHealthChecks();
         services.AddData().UsePostgres("Fulfillment");
+        services.AddMessagingOperations().UsePostgres("Fulfillment");
         services.AddFulfillmentStore();
         services.AddMessaging(ResolveApplicationName(configuration))
             .AddNats(configuration, role: MessageTransportRole.SendOnly);

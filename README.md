@@ -15,11 +15,15 @@ explicit, and reliable instead of turning into framework-sized magic.
 - Baseline: .NET 10 LTS, `net10.0`, C# latest.
 - Public packages: `LayerZero.Core`, `LayerZero.Validation`,
   `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
+  `LayerZero.Bootstrap`, `LayerZero.Bootstrap.Migrations`,
+  `LayerZero.Bootstrap.Messaging`,
   `LayerZero.Data`, `LayerZero.Data.SqlServer`, `LayerZero.Data.Postgres`,
   `LayerZero.Migrations`, `LayerZero.Migrations.SqlServer`,
-  `LayerZero.Migrations.Postgres`, `LayerZero.Messaging`, `LayerZero.Messaging.RabbitMq`,
-  `LayerZero.Messaging.AzureServiceBus`, `LayerZero.Messaging.Kafka`,
-  `LayerZero.Messaging.Nats`, `LayerZero.Testing`, and `LayerZero.Client`.
+  `LayerZero.Migrations.Postgres`, `LayerZero.Messaging`,
+  `LayerZero.Messaging.Operations`, `LayerZero.Messaging.Operations.Postgres`,
+  `LayerZero.Messaging.RabbitMq`, `LayerZero.Messaging.AzureServiceBus`,
+  `LayerZero.Messaging.Kafka`, `LayerZero.Messaging.Nats`,
+  `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.
 - API posture: dependency-light, source-generator-first, AOT-aware, trimming-aware, Minimal API native.
 - OpenAPI posture: Microsoft built-in `Microsoft.AspNetCore.OpenApi`, OpenAPI 3.1.
@@ -35,10 +39,15 @@ explicit, and reliable instead of turning into framework-sized magic.
 - `LayerZero.AspNetCore`: self-mapping endpoint slices, explicit registration escape hatches, endpoint filters, and ProblemDetails integration.
 - `LayerZero.Generators`: compile-time slice discovery for `AddSlices()` and `MapSlices()`.
 - `LayerZero.Http`: source-controlled HTTP contracts shared by servers and clients.
+- `LayerZero.Bootstrap`: ordered one-shot bootstrap orchestration, shared logging, and command dispatch for operational hosts.
+- `LayerZero.Bootstrap.Migrations`: migration bootstrap step and command integration for `IMigrationRuntime`.
+- `LayerZero.Bootstrap.Messaging`: messaging topology bootstrap step and command integration for `IMessageTopologyProvisioner`.
 - `LayerZero.Data`: provider-agnostic relational/data foundation, connection abstractions, and typed entity mapping.
 - `LayerZero.Data.SqlServer`: SQL Server provider registration and SQL Server data services.
 - `LayerZero.Data.Postgres`: PostgreSQL provider registration, `NpgsqlDataSource` integration, and PostgreSQL data services.
 - `LayerZero.Messaging`: transport-neutral command/event dispatch, message envelopes, routing, idempotency hooks, and compile-time message manifests.
+- `LayerZero.Messaging.Operations`: provider-neutral dead-letter replay and message operations services for application hosts and operational endpoints.
+- `LayerZero.Messaging.Operations.Postgres`: PostgreSQL-backed message operations storage, idempotency persistence, and framework-owned migrations for messaging infrastructure tables.
 - `LayerZero.Messaging.RabbitMq`: RabbitMQ transport defaults, topology validation/provisioning, hosted consumers, and health checks.
 - `LayerZero.Messaging.AzureServiceBus`: Azure Service Bus transport defaults, session-aware affinity support, topology validation/provisioning, hosted consumers, and health checks.
 - `LayerZero.Messaging.Kafka`: Kafka transport defaults, retry/dead-letter topics, topology validation/provisioning, hosted consumers, and health checks.

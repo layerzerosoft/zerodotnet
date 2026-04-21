@@ -1,14 +1,11 @@
-using LayerZero.Messaging;
-using Microsoft.Extensions.DependencyInjection;
+namespace LayerZero.Messaging.Operations.Postgres.Internal;
 
-namespace LayerZero.Fulfillment.Shared;
-
-public sealed class FulfillmentSettlementObserver(
-    IServiceScopeFactory scopeFactory,
+internal sealed class PostgresDeadLetterSettlementObserver(
+    PostgresDeadLetterStore store,
     IMessageRegistry registry,
     IMessageConventions conventions) : IMessageSettlementObserver
 {
-    private readonly IServiceScopeFactory scopeFactory = scopeFactory;
+    private readonly PostgresDeadLetterStore store = store;
     private readonly IMessageRegistry registry = registry;
     private readonly IMessageConventions conventions = conventions;
 
@@ -31,9 +28,7 @@ public sealed class FulfillmentSettlementObserver(
             ? conventions.GetEntityName(descriptor)
             : MessageTopologyNames.Entity(context.MessageKind, context.MessageName);
 
-        using var scope = scopeFactory.CreateScope();
-        var store = scope.ServiceProvider.GetRequiredService<FulfillmentStore>();
-        await store.SaveDeadLetterAsync(
+        await store.ArchiveAsync(
             context,
             handlerIdentity,
             transportName,

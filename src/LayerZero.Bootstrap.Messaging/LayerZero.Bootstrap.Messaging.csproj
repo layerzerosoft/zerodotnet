@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../LayerZero.Bootstrap/LayerZero.Bootstrap.csproj" />
+    <ProjectReference Include="../LayerZero.Messaging/LayerZero.Messaging.csproj" />
+  </ItemGroup>
+</Project>

@@ -12,6 +12,7 @@
     <ProjectReference Include="../../src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
     <ProjectReference Include="../../src/LayerZero.Data/LayerZero.Data.csproj" />
     <ProjectReference Include="../../src/LayerZero.Data.Postgres/LayerZero.Data.Postgres.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.Operations.Postgres/LayerZero.Messaging.Operations.Postgres.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Api/LayerZero.Fulfillment.Api.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />

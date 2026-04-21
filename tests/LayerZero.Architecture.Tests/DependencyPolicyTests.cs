@@ -334,6 +334,7 @@ public sealed class DependencyPolicyTests
             || relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Data.Postgres", StringComparison.Ordinal)
             || relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Migrations.SqlServer", StringComparison.Ordinal)
             || relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Migrations.Postgres", StringComparison.Ordinal)
+            || relativePath.StartsWith($"src{Path.DirectorySeparatorChar}LayerZero.Messaging.Operations.Postgres", StringComparison.Ordinal)
             || relativePath.StartsWith($"tests{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || relativePath.StartsWith($"eng{Path.DirectorySeparatorChar}LayerZero.Migrations.Runner", StringComparison.Ordinal);
     }

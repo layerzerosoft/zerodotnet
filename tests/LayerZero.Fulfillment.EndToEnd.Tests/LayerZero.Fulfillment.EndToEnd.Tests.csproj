@@ -53,6 +53,7 @@
     <ProjectReference Include="../../src/LayerZero.Messaging.AzureServiceBus/LayerZero.Messaging.AzureServiceBus.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.Kafka/LayerZero.Messaging.Kafka.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.Nats/LayerZero.Messaging.Nats.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.Operations/LayerZero.Messaging.Operations.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.RabbitMq/LayerZero.Messaging.RabbitMq.csproj" />
   </ItemGroup>
 </Project>

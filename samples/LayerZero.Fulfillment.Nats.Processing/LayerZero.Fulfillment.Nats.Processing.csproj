@@ -12,6 +12,7 @@
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.Operations.Postgres/LayerZero.Messaging.Operations.Postgres.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging.Nats/LayerZero.Messaging.Nats.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Processing/LayerZero.Fulfillment.Processing.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />

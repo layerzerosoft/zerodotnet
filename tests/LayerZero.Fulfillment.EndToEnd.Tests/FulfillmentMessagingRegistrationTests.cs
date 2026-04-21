@@ -1,5 +1,6 @@
 using LayerZero.Core;
 using LayerZero.Fulfillment.Contracts.Orders;
+using LayerZero.Fulfillment.Shared;
 using LayerZero.Fulfillment.AzureServiceBus.Bootstrap;
 using LayerZero.Fulfillment.AzureServiceBus.Processing;
 using LayerZero.Fulfillment.AzureServiceBus.Projections;
@@ -20,9 +21,11 @@ using LayerZero.Messaging.Kafka;
 using LayerZero.Messaging.Kafka.Configuration;
 using LayerZero.Messaging.Nats;
 using LayerZero.Messaging.Nats.Configuration;
+using LayerZero.Messaging.Operations;
 using LayerZero.Messaging.RabbitMq;
 using LayerZero.Messaging.RabbitMq.Configuration;
 using LayerZero.Migrations;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -215,6 +218,9 @@ public sealed class FulfillmentMessagingRegistrationTests
 
         Assert.NotNull(host.Services.GetService<IMigrationRuntime>());
         Assert.NotNull(host.Services.GetService<IMessageTopologyProvisioner>());
+        Assert.NotNull(host.Services.GetService<IDeadLetterStore>());
+        Assert.NotNull(host.Services.GetService<IDeadLetterReplayService>());
+        Assert.NotNull(host.Services.GetService<IMessageIdempotencyStore>());
 
         var topologyManifest = host.Services.GetRequiredService<IMessageTopologyManifest>();
 
@@ -237,6 +243,23 @@ public sealed class FulfillmentMessagingRegistrationTests
                 subscription.HandlerType.FullName,
                 "LayerZero.Fulfillment.Projections.Handlers.OrderPlacedAuditProjection",
                 StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Fulfillment_shared_registration_stays_domain_only()
+    {
+        var services = new ServiceCollection();
+        services.AddFulfillmentStore();
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Contains(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(FulfillmentStore)
+                && descriptor.Lifetime == ServiceLifetime.Scoped);
+        Assert.Null(provider.GetService<IDeadLetterStore>());
+        Assert.Null(provider.GetService<IDeadLetterReplayService>());
+        Assert.Null(provider.GetService<IMessageIdempotencyStore>());
     }
 
     private static TOptions BuildOptions<TOptions>(

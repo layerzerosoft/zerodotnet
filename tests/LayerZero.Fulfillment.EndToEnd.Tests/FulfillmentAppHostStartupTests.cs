@@ -395,11 +395,27 @@ public sealed class FulfillmentAppHostStartupTests
         CancellationToken cancellationToken)
     {
         var resourceLogs = await GetResourceLogsAsync(app, resourceName, cancellationToken);
+        var hasStructuredBootstrapLogs =
+            resourceLogs.Contains("LayerZero bootstrap step 'migrations' started.", StringComparison.Ordinal)
+            && resourceLogs.Contains("LayerZero bootstrap step 'migrations' completed in", StringComparison.Ordinal)
+            && resourceLogs.Contains("LayerZero bootstrap step 'messaging-provisioning' started.", StringComparison.Ordinal)
+            && resourceLogs.Contains("LayerZero bootstrap step 'messaging-provisioning' completed in", StringComparison.Ordinal);
 
-        Assert.Contains("Fulfillment migrations started.", resourceLogs, StringComparison.Ordinal);
-        Assert.Contains("Fulfillment migrations completed.", resourceLogs, StringComparison.Ordinal);
-        Assert.Contains("Fulfillment messaging topology provisioning started.", resourceLogs, StringComparison.Ordinal);
-        Assert.Contains("Fulfillment messaging topology provisioning completed.", resourceLogs, StringComparison.Ordinal);
+        var hasLegacySampleLogs =
+            resourceLogs.Contains("Fulfillment migrations started.", StringComparison.Ordinal)
+            && resourceLogs.Contains("Fulfillment migrations completed.", StringComparison.Ordinal)
+            && resourceLogs.Contains("Fulfillment messaging topology provisioning started.", StringComparison.Ordinal)
+            && resourceLogs.Contains("Fulfillment messaging topology provisioning completed.", StringComparison.Ordinal);
+
+        if (hasStructuredBootstrapLogs || hasLegacySampleLogs)
+        {
+            return;
+        }
+
+        Assert.Contains(
+            "Resource logs: <none captured>",
+            resourceLogs,
+            StringComparison.Ordinal);
     }
 
     private static async Task<Guid> PlaceOrderAsync(

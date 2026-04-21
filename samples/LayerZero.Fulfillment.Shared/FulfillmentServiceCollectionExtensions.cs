@@ -1,4 +1,3 @@
-using LayerZero.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -11,9 +10,6 @@ public static class FulfillmentServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddScoped<FulfillmentStore>();
-        services.TryAddSingleton<IMessageIdempotencyStore, FulfillmentMessageIdempotencyStore>();
-        services.TryAddSingleton<IMessageSettlementObserver, FulfillmentSettlementObserver>();
-        services.AddScoped<DeadLetterReplayService>();
         return services;
     }
 }

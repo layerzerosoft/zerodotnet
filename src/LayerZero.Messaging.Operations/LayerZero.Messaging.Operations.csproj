@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <ProjectReference Include="../LayerZero.Messaging/LayerZero.Messaging.csproj" />
+  </ItemGroup>
+</Project>

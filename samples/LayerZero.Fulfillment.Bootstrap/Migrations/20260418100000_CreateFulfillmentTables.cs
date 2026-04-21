@@ -10,9 +10,6 @@ internal sealed class CreateFulfillmentTablesMigration : Migration
         builder.CreateTable(FulfillmentTables.Orders);
         builder.CreateTable(FulfillmentTables.Timeline);
         builder.CreateIndex(FulfillmentTables.Timeline, FulfillmentTables.Timeline.Indexes[0]);
-        builder.CreateTable(FulfillmentTables.MessageIdempotency);
-        builder.CreateTable(FulfillmentTables.DeadLetters);
-        builder.CreateIndex(FulfillmentTables.DeadLetters, FulfillmentTables.DeadLetters.Indexes[0]);
         builder.CreateTable(FulfillmentTables.ScenarioFlags);
         builder.CreateTable(FulfillmentTables.SideEffects);
     }

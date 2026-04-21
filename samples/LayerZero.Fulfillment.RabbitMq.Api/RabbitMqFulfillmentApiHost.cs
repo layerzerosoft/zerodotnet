@@ -4,6 +4,8 @@ using LayerZero.Data.Postgres;
 using LayerZero.Fulfillment.Api;
 using LayerZero.Fulfillment.Shared;
 using LayerZero.Messaging;
+using LayerZero.Messaging.Operations;
+using LayerZero.Messaging.Operations.Postgres;
 using LayerZero.Messaging.RabbitMq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +26,7 @@ public static class RabbitMqFulfillmentApiHost
         });
         services.AddHealthChecks();
         services.AddData().UsePostgres("Fulfillment");
+        services.AddMessagingOperations().UsePostgres("Fulfillment");
         services.AddFulfillmentStore();
         services.AddMessaging(ResolveApplicationName(configuration))
             .AddRabbitMq(configuration, role: MessageTransportRole.SendOnly);

@@ -8,6 +8,7 @@
     <PackageReference Include="Microsoft.Net.Compilers.Toolset" PrivateAssets="all" />
     <ProjectReference Include="../../src/LayerZero.AspNetCore/LayerZero.AspNetCore.csproj" />
     <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging.Operations/LayerZero.Messaging.Operations.csproj" />
     <ProjectReference Include="../../src/LayerZero.Generators/LayerZero.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="../LayerZero.Fulfillment.Contracts/LayerZero.Fulfillment.Contracts.csproj" />
     <ProjectReference Include="../LayerZero.Fulfillment.Shared/LayerZero.Fulfillment.Shared.csproj" />

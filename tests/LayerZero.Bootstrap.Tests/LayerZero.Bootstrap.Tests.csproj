@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/LayerZero.Bootstrap/LayerZero.Bootstrap.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Bootstrap.Messaging/LayerZero.Bootstrap.Messaging.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Bootstrap.Migrations/LayerZero.Bootstrap.Migrations.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Messaging/LayerZero.Messaging.csproj" />
+    <ProjectReference Include="../../src/LayerZero.Migrations/LayerZero.Migrations.csproj" />
+  </ItemGroup>
+</Project>

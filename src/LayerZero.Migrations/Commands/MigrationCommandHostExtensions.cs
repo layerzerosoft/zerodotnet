@@ -62,7 +62,7 @@ public static class MigrationCommandHostExtensions
             return 0;
         }
 
-        using var host = buildHost();
+        var host = buildHost();
         var runtime = host.Services.GetRequiredService<IMigrationRuntime>();
 
         switch (command.Command)

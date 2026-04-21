@@ -17,10 +17,13 @@ clear package boundaries, and boringly reliable builds.
 - Public product name: LayerZero.
 - Public packages: `LayerZero.Core`, `LayerZero.Validation`,
   `LayerZero.AspNetCore`, `LayerZero.Generators`, `LayerZero.Http`,
+  `LayerZero.Bootstrap`, `LayerZero.Bootstrap.Migrations`,
+  `LayerZero.Bootstrap.Messaging`,
   `LayerZero.Data`, `LayerZero.Data.SqlServer`, `LayerZero.Data.Postgres`,
   `LayerZero.Migrations`, `LayerZero.Migrations.SqlServer`,
   `LayerZero.Migrations.Postgres`, `LayerZero.Messaging`,
-  `LayerZero.Messaging.RabbitMq`,
+  `LayerZero.Messaging.Operations`,
+  `LayerZero.Messaging.Operations.Postgres`, `LayerZero.Messaging.RabbitMq`,
   `LayerZero.Messaging.AzureServiceBus`, `LayerZero.Messaging.Kafka`,
   `LayerZero.Messaging.Nats`, `LayerZero.Testing`, and `LayerZero.Client`.
 - Legal and repository owner: `layerzerosoft`.

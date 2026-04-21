@@ -33,7 +33,7 @@ public static class MessagingCommandHostExtensions
                 : null;
         }
 
-        using var host = buildHost();
+        var host = buildHost();
         var provisioner = host.Services.GetRequiredService<IMessageTopologyProvisioner>();
 
         switch (command.Command)

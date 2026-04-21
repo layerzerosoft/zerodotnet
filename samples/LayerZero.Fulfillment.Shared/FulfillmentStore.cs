@@ -1,5 +1,4 @@
 using System.Text;
-using LayerZero.Core;
 using LayerZero.Data;
 using LayerZero.Fulfillment.Contracts.Orders;
 using LayerZero.Messaging;
@@ -67,64 +66,6 @@ public sealed class FulfillmentStore(
             .ConfigureAwait(false);
 
         return entries.Select(ToTimelineEntry).ToArray();
-    }
-
-    public async Task<IReadOnlyList<DeadLetterRecord>> GetDeadLettersAsync(CancellationToken cancellationToken = default)
-    {
-        var records = await dataContext.Query<FulfillmentDeadLetterRecord>()
-            .OrderByDescending(entry => entry.FailedAtUtc)
-            .ListAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        return records.Select(ToDeadLetterRecord).ToArray();
-    }
-
-    public async Task<(string TransportName, byte[] Body)?> GetDeadLetterEnvelopeAsync(
-        string messageId,
-        string? handlerIdentity = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(messageId);
-
-        var query = dataContext.Query<FulfillmentDeadLetterRecord>()
-            .Where(entry => entry.MessageId == messageId);
-
-        if (!string.IsNullOrWhiteSpace(handlerIdentity))
-        {
-            query = query.Where(entry => entry.HandlerIdentity == handlerIdentity);
-        }
-
-        var envelope = await query
-            .OrderByDescending(entry => entry.FailedAtUtc)
-            .Take(1)
-            .Select(entry => new DeadLetterEnvelopeRow(entry.TransportName, entry.BodyBase64))
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        return envelope is null
-            ? null
-            : (envelope.TransportName, Convert.FromBase64String(envelope.BodyBase64));
-    }
-
-    public Task MarkDeadLetterRequeuedAsync(
-        string messageId,
-        string? handlerIdentity = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(messageId);
-
-        var update = dataContext.Update<FulfillmentDeadLetterRecord>()
-            .Where(entry => entry.MessageId == messageId);
-
-        if (!string.IsNullOrWhiteSpace(handlerIdentity))
-        {
-            update = update.Where(entry => entry.HandlerIdentity == handlerIdentity);
-        }
-
-        return update
-            .Set(entry => entry.Requeued, true)
-            .ExecuteAsync(cancellationToken)
-            .AsTask();
     }
 
     public Task AppendTimelineAsync(
@@ -207,68 +148,6 @@ public sealed class FulfillmentStore(
         return changed == 1;
     }
 
-    public Task SaveDeadLetterAsync(
-        MessageContext context,
-        string handlerIdentity,
-        string transportName,
-        string entityName,
-        IReadOnlyList<Error> errors,
-        string? reason,
-        ReadOnlyMemory<byte> body,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentException.ThrowIfNullOrWhiteSpace(handlerIdentity);
-        ArgumentException.ThrowIfNullOrWhiteSpace(transportName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(entityName);
-        ArgumentNullException.ThrowIfNull(errors);
-
-        return dataContext.Sql().ExecuteAsync(
-                $"""
-                insert into public.deadletters(
-                    message_id,
-                    message_name,
-                    handler_identity,
-                    transport_name,
-                    entity_name,
-                    attempt,
-                    correlation_id,
-                    trace_parent,
-                    reason,
-                    errors,
-                    body_base64,
-                    failed_at_utc,
-                    requeued)
-                values(
-                    {context.MessageId},
-                    {context.MessageName},
-                    {handlerIdentity},
-                    {transportName},
-                    {entityName},
-                    {context.Attempt},
-                    {context.CorrelationId},
-                    {context.TraceParent},
-                    {reason ?? "LayerZero dead-lettered the message."},
-                    {string.Join("; ", errors.Select(static error => error.Code))},
-                    {Convert.ToBase64String(body.ToArray())},
-                    {DateTimeOffset.UtcNow},
-                    {false})
-                on conflict(message_id, handler_identity) do update set
-                    transport_name = excluded.transport_name,
-                    entity_name = excluded.entity_name,
-                    attempt = excluded.attempt,
-                    correlation_id = excluded.correlation_id,
-                    trace_parent = excluded.trace_parent,
-                    reason = excluded.reason,
-                    errors = excluded.errors,
-                    body_base64 = excluded.body_base64,
-                    failed_at_utc = excluded.failed_at_utc,
-                    requeued = {false};
-                """,
-                cancellationToken)
-            .AsTask();
-    }
-
     private string? ResolveEntityName(MessageContext? context)
     {
         if (context is null || messageRegistry is null || messageConventions is null)
@@ -311,23 +190,6 @@ public sealed class FulfillmentStore(
             entry.EntityName,
             entry.CorrelationId,
             entry.TraceParent);
-    }
-
-    private static DeadLetterRecord ToDeadLetterRecord(FulfillmentDeadLetterRecord entry)
-    {
-        return new DeadLetterRecord(
-            entry.MessageId,
-            entry.MessageName,
-            entry.HandlerIdentity,
-            entry.TransportName,
-            entry.EntityName,
-            entry.Attempt,
-            entry.CorrelationId,
-            entry.TraceParent,
-            entry.Reason,
-            entry.Errors,
-            entry.FailedAtUtc,
-            entry.Requeued);
     }
 
     private static DataSqlStatement BuildStatusUpdateStatement(
@@ -380,5 +242,4 @@ public sealed class FulfillmentStore(
         parameters.Add(new DataSqlParameter(token, value));
     }
 
-    private sealed record DeadLetterEnvelopeRow(string TransportName, string BodyBase64);
 }
