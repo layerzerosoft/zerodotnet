@@ -1,7 +1,10 @@
 using System.Text.Json.Serialization;
 using LayerZero.Core;
+using LayerZero.Messaging.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace LayerZero.Messaging.Tests;
 
@@ -117,6 +120,72 @@ public sealed partial class MessagingFoundationTests
         Assert.Contains("IMessageIdempotencyStore", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Add_messaging_binds_application_name_from_configuration_when_available()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Messaging:ApplicationName"] = "configured-name",
+            })
+            .Build());
+        services.AddMessaging();
+
+        using var provider = services.BuildServiceProvider();
+
+        var options = provider.GetRequiredService<IOptions<MessagingOptions>>().Value;
+
+        Assert.Equal("configured-name", options.ApplicationName);
+    }
+
+    [Fact]
+    public void Add_messaging_prefers_explicit_application_name_over_configuration_and_host_defaults()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Messaging:ApplicationName"] = "configured-name",
+            })
+            .Build());
+        services.AddSingleton<IHostEnvironment>(new FakeHostEnvironment("host-name"));
+        services.AddMessaging("explicit-name");
+
+        using var provider = services.BuildServiceProvider();
+
+        var options = provider.GetRequiredService<IOptions<MessagingOptions>>().Value;
+
+        Assert.Equal("explicit-name", options.ApplicationName);
+    }
+
+    [Fact]
+    public void Add_messaging_uses_host_application_name_when_configuration_is_missing()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IHostEnvironment>(new FakeHostEnvironment("host-name"));
+        services.AddMessaging();
+
+        using var provider = services.BuildServiceProvider();
+
+        var options = provider.GetRequiredService<IOptions<MessagingOptions>>().Value;
+
+        Assert.Equal("host-name", options.ApplicationName);
+    }
+
+    [Fact]
+    public void Add_messaging_without_configuration_or_host_environment_still_builds()
+    {
+        var services = new ServiceCollection();
+        services.AddMessaging();
+
+        using var provider = services.BuildServiceProvider();
+
+        var options = provider.GetRequiredService<IOptions<MessagingOptions>>().Value;
+
+        Assert.Null(options.ApplicationName);
+    }
+
     private static MessageDescriptor CreateDescriptor(MessageKind kind)
     {
         return new MessageDescriptor(
@@ -200,5 +269,17 @@ public sealed partial class MessagingFoundationTests
             SentMessages.Add(message);
             return ValueTask.CompletedTask;
         }
+    }
+
+    private sealed class FakeHostEnvironment(string applicationName) : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = Environments.Development;
+
+        public string ApplicationName { get; set; } = applicationName;
+
+        public string ContentRootPath { get; set; } = Directory.GetCurrentDirectory();
+
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } =
+            new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 }

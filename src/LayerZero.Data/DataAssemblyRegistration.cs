@@ -189,13 +189,15 @@ public static class DataAssemblyRegistrarCatalog
         ArgumentNullException.ThrowIfNull(services);
 
         var builder = new DataAssemblyRegistrationBuilder();
-        var registrations = Registrars.AsEnumerable();
+        var registrations = Registrars.ToDictionary(static pair => pair.Key, static pair => pair.Value);
+        TryAddScopeRegistrar(registrations, scopeAssembly);
+        var filteredRegistrations = registrations.AsEnumerable();
         if (scopeAssembly is not null)
         {
             var reachableAssemblyNames = GetReachableAssemblyNames(
                 scopeAssembly,
-                registrations.Select(static pair => pair.Key.Assembly));
-            registrations = registrations.Where(pair =>
+                filteredRegistrations.Select(static pair => pair.Key.Assembly));
+            filteredRegistrations = filteredRegistrations.Where(pair =>
             {
                 var assemblyName = pair.Key.Assembly.GetName().Name;
                 return !string.IsNullOrWhiteSpace(assemblyName)
@@ -203,7 +205,7 @@ public static class DataAssemblyRegistrarCatalog
             });
         }
 
-        foreach (var registrar in registrations
+        foreach (var registrar in filteredRegistrations
             .OrderBy(static pair => pair.Key.FullName, StringComparer.Ordinal)
             .Select(static pair => pair.Value))
         {
@@ -249,5 +251,29 @@ public static class DataAssemblyRegistrarCatalog
         }
 
         return reachableAssemblyNames;
+    }
+
+    private static void TryAddScopeRegistrar(
+        IDictionary<Type, IDataAssemblyRegistrar> registrations,
+        Assembly? scopeAssembly)
+    {
+        if (scopeAssembly?.GetCustomAttribute<DataAssemblyRegistrarAttribute>() is not { } attribute)
+        {
+            return;
+        }
+
+        if (!typeof(IDataAssemblyRegistrar).IsAssignableFrom(attribute.RegistrarType))
+        {
+            throw new InvalidOperationException(
+                $"Assembly '{scopeAssembly.FullName}' declared an invalid LayerZero data registrar type '{attribute.RegistrarType.FullName}'.");
+        }
+
+        if (Activator.CreateInstance(attribute.RegistrarType) is not IDataAssemblyRegistrar registrar)
+        {
+            throw new InvalidOperationException(
+                $"LayerZero data registrar '{attribute.RegistrarType.FullName}' could not be created.");
+        }
+
+        registrations.TryAdd(attribute.RegistrarType, registrar);
     }
 }

@@ -1,0 +1,3 @@
+namespace LayerZero.Fulfillment.AzureServiceBus.Projections;
+
+public sealed class AzureServiceBusFulfillmentProjectionsEntryPoint;

@@ -177,13 +177,15 @@ public static class MessagingAssemblyRegistrarCatalog
         ArgumentNullException.ThrowIfNull(services);
 
         var builder = new MessagingAssemblyRegistrationBuilder();
-        var registrations = Registrars.AsEnumerable();
+        var registrations = Registrars.ToDictionary(static pair => pair.Key, static pair => pair.Value);
+        TryAddScopeRegistrar(registrations, scopeAssembly);
+        var filteredRegistrations = registrations.AsEnumerable();
         if (scopeAssembly is not null)
         {
             var reachableAssemblyNames = GetReachableAssemblyNames(
                 scopeAssembly,
-                registrations.Select(static pair => pair.Key.Assembly));
-            registrations = registrations.Where(pair =>
+                filteredRegistrations.Select(static pair => pair.Key.Assembly));
+            filteredRegistrations = filteredRegistrations.Where(pair =>
             {
                 var assemblyName = pair.Key.Assembly.GetName().Name;
                 return !string.IsNullOrWhiteSpace(assemblyName)
@@ -191,7 +193,7 @@ public static class MessagingAssemblyRegistrarCatalog
             });
         }
 
-        foreach (var registrar in registrations
+        foreach (var registrar in filteredRegistrations
             .OrderBy(static pair => pair.Key.FullName, StringComparer.Ordinal)
             .Select(static pair => pair.Value))
         {
@@ -237,6 +239,30 @@ public static class MessagingAssemblyRegistrarCatalog
         }
 
         return reachableAssemblyNames;
+    }
+
+    private static void TryAddScopeRegistrar(
+        IDictionary<Type, IMessagingAssemblyRegistrar> registrations,
+        Assembly? scopeAssembly)
+    {
+        if (scopeAssembly?.GetCustomAttribute<MessagingAssemblyRegistrarAttribute>() is not { } attribute)
+        {
+            return;
+        }
+
+        if (!typeof(IMessagingAssemblyRegistrar).IsAssignableFrom(attribute.RegistrarType))
+        {
+            throw new InvalidOperationException(
+                $"Assembly '{scopeAssembly.FullName}' declared an invalid LayerZero messaging registrar type '{attribute.RegistrarType.FullName}'.");
+        }
+
+        if (Activator.CreateInstance(attribute.RegistrarType) is not IMessagingAssemblyRegistrar registrar)
+        {
+            throw new InvalidOperationException(
+                $"LayerZero messaging registrar '{attribute.RegistrarType.FullName}' could not be created.");
+        }
+
+        registrations.TryAdd(attribute.RegistrarType, registrar);
     }
 }
 

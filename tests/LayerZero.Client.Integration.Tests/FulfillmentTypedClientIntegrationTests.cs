@@ -1,13 +1,22 @@
 using System.Net;
 using LayerZero.Core;
+using LayerZero.Data;
+using LayerZero.Data.Postgres;
 using LayerZero.Fulfillment.Client.Sample.Clients;
 using LayerZero.Fulfillment.Contracts.Orders;
 using LayerZero.Fulfillment.RabbitMq.Api;
 using LayerZero.Fulfillment.RabbitMq.Bootstrap;
+using LayerZero.Fulfillment.Shared;
 using LayerZero.Messaging;
+using LayerZero.Messaging.Operations;
+using LayerZero.Messaging.Operations.Postgres;
+using LayerZero.Messaging.RabbitMq;
+using LayerZero.Migrations;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -178,7 +187,11 @@ public sealed class FulfillmentTypedClientFactory : WebApplicationFactory<Rabbit
                 .Build();
 
             using var host = CreateBootstrapHost(configuration);
-            RabbitMqFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services).GetAwaiter().GetResult();
+            host.Services.GetRequiredService<IMigrationRuntime>()
+                .ApplyAsync()
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
             initialized = true;
         }
     }
@@ -186,8 +199,15 @@ public sealed class FulfillmentTypedClientFactory : WebApplicationFactory<Rabbit
     private static IHost CreateBootstrapHost(IConfiguration configuration)
     {
         var builder = Host.CreateApplicationBuilder();
+        builder.Environment.ApplicationName = "fulfillment-rabbitmq";
         builder.Configuration.AddConfiguration(configuration);
-        RabbitMqFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
+        builder.Services.AddLogging(logging => logging.AddSimpleConsole(static options => options.SingleLine = true));
+        builder.Services.AddData<FulfillmentStore>()
+            .UsePostgres("Fulfillment")
+            .UseMigrations<RabbitMqFulfillmentBootstrapEntryPoint>(options => options.Executor = "fulfillment-rabbitmq-bootstrap");
+        builder.Services.AddMessagingOperations().UsePostgres("Fulfillment");
+        builder.Services.AddMessaging<RabbitMqFulfillmentBootstrapEntryPoint>()
+            .AddRabbitMq(builder.Configuration, role: MessageTransportRole.Administration);
         return builder.Build();
     }
 

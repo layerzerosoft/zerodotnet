@@ -28,6 +28,29 @@ public static class ServiceCollectionExtensions
         return AddDataCore(services, scopeAssembly);
     }
 
+    /// <summary>
+    /// Adds LayerZero data services using an explicit discovery scope assembly.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="scopeAssembly">The assembly whose generated LayerZero registrations should anchor discovery.</param>
+    /// <returns>The configured data builder.</returns>
+    public static DataBuilder AddData(this IServiceCollection services, Assembly scopeAssembly)
+    {
+        ArgumentNullException.ThrowIfNull(scopeAssembly);
+        return AddDataCore(services, scopeAssembly);
+    }
+
+    /// <summary>
+    /// Adds LayerZero data services using the assembly that contains <typeparamref name="TScopeMarker" />.
+    /// </summary>
+    /// <typeparam name="TScopeMarker">A marker type from the desired discovery scope assembly.</typeparam>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The configured data builder.</returns>
+    public static DataBuilder AddData<TScopeMarker>(this IServiceCollection services)
+    {
+        return AddData(services, typeof(TScopeMarker).Assembly);
+    }
+
     private static DataBuilder AddDataCore(IServiceCollection services, Assembly? scopeAssembly)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -67,5 +90,41 @@ public static class ServiceCollectionExtensions
         configure(builder);
         builder.ValidateProviderSelection();
         return services;
+    }
+
+    /// <summary>
+    /// Adds LayerZero data services using an explicit discovery scope assembly.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="scopeAssembly">The assembly whose generated LayerZero registrations should anchor discovery.</param>
+    /// <param name="configure">The data configuration.</param>
+    /// <returns>The current service collection.</returns>
+    public static IServiceCollection AddData(
+        this IServiceCollection services,
+        Assembly scopeAssembly,
+        Action<DataBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(scopeAssembly);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        var builder = AddDataCore(services, scopeAssembly);
+        configure(builder);
+        builder.ValidateProviderSelection();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds LayerZero data services using the assembly that contains <typeparamref name="TScopeMarker" />.
+    /// </summary>
+    /// <typeparam name="TScopeMarker">A marker type from the desired discovery scope assembly.</typeparam>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configure">The data configuration.</param>
+    /// <returns>The current service collection.</returns>
+    public static IServiceCollection AddData<TScopeMarker>(
+        this IServiceCollection services,
+        Action<DataBuilder> configure)
+    {
+        return AddData(services, typeof(TScopeMarker).Assembly, configure);
     }
 }

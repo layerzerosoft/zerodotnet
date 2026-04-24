@@ -1,0 +1,3 @@
+namespace LayerZero.Fulfillment.AzureServiceBus.Bootstrap;
+
+public sealed class AzureServiceBusFulfillmentBootstrapEntryPoint;

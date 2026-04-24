@@ -24,7 +24,23 @@ public static class ServiceCollectionExtensions
         this DataBuilder builder,
         Action<MigrationsOptions>? configure = null)
     {
+        var scopeAssembly = Assembly.GetCallingAssembly();
+        return UseMigrations(builder, scopeAssembly, configure);
+    }
+
+    /// <summary>
+    /// Enables LayerZero migrations for the active data provider using an explicit discovery scope assembly.
+    /// </summary>
+    /// <param name="builder">The data builder.</param>
+    /// <param name="scopeAssembly">The assembly whose generated LayerZero migrations should anchor discovery.</param>
+    /// <param name="configure">The optional migrations configuration.</param>
+    public static DataBuilder UseMigrations(
+        this DataBuilder builder,
+        Assembly scopeAssembly,
+        Action<MigrationsOptions>? configure = null)
+    {
         ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(scopeAssembly);
 
         builder.Services.AddOptions<MigrationsOptions>()
             .Validate(static options => !string.IsNullOrWhiteSpace(options.HistoryTableSchema),
@@ -45,7 +61,6 @@ public static class ServiceCollectionExtensions
             builder.Services.PostConfigure(configure);
         }
 
-        var scopeAssembly = Assembly.GetCallingAssembly();
         MigrationAssemblyRegistrarCatalog.Apply(builder.Services, scopeAssembly);
         var selectedProvider = builder.GetSelectedProvider();
         MigrationProviderRegistry.Apply(builder.Services, selectedProvider.Name, selectedProvider.MigrationsAssemblyName);
@@ -60,5 +75,18 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<IOptions<MigrationsOptions>>()));
 
         return builder;
+    }
+
+    /// <summary>
+    /// Enables LayerZero migrations for the active data provider using the assembly that contains <typeparamref name="TScopeMarker" />.
+    /// </summary>
+    /// <typeparam name="TScopeMarker">A marker type from the desired discovery scope assembly.</typeparam>
+    /// <param name="builder">The data builder.</param>
+    /// <param name="configure">The optional migrations configuration.</param>
+    public static DataBuilder UseMigrations<TScopeMarker>(
+        this DataBuilder builder,
+        Action<MigrationsOptions>? configure = null)
+    {
+        return UseMigrations(builder, typeof(TScopeMarker).Assembly, configure);
     }
 }

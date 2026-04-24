@@ -1,0 +1,3 @@
+namespace LayerZero.Fulfillment.AzureServiceBus.Processing;
+
+public sealed class AzureServiceBusFulfillmentProcessingEntryPoint;

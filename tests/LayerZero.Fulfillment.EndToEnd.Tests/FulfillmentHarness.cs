@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using LayerZero.Data;
+using LayerZero.Data.Configuration;
+using LayerZero.Data.Postgres;
 using LayerZero.Fulfillment.Contracts.Orders;
 using LayerZero.Fulfillment.AzureServiceBus.Api;
 using LayerZero.Fulfillment.AzureServiceBus.Bootstrap;
@@ -17,9 +20,22 @@ using LayerZero.Fulfillment.RabbitMq.Bootstrap;
 using LayerZero.Fulfillment.RabbitMq.Processing;
 using LayerZero.Fulfillment.RabbitMq.Projections;
 using LayerZero.Fulfillment.Shared;
+using LayerZero.Messaging;
+using LayerZero.Messaging.AzureServiceBus;
+using LayerZero.Messaging.Configuration;
+using LayerZero.Messaging.Kafka;
+using LayerZero.Messaging.Nats;
+using LayerZero.Messaging.Operations;
+using LayerZero.Messaging.Operations.Postgres;
+using LayerZero.Messaging.RabbitMq;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using Testcontainers.PostgreSql;
+using LayerZero.Migrations;
 
 namespace LayerZero.Fulfillment.EndToEnd.Tests;
 
@@ -103,7 +119,7 @@ public sealed class FulfillmentHarness : IAsyncDisposable
 
         using (var bootstrapHost = CreateBootstrapHost(brokerFixture.BrokerName, settings))
         {
-            await ApplyBootstrapAsync(bootstrapHost, brokerFixture.BrokerName, cancellationToken).ConfigureAwait(false);
+            await ApplyBootstrapAsync(bootstrapHost, cancellationToken).ConfigureAwait(false);
         }
 
         var processingHost = CreateProcessingHost(brokerFixture.BrokerName, settings);
@@ -229,104 +245,187 @@ public sealed class FulfillmentHarness : IAsyncDisposable
 
     private static IHost CreateBootstrapHost(string brokerName, IReadOnlyDictionary<string, string?> settings)
     {
-        var builder = Host.CreateApplicationBuilder();
-        builder.Configuration.AddInMemoryCollection(settings);
-        switch (brokerName)
-        {
-            case "AzureServiceBus":
-                AzureServiceBusFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
-                break;
-            case "RabbitMq":
-                RabbitMqFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
-                break;
-            case "Kafka":
-                KafkaFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
-                break;
-            case "Nats":
-                NatsFulfillmentBootstrapHost.ConfigureServices(builder.Services, builder.Configuration);
-                break;
-            default:
-                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
-        }
-
+        var builder = CreateHostBuilder(brokerName, settings);
+        ConfigureBootstrapServices(brokerName, builder.Services, builder.Configuration);
         return builder.Build();
     }
 
-    private static async Task ApplyBootstrapAsync(IHost host, string brokerName, CancellationToken cancellationToken)
+    private static async Task ApplyBootstrapAsync(IHost host, CancellationToken cancellationToken)
     {
-        switch (brokerName)
-        {
-            case "AzureServiceBus":
-                await AzureServiceBusFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services, cancellationToken).ConfigureAwait(false);
-                await AzureServiceBusFulfillmentBootstrapHost.ProvisionMessagingAsync(host.Services, cancellationToken).ConfigureAwait(false);
-                break;
-            case "RabbitMq":
-                await RabbitMqFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services, cancellationToken).ConfigureAwait(false);
-                await RabbitMqFulfillmentBootstrapHost.ProvisionMessagingAsync(host.Services, cancellationToken).ConfigureAwait(false);
-                break;
-            case "Kafka":
-                await KafkaFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services, cancellationToken).ConfigureAwait(false);
-                await KafkaFulfillmentBootstrapHost.ProvisionMessagingAsync(host.Services, cancellationToken).ConfigureAwait(false);
-                break;
-            case "Nats":
-                await NatsFulfillmentBootstrapHost.ApplyMigrationsAsync(host.Services, cancellationToken).ConfigureAwait(false);
-                await NatsFulfillmentBootstrapHost.ProvisionMessagingAsync(host.Services, cancellationToken).ConfigureAwait(false);
-                break;
-            default:
-                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
-        }
+        await host.Services.GetRequiredService<IMigrationRuntime>()
+            .ApplyAsync(cancellationToken: cancellationToken)
+            .AsTask()
+            .ConfigureAwait(false);
+        await host.Services.GetRequiredService<IMessageTopologyProvisioner>()
+            .ProvisionAsync(cancellationToken)
+            .AsTask()
+            .ConfigureAwait(false);
     }
 
     private static IHost CreateProcessingHost(string brokerName, IReadOnlyDictionary<string, string?> settings)
     {
-        var builder = Host.CreateApplicationBuilder();
-        builder.Configuration.AddInMemoryCollection(settings);
-
-        switch (brokerName)
-        {
-            case "AzureServiceBus":
-                AzureServiceBusFulfillmentProcessingHost.ConfigureServices(builder.Services, builder.Configuration);
-                break;
-            case "RabbitMq":
-                RabbitMqFulfillmentProcessingHost.ConfigureServices(builder.Services, builder.Configuration);
-                break;
-            case "Kafka":
-                KafkaFulfillmentProcessingHost.ConfigureServices(builder.Services, builder.Configuration);
-                break;
-            case "Nats":
-                NatsFulfillmentProcessingHost.ConfigureServices(builder.Services, builder.Configuration);
-                break;
-            default:
-                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
-        }
-
+        var builder = CreateHostBuilder(brokerName, settings);
+        ConfigureProcessingServices(brokerName, builder.Services, builder.Configuration);
         return builder.Build();
     }
 
     private static IHost CreateProjectionsHost(string brokerName, IReadOnlyDictionary<string, string?> settings)
     {
-        var builder = Host.CreateApplicationBuilder();
-        builder.Configuration.AddInMemoryCollection(settings);
+        var builder = CreateHostBuilder(brokerName, settings);
+        ConfigureProjectionsServices(brokerName, builder.Services, builder.Configuration);
+        return builder.Build();
+    }
 
+    private static HostApplicationBuilder CreateHostBuilder(string brokerName, IReadOnlyDictionary<string, string?> settings)
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Environment.ApplicationName = GetApplicationName(brokerName);
+        builder.Configuration.AddInMemoryCollection(settings);
+        return builder;
+    }
+
+    private static void ConfigureBootstrapServices(string brokerName, IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddLogging(logging => logging.AddSimpleConsole(static options => options.SingleLine = true));
+        ConfigureBootstrapData(brokerName, services.AddData<FulfillmentStore>().UsePostgres("Fulfillment"));
+        services.AddMessagingOperations().UsePostgres("Fulfillment");
+        ConfigureMessagingTransport(brokerName, CreateBootstrapMessagingBuilder(brokerName, services), configuration, MessageTransportRole.Administration);
+    }
+
+    private static void ConfigureProcessingServices(string brokerName, IServiceCollection services, IConfiguration configuration)
+    {
+        ConfigureWorkerServices(services);
+        ConfigureMessagingTransport(brokerName, CreateProcessingMessagingBuilder(brokerName, services), configuration, MessageTransportRole.Consumers);
+    }
+
+    private static void ConfigureProjectionsServices(string brokerName, IServiceCollection services, IConfiguration configuration)
+    {
+        ConfigureWorkerServices(services);
+        ConfigureMessagingTransport(brokerName, CreateProjectionsMessagingBuilder(brokerName, services), configuration, MessageTransportRole.Consumers);
+    }
+
+    private static void ConfigureWorkerServices(IServiceCollection services)
+    {
+        services.AddLogging(logging => logging.AddSimpleConsole(static options => options.SingleLine = true));
+        services.AddData<FulfillmentStore>().UsePostgres("Fulfillment");
+        services.AddMessagingOperations().UsePostgres("Fulfillment");
+        services.AddFulfillmentStore();
+    }
+
+    private static void ConfigureMessagingTransport(
+        string brokerName,
+        MessagingBuilder messaging,
+        IConfiguration configuration,
+        MessageTransportRole role)
+    {
         switch (brokerName)
         {
             case "AzureServiceBus":
-                AzureServiceBusFulfillmentProjectionsHost.ConfigureServices(builder.Services, builder.Configuration);
+                messaging.AddAzureServiceBus(configuration, role: role);
                 break;
             case "RabbitMq":
-                RabbitMqFulfillmentProjectionsHost.ConfigureServices(builder.Services, builder.Configuration);
+                messaging.AddRabbitMq(configuration, role: role);
                 break;
             case "Kafka":
-                KafkaFulfillmentProjectionsHost.ConfigureServices(builder.Services, builder.Configuration);
+                messaging.AddKafka(configuration, role: role);
                 break;
             case "Nats":
-                NatsFulfillmentProjectionsHost.ConfigureServices(builder.Services, builder.Configuration);
+                messaging.AddNats(configuration, role: role);
                 break;
             default:
                 throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
         }
+    }
 
-        return builder.Build();
+    private static void ConfigureBootstrapData(string brokerName, DataBuilder data)
+    {
+        switch (brokerName)
+        {
+            case "AzureServiceBus":
+                data.UseMigrations<AzureServiceBusFulfillmentBootstrapEntryPoint>(options => options.Executor = GetBootstrapExecutor(brokerName));
+                break;
+            case "RabbitMq":
+                data.UseMigrations<RabbitMqFulfillmentBootstrapEntryPoint>(options => options.Executor = GetBootstrapExecutor(brokerName));
+                break;
+            case "Kafka":
+                data.UseMigrations<KafkaFulfillmentBootstrapEntryPoint>(options => options.Executor = GetBootstrapExecutor(brokerName));
+                break;
+            case "Nats":
+                data.UseMigrations<NatsFulfillmentBootstrapEntryPoint>(options => options.Executor = GetBootstrapExecutor(brokerName));
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
+        }
+    }
+
+    private static MessagingBuilder CreateBootstrapMessagingBuilder(string brokerName, IServiceCollection services)
+    {
+        return brokerName switch
+        {
+            "AzureServiceBus" => services.AddMessaging<AzureServiceBusFulfillmentBootstrapEntryPoint>(),
+            "RabbitMq" => services.AddMessaging<RabbitMqFulfillmentBootstrapEntryPoint>(),
+            "Kafka" => services.AddMessaging<KafkaFulfillmentBootstrapEntryPoint>(),
+            "Nats" => services.AddMessaging<NatsFulfillmentBootstrapEntryPoint>(),
+            _ => throw new InvalidOperationException($"Unsupported broker '{brokerName}'."),
+        };
+    }
+
+    private static MessagingBuilder CreateProcessingMessagingBuilder(string brokerName, IServiceCollection services)
+    {
+        return brokerName switch
+        {
+            "AzureServiceBus" => services.AddMessaging<AzureServiceBusFulfillmentProcessingEntryPoint>(),
+            "RabbitMq" => services.AddMessaging<RabbitMqFulfillmentProcessingEntryPoint>(),
+            "Kafka" => services.AddMessaging<KafkaFulfillmentProcessingEntryPoint>(),
+            "Nats" => services.AddMessaging<NatsFulfillmentProcessingEntryPoint>(),
+            _ => throw new InvalidOperationException($"Unsupported broker '{brokerName}'."),
+        };
+    }
+
+    private static MessagingBuilder CreateProjectionsMessagingBuilder(string brokerName, IServiceCollection services)
+    {
+        return brokerName switch
+        {
+            "AzureServiceBus" => services.AddMessaging<AzureServiceBusFulfillmentProjectionsEntryPoint>(),
+            "RabbitMq" => services.AddMessaging<RabbitMqFulfillmentProjectionsEntryPoint>(),
+            "Kafka" => services.AddMessaging<KafkaFulfillmentProjectionsEntryPoint>(),
+            "Nats" => services.AddMessaging<NatsFulfillmentProjectionsEntryPoint>(),
+            _ => throw new InvalidOperationException($"Unsupported broker '{brokerName}'."),
+        };
+    }
+
+    private static string GetApplicationName(string brokerName)
+    {
+        switch (brokerName)
+        {
+            case "AzureServiceBus":
+                return "fulfillment-azure-service-bus";
+            case "RabbitMq":
+                return "fulfillment-rabbitmq";
+            case "Kafka":
+                return "fulfillment-kafka";
+            case "Nats":
+                return "fulfillment-nats";
+            default:
+                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
+        }
+    }
+
+    private static string GetBootstrapExecutor(string brokerName)
+    {
+        switch (brokerName)
+        {
+            case "AzureServiceBus":
+                return "fulfillment-azure-service-bus-bootstrap";
+            case "RabbitMq":
+                return "fulfillment-rabbitmq-bootstrap";
+            case "Kafka":
+                return "fulfillment-kafka-bootstrap";
+            case "Nats":
+                return "fulfillment-nats-bootstrap";
+            default:
+                throw new InvalidOperationException($"Unsupported broker '{brokerName}'.");
+        }
     }
 
     private static IFulfillmentApiFactory CreateApiFactory(string brokerName, IReadOnlyDictionary<string, string?> settings)

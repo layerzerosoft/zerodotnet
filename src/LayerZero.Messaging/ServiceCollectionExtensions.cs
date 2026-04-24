@@ -6,6 +6,7 @@ using LayerZero.Messaging.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
@@ -20,7 +21,9 @@ public static class ServiceCollectionExtensions
     /// Adds the LayerZero messaging foundation.
     /// </summary>
     /// <param name="services">The service collection.</param>
-    /// <param name="applicationName">The logical application name.</param>
+    /// <param name="applicationName">
+    /// The logical application name. This value overrides configuration and host-derived defaults.
+    /// </param>
     /// <returns>A messaging builder.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static MessagingBuilder AddMessaging(
@@ -36,7 +39,10 @@ public static class ServiceCollectionExtensions
     /// Adds the LayerZero messaging foundation.
     /// </summary>
     /// <param name="services">The service collection.</param>
-    /// <param name="configure">Optional messaging configuration.</param>
+    /// <param name="configure">
+    /// Optional messaging configuration. LayerZero binds the <c>Messaging</c> configuration section first, then
+    /// applies host-derived defaults, and finally applies this explicit configuration.
+    /// </param>
     /// <returns>A messaging builder.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static MessagingBuilder AddMessaging(
@@ -47,6 +53,42 @@ public static class ServiceCollectionExtensions
         return AddMessagingCore(services, configure, scopeAssembly);
     }
 
+    /// <summary>
+    /// Adds the LayerZero messaging foundation using an explicit discovery scope assembly.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="scopeAssembly">The assembly whose generated LayerZero registrations should anchor discovery.</param>
+    /// <param name="configure">
+    /// Optional messaging configuration. LayerZero binds the <c>Messaging</c> configuration section first, then
+    /// applies host-derived defaults, and finally applies this explicit configuration.
+    /// </param>
+    /// <returns>A messaging builder.</returns>
+    public static MessagingBuilder AddMessaging(
+        this IServiceCollection services,
+        Assembly scopeAssembly,
+        Action<MessagingOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(scopeAssembly);
+        return AddMessagingCore(services, configure, scopeAssembly);
+    }
+
+    /// <summary>
+    /// Adds the LayerZero messaging foundation using the assembly that contains <typeparamref name="TScopeMarker" />.
+    /// </summary>
+    /// <typeparam name="TScopeMarker">A marker type from the desired discovery scope assembly.</typeparam>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configure">
+    /// Optional messaging configuration. LayerZero binds the <c>Messaging</c> configuration section first, then
+    /// applies host-derived defaults, and finally applies this explicit configuration.
+    /// </param>
+    /// <returns>A messaging builder.</returns>
+    public static MessagingBuilder AddMessaging<TScopeMarker>(
+        this IServiceCollection services,
+        Action<MessagingOptions>? configure = null)
+    {
+        return AddMessaging(services, typeof(TScopeMarker).Assembly, configure);
+    }
+
     private static MessagingBuilder AddMessagingCore(
         IServiceCollection services,
         Action<MessagingOptions>? configure,
@@ -54,6 +96,10 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IConfigureOptions<MessagingOptions>, MessagingOptionsSetup>());
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IPostConfigureOptions<MessagingOptions>, MessagingOptionsSetup>());
         services.AddOptions<MessagingOptions>()
             .Validate(static options => options.MessageRoutes.Keys.All(static key => !string.IsNullOrWhiteSpace(key)),
                 "Message route keys must not be empty.")

@@ -1,10 +1,43 @@
-using LayerZero.Fulfillment.AzureServiceBus.Api;
+using LayerZero.AspNetCore;
+using LayerZero.Data;
+using LayerZero.Data.Postgres;
+using LayerZero.Fulfillment.Api;
+using LayerZero.Fulfillment.Shared;
+using LayerZero.Messaging;
+using LayerZero.Messaging.AzureServiceBus;
+using LayerZero.Messaging.Operations;
+using LayerZero.Messaging.Operations.Postgres;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
-AzureServiceBusFulfillmentApiHost.ConfigureServices(builder.Services, builder.Configuration);
+builder.Environment.ApplicationName = "fulfillment-azure-service-bus";
+
+builder.Services.AddOpenApi("v1", options =>
+{
+    options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1;
+});
+builder.Services.AddHealthChecks();
+builder.Services.AddData()
+    .UsePostgres("Fulfillment");
+builder.Services.AddMessagingOperations()
+    .UsePostgres("Fulfillment");
+builder.Services.AddFulfillmentStore();
+builder.Services.AddMessaging()
+    .AddAzureServiceBus(builder.Configuration, role: MessageTransportRole.SendOnly);
+builder.Services.AddLayerZero()
+    .AddSlices();
 
 var app = builder.Build();
-AzureServiceBusFulfillmentApiHost.ConfigureApplication(app);
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler();
+}
+
+app.MapOpenApi("/openapi/{documentName}.json");
+app.MapHealthChecks("/health");
+app.MapGet("/", () => Results.Redirect("/openapi/v1.json")).ExcludeFromDescription();
+app.MapSlices();
 
 app.Run();
 
